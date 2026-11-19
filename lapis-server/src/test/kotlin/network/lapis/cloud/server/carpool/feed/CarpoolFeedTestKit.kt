@@ -58,6 +58,8 @@ internal fun newFeedPartner(
     active: Boolean = true,
     pinned: Boolean = true,
     keyPair: network.lapis.cloud.server.federation.FederationKeyPair = FederationKeyPairGenerator.generate(),
+    displayName: String? = null,
+    remoteName: String = "Partner",
 ): FeedPartner {
     val keyId = "https://$host/federation/actor#main-key"
     val now = LocalDateTime(2026, 11, 5, 10, 0, 0)
@@ -65,11 +67,11 @@ internal fun newFeedPartner(
         transaction {
             PartnerServerStore.insertProbedPartner(
                 host = host,
-                displayName = null,
+                displayName = displayName,
                 parsed =
                     PartnerParseResult.Ok(
                         remoteServerId = Uuid.random(),
-                        remoteName = "Partner",
+                        remoteName = remoteName,
                         events = emptyList<ParsedPartnerEvent>(),
                         partnersJson = null,
                         droppedEvents = 0,

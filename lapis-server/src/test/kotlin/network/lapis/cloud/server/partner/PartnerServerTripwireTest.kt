@@ -187,7 +187,8 @@ class PartnerServerTripwireTest :
                     "PartnerDiscoveryStore.kt",
                     "PartnerDiscoveredServerTable.kt",
                 )
-            val feed = setOf("CarpoolTeaserFeedGate.kt", "CarpoolReceivedStore.kt")
+            // V1.9.317: CarpoolFeedRecipients.kt holds the ONE predicate "may fetch our feed" (key pinned + active + sharing + not blocked).
+            val feed = setOf("CarpoolTeaserFeedGate.kt", "CarpoolReceivedStore.kt", "CarpoolFeedRecipients.kt")
             SourceScan
                 .mainFiles()
                 .filter { reader.containsMatchIn(SourceScan.blank(it.readText())) }

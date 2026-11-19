@@ -32770,8 +32770,8 @@ msgid "Reichweite"
 msgstr "Zasięg"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
-msgid "Freigegebene Partner können die Kurzhinweise abrufen. Dieser Server ruft die Kurzhinweise freigegebener Partner selbst ab und gibt sie im Rahmen der Reichweite an freigegebene Partner weiter. Mitglieder sehen fremde Hinweise erst ab einer späteren Version."
-msgstr "Zatwierdzeni partnerzy mogą pobierać krótkie powiadomienia. Ten serwer sam pobiera krótkie powiadomienia zatwierdzonych partnerów i przekazuje je zatwierdzonym partnerom w ramach zasięgu. Członkowie zobaczą obce powiadomienia dopiero od późniejszej wersji."
+msgid "Freigegebene Partner können die Kurzhinweise abrufen. Dieser Server ruft die Kurzhinweise freigegebener Partner selbst ab und gibt sie im Rahmen der Reichweite an freigegebene Partner weiter. Aktive Mitglieder sehen die empfangenen Kurzhinweise (Tag, PLZ-Gebiete, Herkunft) auf der Mitfahrseite."
+msgstr "Zatwierdzeni partnerzy mogą pobierać krótkie powiadomienia. Ten serwer sam pobiera krótkie powiadomienia zatwierdzonych partnerów i przekazuje je zatwierdzonym partnerom w ramach zasięgu. Aktywni członkowie widzą otrzymane krótkie powiadomienia (dzień, obszary kodów pocztowych, pochodzenie) na stronie wspólnych przejazdów."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
 msgid "Kurzhinweise zuletzt abgerufen: %1 (%2 übernommen, %3 abgelehnt)"
@@ -33240,3 +33240,82 @@ msgstr "Uznanie za posiedzenia"
 #: src/jsMain/kotlin/network/lapis/cloud/client/OrganizationScreen.kt:1
 msgid "LTR als Anerkennung für die Teilnahme an Sitzungen"
 msgstr "LTR jako uznanie za udział w posiedzeniach"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Angebote von Partnerorganisationen"
+msgstr "Oferty organizacji partnerskich"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Kurzhinweise von Partnerorganisationen: nur Tag und PLZ-Gebiete, keine Namen und keine Kontaktdaten. Einzelheiten gibt es nur bei der jeweiligen Organisation."
+msgstr "Krótkie powiadomienia organizacji partnerskich: tylko dzień i obszary kodów pocztowych, bez nazwisk i danych kontaktowych. Szczegóły są dostępne wyłącznie w danej organizacji."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "PLZ-Gebiet %1 → PLZ-Gebiet %2"
+msgstr "Obszar kodu pocztowego %1 → obszar kodu pocztowego %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "von %1 – Details und Kontakt nur bei dieser Organisation"
+msgstr "od %1 – szczegóły i kontakt tylko w tej organizacji"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "PLZ-Gebiet"
+msgstr "Obszar kodu pocztowego"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Die Hinweise werden geladen …"
+msgstr "Ładowanie powiadomień …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Die Hinweise konnten nicht geladen werden."
+msgstr "Nie udało się załadować powiadomień."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Zurzeit liegen keine Hinweise von Partnerorganisationen vor."
+msgstr "Obecnie brak powiadomień od organizacji partnerskich."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Keine Treffer für PLZ-Gebiet %1 in den geladenen Hinweisen."
+msgstr "Brak wyników dla obszaru kodu pocztowego %1 w załadowanych powiadomieniach."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Keine Angebote für PLZ-Gebiet %1."
+msgstr "Brak ofert dla obszaru kodu pocztowego %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Ihr Hinweis verlässt unseren Server nur mit Ihrer Zustimmung."
+msgstr "Państwa powiadomienie opuszcza nasz serwer tylko za Państwa zgodą."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Derzeit ruft keine Partnerorganisation Hinweise ab."
+msgstr "Obecnie żadna organizacja partnerska nie pobiera powiadomień."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Abrufen können ihn mehr als %1 Partnerorganisationen."
+msgstr "Może go pobrać więcej niż %1 organizacji partnerskich."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Er geht nur an direkte Partner und wird von diesen nicht weitergegeben."
+msgstr "Trafia tylko do partnerów bezpośrednich i nie jest przez nich przekazywane dalej."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Er geht an direkte Partner und kann von diesen an deren Partner weitergegeben werden."
+msgstr "Trafia do partnerów bezpośrednich i może być przez nich przekazany ich partnerom."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Er geht an direkte Partner und kann über deren Partner noch eine Stufe weiter weitergegeben werden."
+msgstr "Trafia do partnerów bezpośrednich i może być przekazany przez ich partnerów o jeden poziom dalej."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Partnerorganisationen anzeigen"
+msgstr "Pokaż organizacje partnerskie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Empfänger konnten nicht geladen werden."
+msgstr "Nie udało się załadować odbiorców."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerCarpoolHintsUi.kt:1
+msgid "Abrufen kann ihn %1 Partnerorganisation."
+msgid_plural "Abrufen können ihn %1 Partnerorganisationen."
+msgstr[0] "Może go pobrać %1 organizacja partnerska."
+msgstr[1] "Mogą go pobrać %1 organizacje partnerskie."
+msgstr[2] "Może go pobrać %1 organizacji partnerskich."

@@ -12,10 +12,12 @@ import network.lapis.cloud.server.db.generated.CarpoolReceivedHintTable
 import network.lapis.cloud.server.db.generated.CarpoolReceivedTombstoneTable
 import network.lapis.cloud.server.db.generated.PartnerServerTable
 import network.lapis.cloud.server.partner.PartnerBlocklistPattern
+import network.lapis.cloud.server.partner.PartnerHost
 import network.lapis.cloud.server.partner.PartnerRow
 import network.lapis.cloud.server.partner.PartnerServerStore
 import network.lapis.cloud.shared.domain.CarpoolFederationLimits
 import network.lapis.cloud.shared.domain.CarpoolTeaser
+import network.lapis.cloud.shared.domain.PartnerCarpoolHintLimits
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -29,6 +31,7 @@ import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import java.security.MessageDigest
@@ -75,6 +78,19 @@ internal class RepublishableHint(
     val originSignature: String,
 )
 
+/** V1.9.317 (wave 5): what an ACTIVE member sees of a received hint -- these four fields and nothing else. */
+internal class MemberHint(
+    val departureDate: LocalDate,
+    val fromPostcodeArea: String,
+    val toPostcodeArea: String,
+    val originHost: String,
+)
+
+internal class MemberHintPage(
+    val items: List<MemberHint>,
+    val hasMore: Boolean,
+)
+
 /** In-memory counters since the start, for the administrator only. */
 internal object CarpoolPullCounters {
     val rejected = AtomicLong(0)
@@ -98,6 +114,7 @@ internal object CarpoolPullCounters {
 internal object CarpoolReceivedStore {
     const val MAX_PER_SOURCE = 1000
     const val MAX_TOTAL = 5000
+    private const val MAX_HOST_LENGTH = 253
 
     /** A copy of a source that has not been pulled successfully for this long is dropped (the pass-on of withdrawals must stay timely). */
     val STALE_AFTER = 24.hours
@@ -473,6 +490,90 @@ internal object CarpoolReceivedStore {
                     originSignature = it.signature,
                 )
             }.toList()
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    // V1.9.317 (wave 5): the read path for members (the only one outside the feed)
+    // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+    private val AREA = Regex("^[0-9]{2}$")
+
+    /**
+     * The hints an ACTIVE member may see, sorted by (day, from, to, origin host, id), one page of [PAGE_SIZE]. Pure read in the caller's
+     * transaction: no lock, no audit, no network. Never reads or returns teaser id, hops, path, signature or source.
+     *
+     * Filters (all of them, in this order): not expired, day not past, no live local block (tombstone of the SAME (origin host, teaser id)),
+     * syntax of the two areas and of the host (second layer, the reader checked them already), origin not blocked, source partner still an active,
+     * sharing, not blocked partner (defence in depth: the drop on switch-off or staleness may lag behind).
+     *
+     * Known limit: offset paging; rows can shift between two requests, which can skip or repeat an entry.
+     */
+    fun listForMembers(
+        today: LocalDate,
+        now: LocalDateTime,
+        page: Int,
+    ): MemberHintPage {
+        val patterns = PartnerServerStore.blockPatterns()
+        val sources = PartnerServerStore.listPartners().associateBy { it.id }
+        val candidates =
+            CarpoolReceivedHintTable
+                .select(
+                    CarpoolReceivedHintTable.id,
+                    CarpoolReceivedHintTable.teaserId,
+                    CarpoolReceivedHintTable.originHost,
+                    CarpoolReceivedHintTable.sourcePartnerId,
+                    CarpoolReceivedHintTable.departureDate,
+                    CarpoolReceivedHintTable.fromPostcodeArea,
+                    CarpoolReceivedHintTable.toPostcodeArea,
+                ).where { (CarpoolReceivedHintTable.expiresAt greater now) and (CarpoolReceivedHintTable.departureDate greaterEq today) }
+                .orderBy(
+                    CarpoolReceivedHintTable.departureDate to SortOrder.ASC,
+                    CarpoolReceivedHintTable.fromPostcodeArea to SortOrder.ASC,
+                    CarpoolReceivedHintTable.toPostcodeArea to SortOrder.ASC,
+                    CarpoolReceivedHintTable.originHost to SortOrder.ASC,
+                    CarpoolReceivedHintTable.id to SortOrder.ASC,
+                ).limit(MAX_TOTAL + 1)
+                .toList()
+        // Only the tombstones of the (at most MAX_TOTAL + 1) candidates are read, chunked: the tombstone table itself is not capped.
+        val blocked = HashSet<Pair<String, String>>()
+        candidates.map { it[CarpoolReceivedHintTable.teaserId] }.distinct().chunked(CHUNK).forEach { chunk ->
+            CarpoolReceivedTombstoneTable
+                .select(CarpoolReceivedTombstoneTable.originHost, CarpoolReceivedTombstoneTable.teaserId)
+                .where { (CarpoolReceivedTombstoneTable.teaserId inList chunk) and (CarpoolReceivedTombstoneTable.expiresAt greater now) }
+                .forEach { blocked += it[CarpoolReceivedTombstoneTable.originHost] to it[CarpoolReceivedTombstoneTable.teaserId] }
+        }
+        val visible =
+            candidates
+                .asSequence()
+                .filter { (it[CarpoolReceivedHintTable.originHost] to it[CarpoolReceivedHintTable.teaserId]) !in blocked }
+                .filter {
+                    AREA.matches(it[CarpoolReceivedHintTable.fromPostcodeArea]) && AREA.matches(it[CarpoolReceivedHintTable.toPostcodeArea])
+                }.filter {
+                    val host = it[CarpoolReceivedHintTable.originHost]
+                    host.length <= MAX_HOST_LENGTH && PartnerHost.normalizeHostOnly(host) == host
+                }.filter { !PartnerBlocklistPattern.isBlocked(host = it[CarpoolReceivedHintTable.originHost], patterns = patterns) }
+                .filter {
+                    val src = sources[it[CarpoolReceivedHintTable.sourcePartnerId]]
+                    src != null &&
+                        src.active &&
+                        src.carpoolSharing &&
+                        !PartnerBlocklistPattern.isBlocked(host = src.host, patterns = patterns)
+                }.drop(page * PartnerCarpoolHintLimits.PAGE_SIZE)
+                .take(PartnerCarpoolHintLimits.PAGE_SIZE + 1)
+                .toList()
+        val hasMore = visible.size > PartnerCarpoolHintLimits.PAGE_SIZE && page < PartnerCarpoolHintLimits.MAX_PAGE
+        return MemberHintPage(
+            items =
+                visible.take(PartnerCarpoolHintLimits.PAGE_SIZE).map {
+                    MemberHint(
+                        departureDate = it[CarpoolReceivedHintTable.departureDate],
+                        fromPostcodeArea = it[CarpoolReceivedHintTable.fromPostcodeArea],
+                        toPostcodeArea = it[CarpoolReceivedHintTable.toPostcodeArea],
+                        originHost = it[CarpoolReceivedHintTable.originHost],
+                    )
+                },
+            hasMore = hasMore,
+        )
     }
 
     // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

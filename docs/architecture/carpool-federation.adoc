@@ -4,12 +4,11 @@
 :toc-placement: preamble
 :icons: font
 
-NOTE: **Implementation status.** **Waves 1 to 4 of 7 exist.** Wave 1 (V1.9.311, schema V159) is the foundation: switches and consent. Wave 2 (V1.9.312,
+NOTE: **Implementation status.** **Waves 1 to 5 of 7 exist.** Wave 1 (V1.9.311, schema V159) is the foundation: switches and consent. Wave 2 (V1.9.312,
 schema V160) is the **origin side of the teaser feed**. Wave 3 (V1.9.313, schema V161) is the **withdrawal on the origin side** (tombstones). Wave 4
 (V1.9.314, schema V162) adds the **pull client**: this server fetches the feed of its approved direct partners, checks the signature of the origin of every
-hint, stores the hints it accepts (pseudonymous, until the day of departure), hands them on within the reach, and passes withdrawals on. **Still nothing is
-displayed to members** (wave 5): a member never sees a foreign hint. The sentence on the partner page says so to the administrator. Waves 5 to 7 below are the plan,
-not the code. It was **never run against a real partner server** and has had no legal review.
+hint, stores the hints it accepts (pseudonymous, until the day of departure), hands them on within the reach, and passes withdrawals on. Wave 5 (V1.9.317, **no
+schema change**) **shows** the received hints to active members and shows the owner where a hint goes. Waves 6 and 7 below are the plan, not the code. It was **never run against a real partner server** and has had no legal review.
 
 == Goal
 
@@ -392,10 +391,95 @@ is the only reader and writer of the two new tables; `CarpoolPullPoller` is star
 
 === What wave 4 deliberately does not do
 
-* **No display and no member interface**: a foreign hint is never shown (wave 5). Only the administrator sees counters.
+* **No display and no member interface** (wave 5 adds both, see below). Only the administrator sees counters.
 * `hops` and `via` are **not signed** (they change at every relay): a dishonest relay can shorten the path or the hop count. Content and `maxHops` are protected.
   A dishonest direct partner could spread a hint outside this protocol anyway.
 * **No legal review** (Art. 26 GDPR open, see below); default off; never run against a real partner server.
+
+== Wave 5: display and reach (no schema change)
+
+Two read-only RPCs were appended to `ICarpoolService` (routes 21 and 22), both **ACTIVE members only** (`requireActiveMembership`, like the availability read; a
+friend or a passenger who sees the carpool page gets nothing):
+
+* `listPartnerCarpoolHints(page)` returns `PartnerCarpoolHintPageDto`: a page of at most 100 hints (`PartnerCarpoolHintDto`: **exactly four fields**, the day, the two
+  postcode areas and the host of the origin server) and a flag `hasMore`. Empty while the exchange is switched off, although rows may still be stored.
+* `getCarpoolFederationReach()` returns `CarpoolFederationReachDto`: the labels of the direct partners that can really fetch the own hints, the pass-on limit and a flag
+  `partnersTruncated`. Empty and `0` while the exchange is off.
+
+[source,kuml,name="carpool-federation-display-model"]
+----
+classDiagram(name = "Carpool exchange -- wave 5 wire types") {
+    val hint = classOf(name = "PartnerCarpoolHintDto") {
+        attribute(name = "departureDate", type = "LocalDate")
+        attribute(name = "fromPostcodeArea", type = "String")
+        attribute(name = "toPostcodeArea", type = "String")
+        attribute(name = "originHost", type = "String")
+    }
+
+    val page = classOf(name = "PartnerCarpoolHintPageDto") {
+        attribute(name = "hasMore", type = "Boolean")
+    }
+
+    val reach = classOf(name = "CarpoolFederationReachDto") {
+        attribute(name = "enabled", type = "Boolean")
+        attribute(name = "partners", type = "List<String>")
+        attribute(name = "maxHops", type = "Int")
+        attribute(name = "partnersTruncated", type = "Boolean")
+    }
+
+    association(source = page, target = hint) {
+        source { multiplicity(spec = "1"); role = "page" }
+        target { multiplicity(spec = "0..100"); role = "items" }
+    }
+}
+----
+
+=== What a member sees
+
+The read path is `CarpoolReceivedStore.listForMembers` and nothing else (tripwires `n`, `n2`, `n3`). It runs in the caller's transaction and writes nothing, audits
+nothing and makes no network call. A stored hint is shown only if **all** of these hold:
+
+* it is not expired and its day is not past (the day is the organisation's day, Berlin; `expires_at` is UTC and is not mixed with it),
+* there is no live local block (`carpool_received_tombstone`) for the same pair `(origin host, teaser id)`: the tombstone table is keyed by both columns, so a block for
+  the same teaser id from another origin does not hide the hint,
+* both areas are two digits and the host is a normalised host name of at most 253 characters (a second layer: the reader checked this on arrival),
+* the origin host is not blocked,
+* the **source partner** is still present, active, has carpool sharing on and is not blocked (defence in depth: the drop on a switch-off or on staleness may lag behind).
+
+Order: day, start area, destination area, origin host, row id (all ascending; the id is a stable derived UUID and is never delivered). Pages are 0 to 9 of 100. Up to 5000
+hints can be stored (`MAX_TOTAL`), but the display reaches only the **first 1000 by date**; `hasMore` is false on page 9 so the client never asks for page 10. A page
+outside 0..9 is a bad request, but it is checked **after** the access gate, so a non-member always gets the refusal and learns nothing else. Known limit of offset paging:
+between two requests rows can shift, which can skip or repeat an entry; a repeat looks identical and does no harm.
+
+The row shows no teaser id, no hop count, no path, no source partner and no timestamp (`hops`, `via` and the source are not signed and say how the hint travelled). There is
+**no link, no button and no booking path**: details and contact exist only at the origin organisation.
+
+An `originHost` can be the host of a partner of a partner (hop 2 or 3, key from the partner recursion). Showing it discloses a small part of the topology of the
+network. The host is public as a host name and signed by its own key, so the design accepts it; the path stays hidden.
+
+=== Where an own hint goes (the consent box)
+
+The consent box in the trip form shows, **above** the checkbox, "Ihr Hinweis verlässt unseren Server nur mit Ihrer Zustimmung", a sentence on how many partner
+organisations can fetch the hint (the names, folded behind a button from five names on) and, while somebody can fetch it, how far it can travel. The reach sentences are
+upper bounds (each receiving server may restrict further): the limit 1 means direct partners only, 2 adds their partners, 3 one more level (the receiver stores
+`hops = wire + 1` and passes a hint on while `hops + 1 <= min(maxHops, own limit, 3)`).
+
+* The list is exactly the direct partners that **can really fetch the feed**: `PartnerRow.mayPullCarpoolFeed(blockPatterns)` is the one predicate (active, carpool sharing,
+  a pinned signing key, not blocked by a pattern). The feed gate and this list both call it (tripwire `r`), so the list cannot drift from what happens.
+* The label is the administrator's display name, cleaned (`ForeignText.clean`), otherwise the host, **never** the name the partner announced itself. This deliberately
+  differs from the public partner feed, which falls back to the announced name.
+* At most 50 labels are delivered; with more, `partnersTruncated` is set and the text says "more than 50" (a flag, not a count).
+* The names are shown to ACTIVE members even when the administrator hides the public partner list: the consent is informed only if the recipients are known (Art. 7
+  GDPR). The box is visible only to members.
+* If the read fails the box says so, and the checkbox stays usable.
+
+=== What wave 5 deliberately does not do
+
+* No booking, no contact, no link and no server-side search or filter (the postcode-area filter works on the loaded rows only).
+* No audit entry for reads and no counter; no new outgoing HTTP (tripwires `e`, `e2`, `f` unchanged).
+* No notification when a new hint arrives.
+* No schema change: the table holds at most 5000 rows, so a scan is enough.
+* No legal review (Art. 26 GDPR open); never run against a real partner server; no real member has seen the display.
 
 == What wave 3 deliberately does not do
 
@@ -441,8 +525,8 @@ this wave; it comes in a later wave.
 |4 (V1.9.314, **built**) |Pull client, further hops and pass-on of withdrawals (see the section above). Planned text: Further hops: a server passes a hint on only to its own consenting partners and only while `hops + 1` stays within `min(maxHops, own limit)`. Deletion of
 a trip or of a member (GDPR erasure) is passed on along the same path. Origin from hop 2 on is proven by a **signature of the origin** over hint and
 envelope; a hop-2 server checks it against the key of the origin host. Without it an origin statement that was passed on could be forged.
-|5 |Display: the hints appear in the carpool page of the partner's members, labelled with the origin, as data and never as markup (the same `untrusted*`
-rule as partner events). The owner sees which direct partners and which reach apply, next to the consent box.
+|5 (V1.9.317, **built**, no schema change) |Display: the hints appear in the carpool page of active members, labelled with the origin, as data and never as markup (the same `untrusted*`
+rule as partner events). The owner sees which direct partners and which reach apply, next to the consent box (see the section below).
 |6 |Operations: back-off and limits like the event feed, summary counters for the administrator, retention (a hint disappears at the latest with its day).
 |7 |Hardening and release: audit by an independent reviewer (SSRF, amplification, consent bypass), staging test with two real servers, documentation.
 |===
@@ -468,5 +552,5 @@ rule as partner events). The owner sees which direct partners and which reach ap
 * Joint controllership (Art. 26 GDPR) is still not reviewed, and with wave 2 a real transfer is technically possible (default off).
 * Resolved in wave 4: the pull client, further hops and the pass-on of withdrawals are one wave. Open: a signature chain per hop (so that `hops` and `via` are protected) would be a wave of its own.
 * Replay protection is per JVM; a multi-instance deployment would need a shared store.
-* Whether the owner is told **which** organisations receive the hint (proposed for wave 5: list of the approved direct partners and the reach).
+* Resolved in wave 5: the owner is told which organisations can fetch the hint (labels of the direct partners that can really pull) and the reach in words. Open: a signature chain per hop, and joint controllership (Art. 26 GDPR).
 * Whether the board, not only the administrator, may switch the exchange (it would change the whole partner administration, a separate decision).

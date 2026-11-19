@@ -17,12 +17,16 @@ import network.lapis.cloud.server.carpool.CarpoolMessages
 import network.lapis.cloud.server.carpool.CarpoolNotice
 import network.lapis.cloud.server.carpool.CarpoolNoticeKind
 import network.lapis.cloud.server.carpool.CarpoolParticipations
+import network.lapis.cloud.server.carpool.CarpoolReceivedStore
 import network.lapis.cloud.server.carpool.CarpoolWithdrawalKey
 import network.lapis.cloud.server.carpool.CarpoolWithdrawalTarget
+import network.lapis.cloud.server.carpool.mayPullCarpoolFeed
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.CarpoolParticipationTable
 import network.lapis.cloud.server.db.generated.CarpoolPostingTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.partner.ForeignText
+import network.lapis.cloud.server.partner.PartnerServerStore
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
@@ -31,6 +35,7 @@ import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CarpoolFederationAvailabilityDto
 import network.lapis.cloud.shared.domain.CarpoolFederationLimits
 import network.lapis.cloud.shared.domain.CarpoolFederationOptInAuditSnapshot
+import network.lapis.cloud.shared.domain.CarpoolFederationReachDto
 import network.lapis.cloud.shared.domain.CarpoolInviteeCandidateDto
 import network.lapis.cloud.shared.domain.CarpoolMessagePageDto
 import network.lapis.cloud.shared.domain.CarpoolMyParticipationDto
@@ -45,7 +50,11 @@ import network.lapis.cloud.shared.domain.CarpoolPrivacy
 import network.lapis.cloud.shared.domain.CarpoolTeaser
 import network.lapis.cloud.shared.domain.DirectMessageDto
 import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.PartnerCarpoolHintDto
+import network.lapis.cloud.shared.domain.PartnerCarpoolHintLimits
+import network.lapis.cloud.shared.domain.PartnerCarpoolHintPageDto
 import network.lapis.cloud.shared.domain.projectCarpoolTeaser
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.ICarpoolService
@@ -77,6 +86,9 @@ private const val MAX_MEETING_NOTE_LENGTH = 200
  * zukünftige Angebote, ohne Freitext), [requestParticipation], [confirmParticipation], [declineParticipation], [withdrawParticipation],
  * [listMyParticipations]. Alles andere bleibt [requireActiveMembership]. `CarpoolAccessTripwireTest` pinnt die Methodenliste und verbietet jede
  * weitere Verwendung des Passagier-Guards.
+ *
+ * **V1.9.317 (Welle 5):** `listPartnerCarpoolHints` und `getCarpoolFederationReach` sind ACTIVE-only ([requireActiveMembership], nicht auf der Passagier-Allowlist);
+ * die Seite wird erst NACH dem Gate geprüft, ein Nicht-Mitglied erfährt also nichts.
  *
  * **Feed-Sichtbarkeit vs. endgültige Löschung**: [listPostings] zeigt nur `departure_date >= heute` -- ein Eintrag verschwindet aus dem Feed
  * am Tag NACH der Abfahrt, wird aber erst [network.lapis.cloud.server.carpool.CarpoolRetention.RETENTION_DAYS_AFTER_DEPARTURE] Tage später
@@ -489,6 +501,60 @@ class CarpoolService internal constructor(
         return transaction {
             requireActiveMembership(memberId = current.memberId)
             CarpoolFederationAvailabilityDto(enabled = CarpoolFederationStore.settings().enabled)
+        }
+    }
+
+    override suspend fun listPartnerCarpoolHints(page: Int): PartnerCarpoolHintPageDto {
+        val current = resolveCurrentMember(call)
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            // The page is checked AFTER the gate: a non-member always gets the refusal and learns nothing else.
+            if (page !in 0..PartnerCarpoolHintLimits.MAX_PAGE) throw BadRequestException("Ungültige Seite.")
+            if (!CarpoolFederationStore.settings().enabled) {
+                return@transaction PartnerCarpoolHintPageDto(
+                    items = emptyList(),
+                    hasMore = false,
+                )
+            }
+            val now = DbClock.nowLocalDateTime()
+            val result = CarpoolReceivedStore.listForMembers(today = OrganizationTimeZone.today(), now = now, page = page)
+            PartnerCarpoolHintPageDto(
+                items =
+                    result.items.map {
+                        PartnerCarpoolHintDto(
+                            departureDate = it.departureDate,
+                            fromPostcodeArea = it.fromPostcodeArea,
+                            toPostcodeArea = it.toPostcodeArea,
+                            originHost = it.originHost,
+                        )
+                    },
+                hasMore = result.hasMore,
+            )
+        }
+    }
+
+    override suspend fun getCarpoolFederationReach(): CarpoolFederationReachDto {
+        val current = resolveCurrentMember(call)
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            val settings = CarpoolFederationStore.settings()
+            if (!settings.enabled) return@transaction CarpoolFederationReachDto(enabled = false, partners = emptyList(), maxHops = 0)
+            val patterns = PartnerServerStore.blockPatterns()
+            // The label is deliberately NOT the one of the public partner feed: only the administrator's display name (cleaned) or the host, never
+            // the name the partner announced itself.
+            val labels =
+                PartnerServerStore
+                    .listPartners()
+                    .filter { it.mayPullCarpoolFeed(patterns) }
+                    .map { ForeignText.clean(raw = it.displayName, maxChars = 100) ?: it.host }
+                    .distinct()
+                    .sortedWith(compareBy({ it.lowercase() }, { it }))
+            CarpoolFederationReachDto(
+                enabled = true,
+                partners = labels.take(PartnerCarpoolHintLimits.MAX_REACH_PARTNERS),
+                maxHops = minOf(settings.hopLimit, CarpoolFederationLimits.MAX_HOPS),
+                partnersTruncated = labels.size > PartnerCarpoolHintLimits.MAX_REACH_PARTNERS,
+            )
         }
     }
 

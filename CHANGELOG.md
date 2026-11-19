@@ -6,6 +6,19 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+Wave V1.9.317 "Mitfahrzentrale-Foederation" W5 (display and reach), **no schema change**. Not released yet: no version bump.
+
+**Behaviour first:**
+
+1. Active members see the hints of partner organisations below their own list on the carpool page: the day, the two postcode areas and the host of the origin organisation, sorted by day, 100 per page (at most the first 1000). No booking, no contact, no link. The section exists only while the exchange is on.
+2. A hint is hidden when it is expired, its day is past, it was withdrawn (same origin and teaser id), its origin or its source partner is blocked, or the source partner is no longer active or no longer shares. Switching the exchange off empties the view at once.
+3. In the consent box of an own offer the owner now reads, above the checkbox, how many partner organisations can really fetch the hint (names unfoldable, label = display name or host, never the name a partner announced), and how far it can be passed on (1 to 3 levels, as upper bounds).
+4. The partner-page note for administrators no longer says that members see foreign hints only later.
+
+**Technique:** two ICarpoolService methods appended (`listPartnerCarpoolHints`, `getCarpoolFederationReach`, ACTIVE only); `CarpoolReceivedStore.listForMembers` is the only read path; `PartnerRow.mayPullCarpoolFeed` is the single predicate shared by the feed gate and the reach list; tripwires n2, n3, r. No migration, no new outgoing request, no audit for reads.
+
+**Not verified:** no legal review (Art. 26 GDPR open); never run against a real partner server; no real member has seen the display. A hint can show the host of a partner of a partner (documented).
+
 Wave V1.9.316 "LTR-Anerkennung fuer Sitzungsteilnahme" (LTR recognition for attending a meeting), schema `V163` -> `V164` (one additive migration). Not released yet: no version bump.
 
 **Behaviour first:**

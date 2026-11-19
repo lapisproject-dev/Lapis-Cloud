@@ -18,6 +18,7 @@ class CarpoolFederationI18nCatalogTest :
                 "PartnerServersTexts.kt",
                 "CarpoolScreen.kt",
                 "CarpoolFederationUi.kt",
+                "PartnerCarpoolHintsUi.kt",
                 "ComplianceLabels.kt",
             )
         val expected =
@@ -29,7 +30,7 @@ class CarpoolFederationI18nCatalogTest :
                 "Auch Partner unserer Partner",
                 "Eine Stufe weiter",
                 "Reichweite",
-                "Freigegebene Partner können die Kurzhinweise abrufen. Dieser Server ruft die Kurzhinweise freigegebener Partner selbst ab und gibt sie im Rahmen der Reichweite an freigegebene Partner weiter. Mitglieder sehen fremde Hinweise erst ab einer späteren Version.",
+                "Freigegebene Partner können die Kurzhinweise abrufen. Dieser Server ruft die Kurzhinweise freigegebener Partner selbst ab und gibt sie im Rahmen der Reichweite an freigegebene Partner weiter. Aktive Mitglieder sehen die empfangenen Kurzhinweise (Tag, PLZ-Gebiete, Herkunft) auf der Mitfahrseite.",
                 "Fahrten teilen",
                 "Diese Fahrt als Kurzhinweis an Partnerorganisationen weitergeben",
                 "So sehen Partner Ihre Fahrt: %1 · PLZ-Gebiet %2 → PLZ-Gebiet %3",
@@ -58,6 +59,26 @@ class CarpoolFederationI18nCatalogTest :
                 "Eigener Signaturschlüssel fehlt",
                 "Die Antwort des Partners ist zu groß",
                 "Interner Fehler",
+                // V1.9.317 (wave 5)
+                "Angebote von Partnerorganisationen",
+                "Kurzhinweise von Partnerorganisationen: nur Tag und PLZ-Gebiete, keine Namen und keine Kontaktdaten. Einzelheiten gibt es nur bei der jeweiligen Organisation.",
+                "PLZ-Gebiet %1 → PLZ-Gebiet %2",
+                "von %1 – Details und Kontakt nur bei dieser Organisation",
+                "PLZ-Gebiet",
+                "Die Hinweise werden geladen …",
+                "Die Hinweise konnten nicht geladen werden.",
+                "Zurzeit liegen keine Hinweise von Partnerorganisationen vor.",
+                "Keine Treffer für PLZ-Gebiet %1 in den geladenen Hinweisen.",
+                "Keine Angebote für PLZ-Gebiet %1.",
+                "Weitere laden",
+                "Ihr Hinweis verlässt unseren Server nur mit Ihrer Zustimmung.",
+                "Derzeit ruft keine Partnerorganisation Hinweise ab.",
+                "Abrufen können ihn mehr als %1 Partnerorganisationen.",
+                "Er geht nur an direkte Partner und wird von diesen nicht weitergegeben.",
+                "Er geht an direkte Partner und kann von diesen an deren Partner weitergegeben werden.",
+                "Er geht an direkte Partner und kann über deren Partner noch eine Stufe weiter weitergegeben werden.",
+                "Partnerorganisationen anzeigen",
+                "Empfänger konnten nicht geladen werden.",
             )
         val used by lazy {
             val constants = clientStringConstants()
@@ -110,5 +131,19 @@ class CarpoolFederationI18nCatalogTest :
         test("no German message uses a gender form") {
             val forms = listOf("*innen", ":innen", "_innen", "/innen")
             expected.filter { id -> forms.any { it in id } }.size shouldBe 0
+        }
+
+        test(
+            "V1.9.317: the plural pair of the reach sentence is in the template and in all seven catalogs with the right number of forms",
+        ) {
+            val singular = "Abrufen kann ihn %1 Partnerorganisation."
+            val template = parsePluralCatalog(File(CATALOG_DIR, "messages.pot"))
+            (template[singular]?.pluralMsgid) shouldBe "Abrufen können ihn %1 Partnerorganisationen."
+            CATALOG_LANGUAGES.forEach { lang ->
+                val entry = parsePluralCatalog(File(CATALOG_DIR, "messages-$lang.po"))[singular]
+                (entry != null) shouldBe true
+                entry!!.forms.size shouldBe (if (lang == "pl" || lang == "ru") 3 else 2)
+                entry.forms.all { it.isNotBlank() && "%1" in it } shouldBe true
+            }
         }
     })

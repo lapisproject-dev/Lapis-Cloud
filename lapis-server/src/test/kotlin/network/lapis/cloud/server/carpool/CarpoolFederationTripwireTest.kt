@@ -4,9 +4,11 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import network.lapis.cloud.server.db.SourceScan
 import network.lapis.cloud.server.db.generated.CarpoolReceivedHintTable
 import network.lapis.cloud.server.db.generated.CarpoolReceivedTombstoneTable
+import network.lapis.cloud.shared.domain.PartnerCarpoolHintDto
 import java.io.File
 
 private val repoRoot: File =
@@ -147,6 +149,24 @@ class CarpoolFederationTripwireTest :
                 .filter { it.name != "CarpoolPullPoller.kt" }
                 .filter { Regex("""\bCarpoolPullPoller\s*\(""").containsMatchIn(SourceScan.blank(it.readText())) }
                 .map { it.name } shouldBe listOf("Application.kt")
+        }
+
+        test("(n2) CarpoolService reaches the received hints only through CarpoolReceivedStore.listForMembers") {
+            val source = SourceScan.blank(File(SourceScan.mainRoot(), "network/lapis/cloud/server/rpc/CarpoolService.kt").readText())
+            Regex("""CarpoolReceivedStore\.(\w+)""").findAll(source).map { it.groupValues[1] }.toSet() shouldBe setOf("listForMembers")
+        }
+
+        test("(n3) the member-facing hint DTO has exactly the four pinned fields") {
+            PartnerCarpoolHintDto.serializer().descriptor.let { d ->
+                (0 until d.elementsCount).map { d.getElementName(it) }
+            } shouldBe listOf("departureDate", "fromPostcodeArea", "toPostcodeArea", "originHost")
+        }
+
+        test("(r) the feed gate and the reach information both use the one predicate mayPullCarpoolFeed") {
+            val root = File(SourceScan.mainRoot(), "network/lapis/cloud/server")
+            listOf("carpool/feed/CarpoolTeaserFeedGate.kt", "rpc/CarpoolService.kt").forEach {
+                withClue(it) { SourceScan.blank(File(root, it).readText()) shouldContain "mayPullCarpoolFeed(" }
+            }
         }
 
         test(

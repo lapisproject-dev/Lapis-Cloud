@@ -92,12 +92,12 @@ private fun renderPartnerServers(
     renderBlocklist(panel, overview.blocklist, reload)
 }
 
-/** The honesty sentence since wave 4: this server pulls and hands on (within the reach), members see foreign hints only from a later version. */
+/** The honesty sentence since wave 5: this server pulls and hands on (within the reach), and active members see the received short hints. */
 private const val CARPOOL_EXCHANGE_PULL_NOTE =
     "Freigegebene Partner können die Kurzhinweise abrufen. " +
         "Dieser Server ruft die Kurzhinweise freigegebener Partner selbst ab " +
         "und gibt sie im Rahmen der Reichweite an freigegebene Partner weiter. " +
-        "Mitglieder sehen fremde Hinweise erst ab einer späteren Version."
+        "Aktive Mitglieder sehen die empfangenen Kurzhinweise (Tag, PLZ-Gebiete, Herkunft) auf der Mitfahrseite."
 
 private const val CARPOOL_EXCHANGE_WITHDRAWAL_NOTE =
     "Zurückgezogene Kurzhinweise werden Partnern bis zu 14 Tage lang als zurückgezogen gemeldet, nur mit pseudonymer Kennung und Tag."

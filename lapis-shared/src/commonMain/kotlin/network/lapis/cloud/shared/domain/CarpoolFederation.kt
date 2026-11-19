@@ -195,3 +195,41 @@ data class CarpoolFederationFeedAuditSnapshot(
     /** V1.9.313: how many withdrawals the answer carried (the count only). */
     val withdrawnCount: Int = 0,
 )
+
+/**
+ * V1.9.317 (wave 5): a hint of a partner organisation as an ACTIVE member sees it. Exactly four fields: the day, the two postcode areas and the host of
+ * the origin server. No teaser id, no hops, no path, no source, no timestamps (pinned by a tripwire).
+ */
+@Serializable
+data class PartnerCarpoolHintDto(
+    val departureDate: LocalDate,
+    val fromPostcodeArea: String,
+    val toPostcodeArea: String,
+    val originHost: String,
+)
+
+/** One page of received hints, sorted by day. [hasMore] is `false` on the last reachable page ([PartnerCarpoolHintLimits.MAX_PAGE]). */
+@Serializable
+data class PartnerCarpoolHintPageDto(
+    val items: List<PartnerCarpoolHintDto>,
+    val hasMore: Boolean,
+)
+
+/**
+ * V1.9.317 (wave 5): where an own hint can go. [partners] are the labels of the direct partners that can really pull our feed right now (at most
+ * [PartnerCarpoolHintLimits.MAX_REACH_PARTNERS]; [partnersTruncated] says that more exist -- a flag, not a count). [maxHops] is the upper bound of the
+ * pass-on (1 = direct partners only). Empty / 0 while the exchange is off.
+ */
+@Serializable
+data class CarpoolFederationReachDto(
+    val enabled: Boolean,
+    val partners: List<String>,
+    val maxHops: Int,
+    val partnersTruncated: Boolean = false,
+)
+
+object PartnerCarpoolHintLimits {
+    const val PAGE_SIZE = 100
+    const val MAX_PAGE = 9
+    const val MAX_REACH_PARTNERS = 50
+}

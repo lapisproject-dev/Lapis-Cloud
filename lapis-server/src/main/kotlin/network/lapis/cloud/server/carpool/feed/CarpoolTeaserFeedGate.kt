@@ -3,6 +3,7 @@ package network.lapis.cloud.server.carpool.feed
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.carpool.CarpoolFederationSettings
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
+import network.lapis.cloud.server.carpool.mayPullCarpoolFeed
 import network.lapis.cloud.server.federation.FederationKeyPairGenerator
 import network.lapis.cloud.server.federation.FederationReplayGuard
 import network.lapis.cloud.server.federation.HttpSignatures
@@ -92,8 +93,7 @@ internal class CarpoolTeaserFeedGate(
         val row = PartnerServerStore.findPartner(verified.row.id) ?: return null
         if (row.signingKeyId != verified.keyId || row.signingPublicKeyPem != verified.publicKeyPem) return null
         if (keyHost(verified.keyId) != row.host) return null
-        if (!row.active || !row.carpoolSharing) return null
-        if (PartnerBlocklistPattern.isBlocked(host = row.host, patterns = PartnerServerStore.blockPatterns())) return null
+        if (!row.mayPullCarpoolFeed(PartnerServerStore.blockPatterns())) return null
         return row
     }
 

@@ -83,6 +83,7 @@ dto:CarpoolPostingInput.departureDate	D	calendar date (LocalDate); never convert
 dto:CarpoolPostingInput.departureTime	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
 dto:CarpoolPostingDto.departureDate	D	calendar date (LocalDate); never converted
 dto:CarpoolTeaser.departureDate	D	calendar date (LocalDate); never converted (V1.9.311: the day of a shared hint)
+dto:PartnerCarpoolHintDto.departureDate	D	calendar date (LocalDate); never converted (V1.9.317: the day of a received hint shown to members)
 dto:CarpoolTeaserEligibility.departureDate	D	calendar date (LocalDate); never converted (input of the eligibility rule, not a wire type)
 dto:CarpoolPostingDto.departureTime	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
 dto:CarpoolPostingDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

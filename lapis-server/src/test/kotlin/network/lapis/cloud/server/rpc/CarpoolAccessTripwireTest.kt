@@ -43,6 +43,8 @@ class CarpoolAccessTripwireTest :
                 "endCarpoolThread",
                 "getCarpoolFederationAvailability",
                 "setCarpoolPostingFederationOptIn",
+                "listPartnerCarpoolHints",
+                "getCarpoolFederationReach",
             )
         val passengerAllowlist =
             setOf(
@@ -70,7 +72,7 @@ class CarpoolAccessTripwireTest :
             return if (next == null) rest else rest.substring(0, next.range.first)
         }
 
-        test("the RPC surface is exactly the known twenty-one methods, in the pinned order") {
+        test("the RPC surface is exactly the known twenty-three methods, in the pinned order") {
             ICarpoolService::class.java.declaredMethods
                 .filter { !it.isSynthetic && '$' !in it.name }
                 .map { it.name }

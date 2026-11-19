@@ -27,7 +27,7 @@ private const val NULL = "\"null\""
 
 /**
  * V1.9.125 -- the Kilua RPC wire of the carpool service against the FULL `module()`: the route index (`/rpc/routeCarpoolServiceManagerN`) is the
- * 0-based position of the method in `ICarpoolService`. New methods were appended at the END (indices 6..20) and the six originals did not move;
+ * 0-based position of the method in `ICarpoolService`. New methods were appended at the END (indices 6..22) and the six originals did not move;
  * a reordering would silently re-point every deployed client, so the indices are pinned here against observable behaviour (a guest is let
  * through exactly where the allowlist says, and refused everywhere else).
  */
@@ -50,7 +50,7 @@ class CarpoolRpcWireTest :
                 setBody("""{"id":1,"jsonrpc":"2.0","method":"$method","params":$params}""")
             }.bodyAsText()
 
-        test("the route indices 0..20 belong to the methods in declaration order: a guest passes exactly the allowlist") {
+        test("the route indices 0..22 belong to the methods in declaration order: a guest passes exactly the allowlist") {
             testApplication {
                 application { module() }
                 val driver = data.member(label = "wire-driver", displayName = "Wire Fahrer")
@@ -76,6 +76,10 @@ class CarpoolRpcWireTest :
                 // V1.9.311: the two federation routes (19, 20) are ACTIVE-only: a guest is refused.
                 client.rpc(19, "getCarpoolFederationAvailability", guest, "[]") shouldContain "ForbiddenException"
                 client.rpc(20, "setCarpoolPostingFederationOptIn", guest, "[$bogus,false]") shouldContain "ForbiddenException"
+                // V1.9.317: the two display routes (21, 22) are ACTIVE-only too; a bad page is Forbidden for a non-member (the gate comes first).
+                client.rpc(21, "listPartnerCarpoolHints", guest, "[0]") shouldContain "ForbiddenException"
+                client.rpc(21, "listPartnerCarpoolHints", guest, "[99]") shouldContain "ForbiddenException"
+                client.rpc(22, "getCarpoolFederationReach", guest, "[]") shouldContain "ForbiddenException"
                 // Everything else: Forbidden.
                 client.rpc(1, "listMyPostings", guest, "[]") shouldContain "ForbiddenException"
                 client.rpc(7, "findInvitee", guest, "[${str("Maria")},${str("Muster")}]") shouldContain "ForbiddenException"

@@ -179,6 +179,14 @@ fun renderCarpoolScreen(container: SimplePanel) {
         }
     }
 
+    // V1.9.317: the hints of partner organisations below the own list; mounted only for a member and only while the exchange is on.
+    mountPartnerCarpoolHints(
+        container = root,
+        isMember = isMember,
+        readEnabled = { rpcService<ICarpoolService>().getCarpoolFederationAvailability().enabled },
+        loadPage = { page -> rpcService<ICarpoolService>().listPartnerCarpoolHints(page) },
+    )
+
     refreshAll()
 }
 
@@ -455,7 +463,10 @@ private fun buildCarpoolForm(
     toField.subscribe { federation.sync() }
     dateField.subscribe { federation.sync() }
     // The read lives here (a file with a state block), not in the UI helper: members cannot call the admin service.
-    federation.load { rpcService<ICarpoolService>().getCarpoolFederationAvailability().enabled }
+    federation.load(
+        readEnabled = { rpcService<ICarpoolService>().getCarpoolFederationAvailability().enabled },
+        readReach = { rpcService<ICarpoolService>().getCarpoolFederationReach() },
+    )
 
     val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
     val cancelButton = collapseCancelButton(close)

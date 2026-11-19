@@ -3,6 +3,7 @@ package network.lapis.cloud.shared.rpc
 import dev.kilua.rpc.annotations.RpcService
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.CarpoolFederationAvailabilityDto
+import network.lapis.cloud.shared.domain.CarpoolFederationReachDto
 import network.lapis.cloud.shared.domain.CarpoolInviteeCandidateDto
 import network.lapis.cloud.shared.domain.CarpoolMessagePageDto
 import network.lapis.cloud.shared.domain.CarpoolMyParticipationDto
@@ -13,6 +14,7 @@ import network.lapis.cloud.shared.domain.CarpoolPostingDto
 import network.lapis.cloud.shared.domain.CarpoolPostingInput
 import network.lapis.cloud.shared.domain.CarpoolPostingType
 import network.lapis.cloud.shared.domain.DirectMessageDto
+import network.lapis.cloud.shared.domain.PartnerCarpoolHintPageDto
 
 /**
  * Welle V1.9.12 "Mitfahrzentrale" -- ORGANIZATION_MEMBER-exklusiv (jede Methode gattet über
@@ -130,4 +132,12 @@ interface ICarpoolService {
         postingId: String,
         optIn: Boolean,
     ): CarpoolPostingDto
+
+    // ---- V1.9.317 "Mitfahrzentrale-Foederation" W5: appended at the END. ----
+
+    /** ACTIVE: received partner hints (4 fields each), sorted by day; empty while the exchange is off. [page] 0..9, otherwise a bad request. */
+    suspend fun listPartnerCarpoolHints(page: Int): PartnerCarpoolHintPageDto
+
+    /** ACTIVE: the labels of the direct partners that can really pull our feed, and the reach of the pass-on; empty / 0 while the exchange is off. */
+    suspend fun getCarpoolFederationReach(): CarpoolFederationReachDto
 }
