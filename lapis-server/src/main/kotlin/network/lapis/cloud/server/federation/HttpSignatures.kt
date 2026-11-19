@@ -245,12 +245,12 @@ object HttpSignatures {
         return Instant.fromEpochMilliseconds(zonedDateTime.toInstant().toEpochMilli())
     }
 
-    private fun decodePublicKeyPem(pem: String): PublicKey {
+    internal fun decodePublicKeyPem(pem: String): PublicKey {
         val der = stripPem(pem)
         return KeyFactory.getInstance("RSA").generatePublic(X509EncodedKeySpec(der))
     }
 
-    private fun decodePrivateKeyPem(pem: String): PrivateKey {
+    internal fun decodePrivateKeyPem(pem: String): PrivateKey {
         val der = stripPem(pem)
         return KeyFactory.getInstance("RSA").generatePrivate(PKCS8EncodedKeySpec(der))
     }

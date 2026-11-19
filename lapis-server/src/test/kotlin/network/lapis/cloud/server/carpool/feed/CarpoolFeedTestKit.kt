@@ -114,6 +114,12 @@ internal fun signedGet(
     return SignedGet(signature = signed.signatureHeader, date = signed.dateHeader, digest = signed.digestHeader)
 }
 
+/** The own signing key the feed signs its items with (idempotent; the production boot does the same). */
+internal fun provisionOwnSigningKey(actorUri: String = "https://$OWN_HOST/federation/actor") {
+    network.lapis.cloud.server.federation.FederationActorKeyProvisioner
+        .ensureProvisioned(actorUri)
+}
+
 internal val TEST_BOX = SecretBox(ByteArray(SecretBox.KEY_SIZE_BYTES) { (it + 1).toByte() })
 internal val TEST_IDS = CarpoolTeaserIds(TEST_BOX)
 

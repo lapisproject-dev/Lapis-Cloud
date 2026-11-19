@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import io.kvision.i18n.gettext
+import network.lapis.cloud.shared.domain.CarpoolPullErrorCode
 import network.lapis.cloud.shared.domain.PartnerAddressRejectionCode
 import network.lapis.cloud.shared.domain.PartnerFetchErrorCode
 import network.lapis.cloud.shared.domain.PartnerProbeResultDto
@@ -47,6 +48,27 @@ internal object PartnerServersTexts {
             PartnerFetchErrorCode.TLS -> gettext("Das Sicherheitszertifikat des Servers ist nicht gültig.")
             PartnerFetchErrorCode.DUPLICATE -> gettext("Dieser Server ist schon eingetragen.")
             PartnerFetchErrorCode.SERVER_ID_CONFLICT -> gettext("Kennung bereits vergeben")
+        }
+
+    /** V1.9.314: why the last pull of the carpool teaser feed of a partner failed. Reuses the words of the partner feed where they fit. */
+    fun carpoolPullError(code: CarpoolPullErrorCode): String =
+        when (code) {
+            CarpoolPullErrorCode.NOT_PUBLIC_ADDRESS -> fetchError(PartnerFetchErrorCode.NOT_PUBLIC_ADDRESS)
+            CarpoolPullErrorCode.REDIRECT -> fetchError(PartnerFetchErrorCode.REDIRECT)
+            CarpoolPullErrorCode.TIMEOUT -> fetchError(PartnerFetchErrorCode.TIMEOUT)
+            CarpoolPullErrorCode.TLS -> fetchError(PartnerFetchErrorCode.TLS)
+            CarpoolPullErrorCode.UNREACHABLE -> fetchError(PartnerFetchErrorCode.UNREACHABLE)
+            CarpoolPullErrorCode.HTTP_STATUS,
+            CarpoolPullErrorCode.WRONG_CONTENT_TYPE,
+            -> fetchError(PartnerFetchErrorCode.HTTP_STATUS)
+            CarpoolPullErrorCode.TOO_LARGE -> gettext("Die Antwort des Partners ist zu groß")
+            CarpoolPullErrorCode.UNAVAILABLE -> gettext("Partner gibt die Kurzhinweise nicht frei")
+            CarpoolPullErrorCode.RATE_LIMITED -> gettext("Zu viele Abrufe, später erneut")
+            CarpoolPullErrorCode.MALFORMED,
+            CarpoolPullErrorCode.SCHEMA,
+            -> gettext("Antwort hat ein unbekanntes Format")
+            CarpoolPullErrorCode.NO_OWN_KEY -> gettext("Eigener Signaturschlüssel fehlt")
+            CarpoolPullErrorCode.INTERNAL -> gettext("Interner Fehler")
         }
 
     /** The sentence under the form after a failed "Prüfen und speichern"; the address wins over the fetch error. */

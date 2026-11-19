@@ -313,9 +313,8 @@ class PartnerServersScreenDomTest {
                 val text = page.textContent.orEmpty()
                 assertTrue(text.contains("Mitfahrzentrale-Austausch"))
                 assertTrue(text.contains("Fahrtangebote mit freigegebenen Partnern austauschen"))
-                assertTrue(text.contains("Lapis-Server rufen sie erst ab einer späteren Version selbst ab."))
+                assertTrue(text.contains("Mitglieder sehen fremde Hinweise erst ab einer späteren Version."))
                 assertFalse(text.contains("Fahrten teilen"), "the per-partner box is offered only while the exchange is on")
-                assertFalse(text.contains("Reichweite"), "the reach is offered only while the exchange is on")
                 assertEquals(1, page.allOf("select").size, "only the depth select of the partner recursion is there")
             }
         }

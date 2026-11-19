@@ -19,6 +19,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
+import network.lapis.cloud.server.carpool.CarpoolOwnKeys
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -173,6 +174,7 @@ private suspend fun handle(
                         originHost = ownHost,
                         today = OrganizationTimeZone.today(),
                         now = now,
+                        ownKey = CarpoolOwnKeys.load(),
                     )
                 } else {
                     CarpoolTeaserFeedBuilder.buildWithdrawalsOnly(partner = row, ids = teaserIds, now = now)

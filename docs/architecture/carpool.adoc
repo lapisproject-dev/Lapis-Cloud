@@ -384,3 +384,5 @@ kept anywhere, deliberately simpler than the direct-message case rather than mir
   messages in general. The ride messages (V1.9.139) cannot be reported at all: there is no report path except for social posts.
 
 Since V1.9.34 the mailbox (since V1.9.231 "Nachrichten", formerly part of "Kommunikation") also offers the conversation history below each message and an unread counter in the sidebar; see `direct-messages.adoc`.
+
+NOTE: Since V1.9.314 (wave 4) this server can also pull hints from approved partner servers and pass them on; see xref:carpool-federation.adoc[carpool-federation.adoc]. Members do not see foreign hints yet.

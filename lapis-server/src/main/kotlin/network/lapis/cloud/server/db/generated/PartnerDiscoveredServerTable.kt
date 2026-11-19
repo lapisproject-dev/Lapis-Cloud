@@ -28,6 +28,9 @@ public object PartnerDiscoveredServerTable : Table("partner_discovered_server") 
     public val etag: Column<String?> = varchar("etag", 200).nullable()
     public val remotePartnersJson: Column<String?> = varchar("remote_partners_json", 65536).nullable()
     public val partnersHidden: Column<Boolean> = bool("partners_hidden").default(false)
+    public val signingKeyId: Column<String?> = varchar("signing_key_id", 512).nullable()
+    public val signingPublicKeyPem: Column<String?> = varchar("signing_public_key_pem", 4096).nullable()
+    public val signingKeyPinnedAt: Column<LocalDateTime?> = datetime("signing_key_pinned_at").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

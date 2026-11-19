@@ -177,8 +177,17 @@ class PartnerServerTripwireTest :
             "V1.9.312: the pinned signing key is written only by PartnerServerStore and read only by the store, the parser and the carpool feed",
         ) {
             val reader = Regex("""\bsigningPublicKeyPem\b|\bsigningKeyId\b""")
-            val allowed = setOf("PartnerServerStore.kt", "PartnerServerTable.kt", "PartnerFeedParser.kt", "PartnerFeedDtos.kt")
-            val feed = setOf("CarpoolTeaserFeedGate.kt")
+            val allowed =
+                setOf(
+                    "PartnerServerStore.kt",
+                    "PartnerServerTable.kt",
+                    "PartnerFeedParser.kt",
+                    "PartnerFeedDtos.kt",
+                    // V1.9.314: the recursion pins the key of a discovered server (own table, same rule).
+                    "PartnerDiscoveryStore.kt",
+                    "PartnerDiscoveredServerTable.kt",
+                )
+            val feed = setOf("CarpoolTeaserFeedGate.kt", "CarpoolReceivedStore.kt")
             SourceScan
                 .mainFiles()
                 .filter { reader.containsMatchIn(SourceScan.blank(it.readText())) }
@@ -190,7 +199,7 @@ class PartnerServerTripwireTest :
                 .mainFiles()
                 .filter { writer.containsMatchIn(SourceScan.blank(it.readText())) }
                 .map { it.name }
-                .filter { it != "PartnerServerStore.kt" }
+                .filter { it !in setOf("PartnerServerStore.kt", "PartnerDiscoveryStore.kt") }
                 .shouldBeEmpty()
         }
     })

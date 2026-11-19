@@ -333,6 +333,11 @@ internal object PartnerDiscoveryStore {
                         it[PartnerDiscoveredServerTable.etag] = etag
                         it[remotePartnersJson] = partnerHostsJson
                         it[partnersHidden] = parsed.partnersHidden
+                        // V1.9.314: the announced signing key is pinned from this very TLS fetch (no extra request); a feed without a valid key clears it.
+                        val key = parsed.signingKey
+                        it[signingKeyId] = key?.keyId
+                        it[signingPublicKeyPem] = key?.publicKeyPem
+                        it[signingKeyPinnedAt] = if (key == null) null else now
                     }
                     replaceDiscoveredEvents(id = id, c = c, parsed = parsed, now = now)
                 }
@@ -343,6 +348,22 @@ internal object PartnerDiscoveryStore {
             }
         PartnerDiscoveredServerTable.update({ PartnerDiscoveredServerTable.id eq id }) { it[eventCount] = stored }
         return DiscoveredWriteResult.Stored(stored)
+    }
+
+    /**
+     * V1.9.314: the pinned signing key of the discovered server with exactly this [host], or `null` (not found, not pinned, blocked, or the key id is
+     * not on the host itself). Used only to verify the origin signature of a hint of hop 2 or further; no network.
+     */
+    fun pinnedSigningKeyFor(host: String): String? {
+        val row =
+            PartnerDiscoveredServerTable
+                .selectAll()
+                .where { PartnerDiscoveredServerTable.host eq host }
+                .singleOrNull() ?: return null
+        val pem = row[PartnerDiscoveredServerTable.signingPublicKeyPem] ?: return null
+        val keyId = row[PartnerDiscoveredServerTable.signingKeyId] ?: return null
+        if (PartnerBlocklistPattern.isBlocked(host = host, patterns = PartnerServerStore.blockPatterns())) return null
+        return if (PartnerServerStore.keyIdHost(keyId) == host) pem else null
     }
 
     /** A server id that was already seen in this run (or belongs to a direct partner): the row records the conflict, its events go. */

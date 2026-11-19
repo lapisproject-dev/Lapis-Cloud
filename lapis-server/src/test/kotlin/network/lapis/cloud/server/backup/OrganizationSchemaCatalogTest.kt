@@ -60,6 +60,9 @@ class OrganizationSchemaCatalogTest :
                     "partner_discovered_server",
                     // Welle V1.9.246 -- the bare "I would take part" signals of the actions (Art. 9 relevant, only ever an aggregate)
                     "activism_signal",
+                    // Welle V1.9.314 -- the cache of carpool hints received from partners and its local blocks (foreign data, a refilled cache)
+                    "carpool_received_hint",
+                    "carpool_received_tombstone",
                 )
             val names = transaction { OrganizationSchemaCatalog.exportableTables(this).map { it.tableName } }
             ("flyway_schema_history" in names) shouldBe false

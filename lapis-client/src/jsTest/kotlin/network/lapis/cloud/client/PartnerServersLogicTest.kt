@@ -2,6 +2,8 @@ package network.lapis.cloud.client
 
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
+import network.lapis.cloud.shared.domain.CarpoolPullErrorCode
+import network.lapis.cloud.shared.domain.CarpoolPullStatus
 import network.lapis.cloud.shared.domain.PartnerAddressRejectionCode
 import network.lapis.cloud.shared.domain.PartnerFetchErrorCode
 import network.lapis.cloud.shared.domain.PartnerFetchStatus
@@ -216,5 +218,60 @@ class PartnerServersLogicTest {
         // with the switch on the scoped line comes first, then the usual lines
         val shared = partner().copy(carpoolSharing = true, carpoolKeyPinned = true, carpoolWithdrawalsScoped = 1)
         assertEquals(2, PartnerServersLogic.carpoolFeedLines(partner = shared, exchangeOn = true).size)
+    }
+
+    @Test
+    fun thePullLinesNameTheLastPullItsCountsAndTheReceivedHints_andOnlyWithSharingOn() {
+        val at = LocalDateTime(2026, 11, 19, 10, 0)
+        val shared = partner().copy(carpoolSharing = true, carpoolKeyPinned = true)
+        // never pulled and nothing received: no pull line
+        assertEquals(1, PartnerServersLogic.carpoolFeedLines(partner = shared, exchangeOn = true).size)
+        val pulled =
+            shared.copy(
+                carpoolPullAt = at,
+                carpoolPullStatus = CarpoolPullStatus.OK,
+                carpoolPullLastAccepted = 4,
+                carpoolPullLastRejected = 1,
+            )
+        val lines = PartnerServersLogic.carpoolFeedLines(partner = pulled, exchangeOn = true)
+        assertEquals(2, lines.size)
+        assertTrue(lines.last().contains("4") && lines.last().contains("1"))
+        val failed =
+            shared.copy(
+                carpoolPullAt = at,
+                carpoolPullStatus = CarpoolPullStatus.FAILED,
+                carpoolPullError = CarpoolPullErrorCode.RATE_LIMITED,
+            )
+        assertEquals(2, PartnerServersLogic.carpoolFeedLines(partner = failed, exchangeOn = true).size)
+        val received = pulled.copy(carpoolReceivedHints = 7)
+        assertEquals(3, PartnerServersLogic.carpoolFeedLines(partner = received, exchangeOn = true).size)
+        // sharing off or the exchange off: nothing of it is shown
+        assertTrue(PartnerServersLogic.carpoolFeedLines(partner = received.copy(carpoolSharing = false), exchangeOn = true).isEmpty())
+        assertTrue(PartnerServersLogic.carpoolFeedLines(partner = received, exchangeOn = false).isEmpty())
+    }
+
+    @Test
+    fun theSettingsLinesCountTheReceivedRejectedAndKeylessHints() {
+        val on = CarpoolFederationSettingsDto(enabled = true, hopLimit = 2, feedKeyAvailable = true)
+        assertTrue(PartnerServersLogic.carpoolFeedSettingsLines(on).isEmpty())
+        assertEquals(1, PartnerServersLogic.carpoolFeedSettingsLines(on.copy(carpoolReceivedHintsTotal = 5)).size)
+        assertEquals(1, PartnerServersLogic.carpoolFeedSettingsLines(on.copy(carpoolReceivedRejectedSinceStart = 2)).size)
+        assertEquals(1, PartnerServersLogic.carpoolFeedSettingsLines(on.copy(carpoolReceivedUnknownOriginKeySinceStart = 2)).size)
+        assertEquals(
+            3,
+            PartnerServersLogic
+                .carpoolFeedSettingsLines(
+                    on.copy(
+                        carpoolReceivedHintsTotal = 5,
+                        carpoolReceivedRejectedSinceStart = 2,
+                        carpoolReceivedUnknownOriginKeySinceStart = 1,
+                    ),
+                ).size,
+        )
+    }
+
+    @Test
+    fun everyPullErrorCodeHasAWordingThatNamesNoAddress() {
+        CarpoolPullErrorCode.entries.forEach { assertTrue(PartnerServersTexts.carpoolPullError(it).isNotBlank()) }
     }
 }

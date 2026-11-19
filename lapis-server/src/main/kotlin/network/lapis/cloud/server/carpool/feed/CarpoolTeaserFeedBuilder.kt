@@ -6,7 +6,10 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.plus
 import network.lapis.cloud.server.carpool.CarpoolFederationSettings
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
+import network.lapis.cloud.server.carpool.CarpoolOriginSignatures
+import network.lapis.cloud.server.carpool.CarpoolOwnSigningKey
 import network.lapis.cloud.server.carpool.CarpoolParticipations
+import network.lapis.cloud.server.carpool.CarpoolReceivedStore
 import network.lapis.cloud.server.carpool.CarpoolTeaserTombstonePolicy
 import network.lapis.cloud.server.carpool.CarpoolWithdrawalKey
 import network.lapis.cloud.server.carpool.CarpoolWithdrawalTarget
@@ -45,7 +48,7 @@ internal class BuiltCarpoolTeaserFeed(
 internal object CarpoolTeaserFeedBuilder {
     const val MAX_ITEMS = 1000
     const val SCAN_LIMIT = 5000
-    const val MAX_BYTES = 256 * 1024
+    const val MAX_BYTES = CarpoolTeaserFeedLimits.MAX_FEED_BYTES
 
     /**
      * The trips that are shareable with ANY partner right now (opted in, offer, in the window, seats free, author active), ignoring the partner
@@ -104,13 +107,15 @@ internal object CarpoolTeaserFeedBuilder {
         maxBytes: Int = MAX_BYTES,
         now: LocalDateTime = DbClock.nowLocalDateTime(),
         beforeWithdrawalRead: () -> Unit = {},
+        ownKey: CarpoolOwnSigningKey? = null,
     ): BuiltCarpoolTeaserFeed {
         val scanned = candidatesOf(today = today, scanLimit = scanLimit)
         var complete = scanned.size <= scanLimit
         val candidates = scanned.take(scanLimit)
         val confirmed = CarpoolParticipations.confirmedCounts(candidates.map { it.postingId })
         val blocked = PartnerBlocklistPattern.isBlocked(host = partner.host, patterns = PartnerServerStore.blockPatterns())
-        val allItems =
+        var unsigned = 0
+        val ownItems =
             candidates
                 .mapNotNull { c ->
                     val eligibility =
@@ -134,10 +139,61 @@ internal object CarpoolTeaserFeedBuilder {
                         toPlace = c.toPlace,
                         departureDate = c.departureDate,
                         teaserId = ids.of(c.postingId),
-                    )?.let {
-                        CarpoolTeaserFeedItem(originHost = originHost, hops = 0, maxHops = settings.hopLimit, teaser = it)
+                    )
+                }.sortedWith(compareBy({ it.departureDate }, { it.teaserId }))
+                .mapNotNull { teaser ->
+                    // A wave 4 reader refuses an item without the origin signature, so an item that cannot be signed is left out and the list is incomplete.
+                    val signature =
+                        ownKey?.let {
+                            runCatching {
+                                CarpoolOriginSignatures.sign(
+                                    teaser = teaser,
+                                    originHost = originHost,
+                                    maxHops = settings.hopLimit,
+                                    key = it,
+                                )
+                            }.getOrNull()
+                        }
+                    if (signature == null) {
+                        unsigned++
+                        null
+                    } else {
+                        CarpoolTeaserFeedItem(
+                            originHost = originHost,
+                            hops = 0,
+                            maxHops = settings.hopLimit,
+                            teaser = teaser,
+                            originSignature = signature,
+                        )
                     }
-                }.sortedWith(compareBy({ it.teaser.departureDate }, { it.teaser.teaserId }))
+                }
+        if (unsigned > 0) complete = false
+        // Wave 4: hints received from other partners that may travel on to THIS partner (own hints win). Read before the sweep and the tombstones.
+        val ownIds = ownItems.map { it.teaser.teaserId }.toSet()
+        val relayItems =
+            if (settings.enabled && partner.carpoolSharing && !blocked) {
+                CarpoolReceivedStore
+                    .republishableFor(
+                        partner = partner,
+                        ownHopLimit = settings.hopLimit,
+                        today = today,
+                        now = now,
+                        limit = maxItems + 1,
+                    ).filter { it.teaser.teaserId !in ownIds }
+                    .map {
+                        CarpoolTeaserFeedItem(
+                            originHost = it.originHost,
+                            hops = it.storedHops,
+                            maxHops = it.maxHops,
+                            teaser = it.teaser,
+                            via = it.via + originHost,
+                            originSignature = it.originSignature,
+                        )
+                    }
+            } else {
+                emptyList()
+            }
+        val allItems = ownItems + relayItems
         val withdrawn =
             withdrawalsFor(
                 partner = partner,

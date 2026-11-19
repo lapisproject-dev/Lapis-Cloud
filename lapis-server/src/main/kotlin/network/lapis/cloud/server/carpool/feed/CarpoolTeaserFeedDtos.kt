@@ -38,13 +38,20 @@ internal data class CarpoolTeaserWithdrawal(
     val withdrawnAt: LocalDate,
 )
 
-/** One hint with its travel budget: [hops] = 0 for a hint this server owns, [maxHops] = this server's own hop limit (1..3). */
+/**
+ * One hint with its travel budget. V1.9.314 (wave 4): [hops] = the number of relays BEFORE this feed (0 = the feed server is the origin), [maxHops] =
+ * the hop limit of the ORIGIN (1..3). [via] = the relay hosts from the origin on, INCLUDING the publishing server from hops >= 1 (so `via.size == hops`).
+ * [originSignature] = the signature of the origin over the content (see `CarpoolOriginSignatures`); `hops` and `via` are NOT signed. Both new fields
+ * come last and default, so a wave 2/3 reader still parses the item.
+ */
 @Serializable
 internal data class CarpoolTeaserFeedItem(
     val originHost: String,
     val hops: Int,
     val maxHops: Int,
     val teaser: CarpoolTeaser,
+    val via: List<String> = emptyList(),
+    val originSignature: String? = null,
 )
 
 internal val CARPOOL_TEASER_FEED_JSON =

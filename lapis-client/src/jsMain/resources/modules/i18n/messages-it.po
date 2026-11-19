@@ -32794,8 +32794,56 @@ msgid "Reichweite"
 msgstr "Raggio"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
-msgid "Freigegebene Partner können die Kurzhinweise abrufen. Lapis-Server rufen sie erst ab einer späteren Version selbst ab."
-msgstr "I partner autorizzati possono richiamare i brevi avvisi. I server Lapis li richiameranno da soli solo a partire da una versione successiva."
+msgid "Freigegebene Partner können die Kurzhinweise abrufen. Dieser Server ruft die Kurzhinweise freigegebener Partner selbst ab und gibt sie im Rahmen der Reichweite an freigegebene Partner weiter. Mitglieder sehen fremde Hinweise erst ab einer späteren Version."
+msgstr "I partner autorizzati possono richiamare i brevi avvisi. Questo server richiama da solo i brevi avvisi dei partner autorizzati e li inoltra ai partner autorizzati entro la portata. I membri vedranno gli avvisi esterni solo a partire da una versione successiva."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise zuletzt abgerufen: %1 (%2 übernommen, %3 abgelehnt)"
+msgstr "Brevi avvisi richiamati l'ultima volta: %1 (%2 accettati, %3 rifiutati)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Empfangene Kurzhinweise von diesem Partner: %1"
+msgstr "Brevi avvisi ricevuti da questo partner: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abruf der Kurzhinweise fehlgeschlagen: %1"
+msgstr "Richiamo dei brevi avvisi non riuscito: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Empfangene Kurzhinweise: %1"
+msgstr "Brevi avvisi ricevuti: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abgelehnte Kurzhinweise seit dem Start: %1"
+msgstr "Brevi avvisi rifiutati dall'avvio: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise ohne bekannten Schlüssel des Ursprungs seit dem Start: %1"
+msgstr "Brevi avvisi senza chiave nota della loro origine dall'avvio: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Partner gibt die Kurzhinweise nicht frei"
+msgstr "Il partner non rende disponibili i brevi avvisi"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Zu viele Abrufe, später erneut"
+msgstr "Troppe richieste, riprovare più tardi"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Antwort hat ein unbekanntes Format"
+msgstr "La risposta ha un formato sconosciuto"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Eigener Signaturschlüssel fehlt"
+msgstr "Manca la propria chiave di firma"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Die Antwort des Partners ist zu groß"
+msgstr "La risposta del partner è troppo grande"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Interner Fehler"
+msgstr "Errore interno"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
 msgid "Fahrten teilen"

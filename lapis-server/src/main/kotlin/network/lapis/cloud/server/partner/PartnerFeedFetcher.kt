@@ -2,7 +2,6 @@ package network.lapis.cloud.server.partner
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
-import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
@@ -11,7 +10,6 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentLength
 import io.ktor.http.contentType
-import io.ktor.network.tls.TLSException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withContext
@@ -23,9 +21,6 @@ import network.lapis.cloud.server.federation.readCappedFederationBodyOrNull
 import network.lapis.cloud.server.webhook.WebhookUrlCheck
 import network.lapis.cloud.server.webhook.checkWebhookUrl
 import network.lapis.cloud.shared.domain.PartnerFetchErrorCode
-import java.net.ConnectException
-import java.net.SocketTimeoutException
-import javax.net.ssl.SSLException
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -160,20 +155,7 @@ internal class PartnerFeedFetcher(
                 it.all { c -> c.code in 0x20..0x7E }
         }
 
-    private fun classify(e: Throwable): PartnerFetchErrorCode {
-        var cause: Throwable? = e
-        var depth = 0
-        while (cause != null && depth++ < 8) {
-            when (cause) {
-                is HttpRequestTimeoutException, is SocketTimeoutException -> return PartnerFetchErrorCode.TIMEOUT
-                is TLSException, is SSLException -> return PartnerFetchErrorCode.TLS
-                is ConnectException -> return PartnerFetchErrorCode.UNREACHABLE
-            }
-            if (cause.javaClass.simpleName == "ConnectTimeoutException") return PartnerFetchErrorCode.TIMEOUT
-            cause = cause.cause
-        }
-        return PartnerFetchErrorCode.UNREACHABLE
-    }
+    private fun classify(e: Throwable): PartnerFetchErrorCode = classifyFederationFetchFailure(e)
 
     private fun failed(
         host: String,

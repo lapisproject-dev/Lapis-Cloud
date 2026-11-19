@@ -229,3 +229,5 @@ no user info, port 443). `PartnerDisplayEpoch` is bumped by every change that al
 `IPartnerServerService` is the **last** `registerService`; its methods keep their order (Kilua numbers routes by declaration order). `PartnerServerTripwireTest` pins the ADMIN gate, the construction of the fetcher, and
 that the stored partner list is read back only by the two stores and the parser, that only `PartnerFeedPoller` references `PartnerRecursionRunner`, that only the two stores write the partner tables, that the feed builder and the embed
 feed never touch the cache, and that only `PublicPartnerEventHtml` carries the external-link `rel`. The three recursion methods are at the END of the interface.
+
+NOTE: V1.9.314: the signing key that a feed announces is also pinned for servers reached through the partner recursion (`partner_discovered_server.signing_*`, filled from the fetch the recursion makes anyway, no extra request). It only verifies the origin signature of carpool hints from hop 2 on; see xref:carpool-federation.adoc[carpool-federation.adoc].

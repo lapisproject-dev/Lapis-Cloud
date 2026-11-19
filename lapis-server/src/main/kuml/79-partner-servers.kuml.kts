@@ -120,6 +120,43 @@ classDiagram(name = "PartnerServers") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "carpool_feed_last_items" }
         }
+        // V1.9.314 (V162) W4: the pull state of this server towards the partner (last try, last success, back-off, ETag, counters). Written ONLY by PartnerServerStore.
+        attribute(name = "carpoolPullAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "carpool_pull_at" }
+        }
+        attribute(name = "carpoolPullOkAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "carpool_pull_ok_at" }
+        }
+        attribute(name = "carpoolPullNextAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "carpool_pull_next_at" }
+        }
+        attribute(name = "carpoolPullFailures", type = "Int") {
+            defaultValue = "0"
+            stereotype("Column") { "columnName" to "carpool_pull_failures" }
+        }
+        attribute(name = "carpoolPullStatus", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "carpool_pull_status"; "sqlType" to "VARCHAR(32)" }
+        }
+        attribute(name = "carpoolPullError", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "carpool_pull_error"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "carpoolPullEtag", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "carpool_pull_etag"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "carpoolPullLastAccepted", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "carpool_pull_last_accepted" }
+        }
+        attribute(name = "carpoolPullLastRejected", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "carpool_pull_last_rejected" }
+        }
     }
 
     classOf(name = "PartnerEvent") {
@@ -271,6 +308,19 @@ classDiagram(name = "PartnerServers") {
         attribute(name = "partnersHidden", type = "Boolean") {
             defaultValue = "FALSE"
             stereotype("Column") { "columnName" to "partners_hidden" }
+        }
+        // V1.9.314 (V162) W4: the signing key of the discovered server, pinned from the TLS feed fetch the recursion makes anyway (verifies the origin signature of hints from hop 2 on).
+        attribute(name = "signingKeyId", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "signing_key_id"; "sqlType" to "VARCHAR(512)" }
+        }
+        attribute(name = "signingPublicKeyPem", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "signing_public_key_pem"; "sqlType" to "VARCHAR(4096)" }
+        }
+        attribute(name = "signingKeyPinnedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "signing_key_pinned_at" }
         }
     }
 

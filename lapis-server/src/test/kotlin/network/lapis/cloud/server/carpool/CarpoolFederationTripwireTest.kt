@@ -5,6 +5,8 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.SourceScan
+import network.lapis.cloud.server.db.generated.CarpoolReceivedHintTable
+import network.lapis.cloud.server.db.generated.CarpoolReceivedTombstoneTable
 import java.io.File
 
 private val repoRoot: File =
@@ -18,7 +20,7 @@ private val repoRoot: File =
  *  (b) the public partner feed and the embed feeds never mention a carpool,
  *  (c) the consent and the switch are not part of the generic organisation settings wire types,
  *  (d) the ONE projection is called only by the consent UI of the client (and by the server in the opt-in check), never from a feed,
- *  (e) nothing in src/main builds an HTTP client for the carpool exchange (wave 1 transfers nothing).
+ *  (e) nothing in src/main builds an HTTP client for the carpool exchange (wave 1 transfers nothing; since V1.9.314 only the pull client does).
  * V1.9.312 (wave 2, the origin side of the teaser feed) adds:
  *  (f) the feed package makes no outgoing call and fetches no key (the key comes only from the pin),
  *  (g) the feed path is neither public nor embed and no public/embed file knows the feed,
@@ -108,14 +110,95 @@ class CarpoolFederationTripwireTest :
             serverUsers shouldBe setOf("CarpoolService.kt", "CarpoolTeaserFeedBuilder.kt")
         }
 
-        test("(e) nothing in src/main builds an HTTP client for the carpool exchange") {
+        test(
+            "(e) V1.9.314: only carpool/pull/CarpoolTeaserFeedClient.kt builds an HTTP client for the carpool exchange, with one fixed GET",
+        ) {
             val offenders =
                 main
+                    .filter { it.name != "CarpoolTeaserFeedClient.kt" }
                     .filter { file ->
                         val code = SourceScan.blank(file.readText())
                         Regex("""Carpool""").containsMatchIn(code) && Regex("""\bHttpClient\b|federationHttpClient""").containsMatchIn(code)
                     }.map { it.name }
             offenders.shouldBeEmpty()
+            val client = main.single { it.name == "CarpoolTeaserFeedClient.kt" }
+            client.path.replace('\\', '/').contains("/server/carpool/pull/") shouldBe true
+            val code = SourceScan.blank(client.readText())
+            Regex("""\bclient\s*\.\s*get\s*\(""").findAll(code).count() shouldBe 1
+            client.readText().contains("client.get(\"https://\$host\$CARPOOL_TEASER_FEED_PATH\")") shouldBe true
+            Regex("""\b(post|put|patch|delete|submitForm)\s*\(""").containsMatchIn(code) shouldBe false
+            code.contains("allowInsecureHttp = false") shouldBe true
+            code.contains("allowInsecureHttp = true") shouldBe false
+            Regex("""followRedirects\s*=\s*true""").containsMatchIn(code) shouldBe false
+            Regex("""http://""").containsMatchIn(client.readText()) shouldBe false
+        }
+
+        test("(e2) the carpool pull client is constructed with its production defaults only, everywhere in src/main") {
+            val offenders =
+                main.flatMap { file ->
+                    val code = SourceScan.blank(file.readText())
+                    Regex("""(?<!class )CarpoolTeaserFeedClient\(\s*[^)\s]""").findAll(code).map { "${file.name}: ${it.value}" }.toList()
+                }
+            offenders.shouldBeEmpty()
+        }
+
+        test("(q) the pull poller is constructed and started only in Application.kt") {
+            main
+                .filter { it.name != "CarpoolPullPoller.kt" }
+                .filter { Regex("""\bCarpoolPullPoller\s*\(""").containsMatchIn(SourceScan.blank(it.readText())) }
+                .map { it.name } shouldBe listOf("Application.kt")
+        }
+
+        test(
+            "(n) only CarpoolReceivedStore and the table files reference the received tables, and the columns are exactly the pinned set",
+        ) {
+            main
+                .filter { it.name !in setOf("CarpoolReceivedStore.kt", "CarpoolReceivedHintTable.kt", "CarpoolReceivedTombstoneTable.kt") }
+                .filter { Regex("""\bCarpoolReceived(Hint|Tombstone)Table\b""").containsMatchIn(SourceScan.blank(it.readText())) }
+                .map { it.name }
+                .shouldBeEmpty()
+            CarpoolReceivedHintTable.columns.map { it.name } shouldBe
+                listOf(
+                    "id",
+                    "teaser_id",
+                    "origin_host",
+                    "hops",
+                    "max_hops",
+                    "via_hosts",
+                    "source_partner_id",
+                    "departure_date",
+                    "from_postcode_area",
+                    "to_postcode_area",
+                    "origin_signature",
+                    "received_at",
+                    "last_seen_at",
+                    "expires_at",
+                )
+            CarpoolReceivedTombstoneTable.columns.map { it.name } shouldBe
+                listOf("id", "teaser_id", "origin_host", "reported_by_partner_id", "created_at", "expires_at")
+            val columns = (CarpoolReceivedHintTable.columns + CarpoolReceivedTombstoneTable.columns).map { it.name }
+            columns.filter { Regex("""name|mail|phone|member|posting|place|note""").containsMatchIn(it) }.shouldBeEmpty()
+        }
+
+        test(
+            "(o) the signed statement exists in exactly one place: the purpose literal is written once, only CarpoolOriginSignatures builds it",
+        ) {
+            val purpose = "lapis-carpool-teaser-origin/v1"
+            main.filter { purpose in it.readText() }.map { it.name } shouldBe listOf("CarpoolOriginSignatures.kt")
+            Regex(
+                Regex.escape("\"" + purpose + "\""),
+            ).findAll(main.single { it.name == "CarpoolOriginSignatures.kt" }.readText()).count() shouldBe
+                1
+            main
+                .filter { Regex("""\bstatementBytes\s*\(""").containsMatchIn(SourceScan.blank(it.readText())) }
+                .map { it.name }
+                .toSet() shouldBe setOf("CarpoolOriginSignatures.kt")
+        }
+
+        test("(a) the pull poller reads the instance switch only through CarpoolFederationStore.settings()") {
+            val poller = SourceScan.blank(main.single { it.name == "CarpoolPullPoller.kt" }.readText())
+            poller.contains("OrganizationSettingsTable") shouldBe false
+            poller.contains("CarpoolFederationStore.settings()") shouldBe true
         }
 
         val feedFiles = main.filter { "/server/carpool/feed/" in it.path.replace('\\', '/') }
@@ -123,7 +206,9 @@ class CarpoolFederationTripwireTest :
         test("(f) the feed package has no outgoing call and fetches no key") {
             (feedFiles.size >= 5) shouldBe true
             val forbidden =
-                Regex("""\bHttpClient\b|federationHttpClient|fetchActorDocument|PartnerFeedFetcher|resolveSenderKeyInfo|checkWebhookUrl""")
+                Regex(
+                    """\bHttpClient\b|federationHttpClient|fetchActorDocument|PartnerFeedFetcher|resolveSenderKeyInfo|checkWebhookUrl|carpool\.pull|CarpoolTeaserFeedClient""",
+                )
             feedFiles.filter { forbidden.containsMatchIn(SourceScan.blank(it.readText())) }.map { it.name }.shouldBeEmpty()
         }
 
@@ -168,7 +253,7 @@ class CarpoolFederationTripwireTest :
         }
 
         test(
-            "the feed item carries exactly originHost, hops, maxHops and teaser, the envelope exactly schemaVersion, kind, complete and items",
+            "the feed item carries exactly originHost, hops, maxHops, teaser, via and originSignature, the envelope exactly schemaVersion, kind, complete and items",
         ) {
             fun names(descriptor: kotlinx.serialization.descriptors.SerialDescriptor) =
                 (0 until descriptor.elementsCount).map { descriptor.getElementName(it) }
@@ -177,7 +262,7 @@ class CarpoolFederationTripwireTest :
                     .serializer()
                     .descriptor,
             ) shouldBe
-                listOf("originHost", "hops", "maxHops", "teaser")
+                listOf("originHost", "hops", "maxHops", "teaser", "via", "originSignature")
             names(
                 network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedV1
                     .serializer()
@@ -212,8 +297,9 @@ class CarpoolFederationTripwireTest :
             main
                 .filter { "/server/carpool/" in it.path.replace('\\', '/') }
                 .flatMap { f -> f.readLines().filter { Regex("""logger\.""").containsMatchIn(it) }.map { f.name to it } }
-                .filter { (_, line) -> Regex("""teaserId|ids\.of|\.of\(""").containsMatchIn(line) }
-                .shouldBeEmpty()
+                .filter { (_, line) ->
+                    Regex("""teaserId|ids\.of|\.of\(|signature|keyId|etag""", RegexOption.IGNORE_CASE).containsMatchIn(line)
+                }.shouldBeEmpty()
         }
 
         test("(m) CarpoolWithdrawalKey.configure is called only in Application.kt") {

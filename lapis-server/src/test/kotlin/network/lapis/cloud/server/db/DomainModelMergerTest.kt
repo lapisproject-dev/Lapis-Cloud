@@ -610,7 +610,8 @@ class DomainModelMergerTest :
             // 76-partg-report.kuml.kts (V1.9.310, R6b) adds FOUR real tables (the partg_reviewer_* tables), net +4 (272 -> 276).
             // 57-carpool.kuml.kts (V1.9.313, W3) adds the real table carpool_teaser_tombstone (276 -> 277); its PartnerServer stub is a duplicate name and adds none.
             // 74-tender.kuml.kts (V1.9.308) adds ONE real table (tender_payout); its LtrLedgerEntry stub dedups into the real entity, net +1 (271 -> 272).
-            val distinctTableNames = 277
+            // 57-carpool.kuml.kts (V1.9.314, W4) adds TWO real tables (carpool_received_hint, carpool_received_tombstone), 277 -> 279.
+            val distinctTableNames = 279
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -927,6 +928,8 @@ class DomainModelMergerTest :
                     // Welle V1.9.125 "Mitfahrten" -- ONE more real table in the same script (carpool_participation).
                     "CarpoolParticipationTable.kt",
                     "CarpoolTeaserTombstoneTable.kt",
+                    "CarpoolReceivedHintTable.kt",
+                    "CarpoolReceivedTombstoneTable.kt",
                     // Welle V1.9.139 "Mitfahr-Nachrichten" -- TWO more real tables in the same script.
                     "CarpoolMessageThreadTable.kt",
                     "CarpoolMessageTable.kt",

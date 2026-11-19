@@ -72,6 +72,7 @@ import network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedCounters
 import network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedLimits
 import network.lapis.cloud.server.carpool.feed.CarpoolTeaserIds
 import network.lapis.cloud.server.carpool.feed.registerCarpoolTeaserFeedRoutes
+import network.lapis.cloud.server.carpool.pull.CarpoolPullPoller
 import network.lapis.cloud.server.chapters.ChapterCrestStorage
 import network.lapis.cloud.server.clientversion.ClientShell
 import network.lapis.cloud.server.conference.CachedConferenceConnectedMembers
@@ -1903,6 +1904,10 @@ internal fun Application.module(
     val partnerFeedPoller = PartnerFeedPoller()
     partnerFeedPoller.start()
     monitor.subscribe(ApplicationStopping) { partnerFeedPoller.stop() }
+    // V1.9.314 W4: pulls the carpool teaser feed of the direct partners that share with this server (instance switch off = housekeeping only).
+    val carpoolPullPoller = CarpoolPullPoller()
+    carpoolPullPoller.start()
+    monitor.subscribe(ApplicationStopping) { carpoolPullPoller.stop() }
     val partnerFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val partnerProbeRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     // V1.9.312 Mitfahrzentrale-Foederation W2: the signed teaser feed. Per IP BEFORE the signature check, per partner and globally only AFTER the

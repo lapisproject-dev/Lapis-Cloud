@@ -5,6 +5,8 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
+import network.lapis.cloud.server.carpool.CarpoolPullCounters
+import network.lapis.cloud.server.carpool.CarpoolReceivedStore
 import network.lapis.cloud.server.carpool.CarpoolWithdrawalKey
 import network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedBuilder
 import network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedCounters
@@ -32,6 +34,8 @@ import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CarpoolFederationLimits
 import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
+import network.lapis.cloud.shared.domain.CarpoolPullErrorCode
+import network.lapis.cloud.shared.domain.CarpoolPullStatus
 import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerAuditKind
 import network.lapis.cloud.shared.domain.PartnerAuditSnapshot
@@ -385,6 +389,9 @@ internal class PartnerServerService(
                 feedRefusedSinceStart = c?.refusedTotal ?: 0,
                 feedRateLimitedSinceStart = c?.rateLimited ?: 0,
                 carpoolWithdrawalsActive = CarpoolFederationStore.countLiveWithdrawals(clock()),
+                carpoolReceivedHintsTotal = CarpoolReceivedStore.countTotal(clock()),
+                carpoolReceivedRejectedSinceStart = CarpoolPullCounters.rejected.get(),
+                carpoolReceivedUnknownOriginKeySinceStart = CarpoolPullCounters.unknownOriginKey.get(),
             )
         }
     }
@@ -414,6 +421,8 @@ internal class PartnerServerService(
                     clearOptIn = false,
                     requireServed = false,
                 )
+                // V1.9.314: and every hint received from a partner goes too (the forwardable ones reported as withdrawn), the ETags are forgotten.
+                CarpoolReceivedStore.withdrawAllForSwitchOff(now)
             }
             if (before.enabled != enabled) {
                 val kind = if (enabled) PartnerAuditKind.CARPOOL_EXCHANGE_ENABLED else PartnerAuditKind.CARPOOL_EXCHANGE_DISABLED
@@ -466,6 +475,16 @@ internal class PartnerServerService(
                     clearOptIn = false,
                     requireServed = false,
                 )
+                // V1.9.314: (a) what this partner may have received from the copies we hold is reported as withdrawn for THIS partner; (b) the copies
+                // we hold FROM this partner go (the forwardable ones reported as withdrawn for everybody) and its ETag is forgotten.
+                CarpoolFederationStore.withdrawRelayed(
+                    targets = CarpoolReceivedStore.scopedTombstoneTargetsFor(row),
+                    partnerId = uuid,
+                    now = now,
+                    requireServedSince = null,
+                )
+                CarpoolReceivedStore.dropFromSource(sourceId = uuid, now = now)
+                PartnerServerStore.clearCarpoolPullEtag(uuid)
             } else if (!row.carpoolSharing && enabled) {
                 CarpoolFederationStore.forgetPartnerTombstones(uuid)
             }
@@ -489,6 +508,7 @@ internal class PartnerServerService(
         val patterns = blocks.map { it.pattern }
         val counts = PartnerDiscoveryStore.countsByRoot()
         val withdrawals = CarpoolFederationStore.countLiveWithdrawalsByPartner(clock())
+        val received = CarpoolReceivedStore.countBySource()
         return PartnerServerOverviewDto(
             partners =
                 PartnerServerStore.listPartners().map {
@@ -499,6 +519,7 @@ internal class PartnerServerService(
                             discoveredServerCount = servers,
                             discoveredEventCount = events,
                             carpoolWithdrawalsScoped = withdrawals[it.id] ?: 0,
+                            carpoolReceivedHints = received[it.id] ?: 0,
                         )
                 },
             blocklist = blocks.map { it.toDto() },
@@ -554,4 +575,10 @@ private fun PartnerRow.toDto(blocked: Boolean) =
         carpoolFeedServedAt = carpoolFeedServedAt,
         carpoolFeedServedCount = carpoolFeedServedCount,
         carpoolFeedLastItemCount = carpoolFeedLastItems,
+        carpoolPullAt = carpoolPullAt,
+        carpoolPullStatus = carpoolPullStatus?.let { s -> CarpoolPullStatus.entries.firstOrNull { it.name == s } },
+        carpoolPullError = carpoolPullError?.let { c -> CarpoolPullErrorCode.entries.firstOrNull { it.name == c } },
+        carpoolPullFailures = carpoolPullFailures,
+        carpoolPullLastRejected = carpoolPullLastRejected,
+        carpoolPullLastAccepted = carpoolPullLastAccepted,
     )

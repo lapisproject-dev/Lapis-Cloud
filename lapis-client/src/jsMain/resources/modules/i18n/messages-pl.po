@@ -32770,8 +32770,56 @@ msgid "Reichweite"
 msgstr "Zasięg"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
-msgid "Freigegebene Partner können die Kurzhinweise abrufen. Lapis-Server rufen sie erst ab einer späteren Version selbst ab."
-msgstr "Zatwierdzeni partnerzy mogą pobierać krótkie powiadomienia. Serwery Lapis będą pobierać je same dopiero od późniejszej wersji."
+msgid "Freigegebene Partner können die Kurzhinweise abrufen. Dieser Server ruft die Kurzhinweise freigegebener Partner selbst ab und gibt sie im Rahmen der Reichweite an freigegebene Partner weiter. Mitglieder sehen fremde Hinweise erst ab einer späteren Version."
+msgstr "Zatwierdzeni partnerzy mogą pobierać krótkie powiadomienia. Ten serwer sam pobiera krótkie powiadomienia zatwierdzonych partnerów i przekazuje je zatwierdzonym partnerom w ramach zasięgu. Członkowie zobaczą obce powiadomienia dopiero od późniejszej wersji."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise zuletzt abgerufen: %1 (%2 übernommen, %3 abgelehnt)"
+msgstr "Krótkie powiadomienia pobrane ostatnio: %1 (%2 przyjętych, %3 odrzuconych)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Empfangene Kurzhinweise von diesem Partner: %1"
+msgstr "Krótkie powiadomienia otrzymane od tego partnera: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abruf der Kurzhinweise fehlgeschlagen: %1"
+msgstr "Pobieranie krótkich powiadomień nie powiodło się: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Empfangene Kurzhinweise: %1"
+msgstr "Otrzymane krótkie powiadomienia: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abgelehnte Kurzhinweise seit dem Start: %1"
+msgstr "Odrzucone krótkie powiadomienia od uruchomienia: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise ohne bekannten Schlüssel des Ursprungs seit dem Start: %1"
+msgstr "Krótkie powiadomienia bez znanego klucza ich źródła od uruchomienia: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Partner gibt die Kurzhinweise nicht frei"
+msgstr "Partner nie udostępnia krótkich powiadomień"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Zu viele Abrufe, später erneut"
+msgstr "Zbyt wiele żądań, spróbuj ponownie później"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Antwort hat ein unbekanntes Format"
+msgstr "Odpowiedź ma nieznany format"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Eigener Signaturschlüssel fehlt"
+msgstr "Brak własnego klucza podpisu"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Die Antwort des Partners ist zu groß"
+msgstr "Odpowiedź partnera jest zbyt duża"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Interner Fehler"
+msgstr "Błąd wewnętrzny"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
 msgid "Fahrten teilen"

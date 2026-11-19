@@ -40,6 +40,12 @@ internal data class CarpoolFederationSettings(
     val hopLimit: Int,
 )
 
+/** V1.9.314: a hint of another origin that this server relayed and now has to report as withdrawn. The pseudonymous id and the day, nothing else. */
+internal data class CarpoolRelayedTarget(
+    val teaserId: String,
+    val departureDate: LocalDate,
+)
+
 /**
  * One trip that is a CANDIDATE for the teaser feed of wave 2: opted in, an offer, inside the date window. Carries exactly the fields the one
  * eligibility rule and the one projection need -- no notes, no meeting note, no time, no author id.
@@ -228,24 +234,57 @@ internal object CarpoolFederationStore {
         }
         var written = 0
         relevant.forEach { t ->
-            val expires = CarpoolTeaserTombstonePolicy.expiresAt(createdAt = now, departure = t.departureDate)
-            if (expires <= now) return@forEach
-            val teaserId = ids.of(t.postingId)
-            // The key is derived, so an expired row that the retention sweep has not removed yet would swallow this withdrawal
-            // (ON CONFLICT DO NOTHING) although the feed no longer reports it: drop it first, a live row is left alone.
-            val tid = tombstoneId(teaserId = teaserId, partnerId = partnerId)
-            CarpoolTeaserTombstoneTable.deleteWhere {
-                (CarpoolTeaserTombstoneTable.id eq tid) and (CarpoolTeaserTombstoneTable.expiresAt lessEq now)
+            if (insertTombstone(teaserId = ids.of(t.postingId), departure = t.departureDate, partnerId = partnerId, now = now)) written++
+        }
+        return written
+    }
+
+    /**
+     * Writes ONE tombstone unless its life is already over. The key is derived, so an expired row that the retention sweep has not removed yet
+     * would swallow this withdrawal (ON CONFLICT DO NOTHING) although the feed no longer reports it: drop it first, a live row is left alone.
+     */
+    private fun insertTombstone(
+        teaserId: String,
+        departure: LocalDate,
+        partnerId: Uuid?,
+        now: LocalDateTime,
+    ): Boolean {
+        val expires = CarpoolTeaserTombstonePolicy.expiresAt(createdAt = now, departure = departure)
+        if (expires <= now) return false
+        val tid = tombstoneId(teaserId = teaserId, partnerId = partnerId)
+        CarpoolTeaserTombstoneTable.deleteWhere {
+            (CarpoolTeaserTombstoneTable.id eq tid) and (CarpoolTeaserTombstoneTable.expiresAt lessEq now)
+        }
+        val inserted =
+            CarpoolTeaserTombstoneTable.insertIgnore {
+                it[id] = tid
+                it[CarpoolTeaserTombstoneTable.teaserId] = teaserId
+                it[CarpoolTeaserTombstoneTable.partnerId] = partnerId
+                it[createdAt] = now
+                it[expiresAt] = expires
             }
-            val inserted =
-                CarpoolTeaserTombstoneTable.insertIgnore {
-                    it[id] = tid
-                    it[CarpoolTeaserTombstoneTable.teaserId] = teaserId
-                    it[CarpoolTeaserTombstoneTable.partnerId] = partnerId
-                    it[createdAt] = now
-                    it[expiresAt] = expires
-                }
-            if (inserted.insertedCount > 0) written++
+        return inserted.insertedCount > 0
+    }
+
+    /**
+     * V1.9.314 (wave 4): reports hints of ANOTHER origin that this server relayed as withdrawn (the pass-on of an erasure). [partnerId] `null` = for
+     * every partner. [requireServedSince] (when set) writes a tombstone only if some partner fetched this server's feed at or after that moment: nothing
+     * can have been handed on before. The caller holds the locks of the received rows. @return the number of tombstone rows written.
+     */
+    fun withdrawRelayed(
+        targets: Collection<CarpoolRelayedTarget>,
+        partnerId: Uuid?,
+        now: LocalDateTime,
+        requireServedSince: LocalDateTime?,
+    ): Int {
+        if (targets.isEmpty()) return 0
+        if (requireServedSince != null) {
+            val lastServed = latestFeedServedAt()
+            if (lastServed == null || lastServed < requireServedSince) return 0
+        }
+        var written = 0
+        targets.sortedBy { it.teaserId }.forEach { t ->
+            if (insertTombstone(teaserId = t.teaserId, departure = t.departureDate, partnerId = partnerId, now = now)) written++
         }
         return written
     }

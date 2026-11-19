@@ -19,6 +19,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
+import network.lapis.cloud.server.carpool.CarpoolOwnKeys
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.CarpoolPostingTable
@@ -63,6 +64,7 @@ abstract class CarpoolTeaserFeedScenarios(
         beforeSpec {
             db.activate()
             if (!db.isPostgres) DevSeedData.seedIfEmpty(force = true)
+            provisionOwnSigningKey()
         }
         installLaneGuards(db = db, checkDeadlocks = false)
         beforeTest {
@@ -161,7 +163,7 @@ abstract class CarpoolTeaserFeedScenarios(
                         .jsonArray
                         .single()
                         .jsonObject
-                item.keys shouldBe setOf("originHost", "hops", "maxHops", "teaser")
+                item.keys shouldBe setOf("originHost", "hops", "maxHops", "teaser", "via", "originSignature")
                 item.getValue("originHost").jsonPrimitive.content shouldBe OWN_HOST
                 item.getValue("hops").jsonPrimitive.int shouldBe 0
                 item.getValue("maxHops").jsonPrimitive.int shouldBe 2
@@ -460,6 +462,7 @@ abstract class CarpoolTeaserFeedScenarios(
                     partner = row,
                     settings = CarpoolFederationStore.settings(),
                     ids = TEST_IDS,
+                    ownKey = CarpoolOwnKeys.load(),
                     originHost = OWN_HOST,
                     today = today,
                     maxItems = maxItems,

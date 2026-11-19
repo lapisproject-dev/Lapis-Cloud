@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import io.kvision.i18n.gettext
 import network.lapis.cloud.shared.domain.CarpoolFederationLimits
 import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
+import network.lapis.cloud.shared.domain.CarpoolPullStatus
 import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerFetchStatus
 import network.lapis.cloud.shared.domain.PartnerRecursionSettingsDto
@@ -146,6 +147,24 @@ internal object PartnerServersLogic {
                     partner.carpoolFeedLastItemCount ?: 0,
                 )
             }
+        // V1.9.314 (wave 4): the pull of THIS server towards the partner and what it holds from the partner.
+        val pullAt = partner.carpoolPullAt
+        if (pullAt != null) {
+            val error = partner.carpoolPullError
+            lines +=
+                if (partner.carpoolPullStatus == CarpoolPullStatus.FAILED && error != null) {
+                    gettext("Abruf der Kurzhinweise fehlgeschlagen: %1", PartnerServersTexts.carpoolPullError(error))
+                } else {
+                    gettext(
+                        "Kurzhinweise zuletzt abgerufen: %1 (%2 übernommen, %3 abgelehnt)",
+                        formatSystemDateTime(pullAt),
+                        partner.carpoolPullLastAccepted ?: 0,
+                        partner.carpoolPullLastRejected ?: 0,
+                    )
+                }
+        }
+        val received = partner.carpoolReceivedHints
+        if (received > 0) lines += gettext("Empfangene Kurzhinweise von diesem Partner: %1", received)
         return lines
     }
 
@@ -159,6 +178,18 @@ internal object PartnerServersLogic {
         if (settings.feedRefusedSinceStart > 0) lines += gettext("Abgewiesene Abrufe seit dem Start: %1", settings.feedRefusedSinceStart)
         if (settings.feedRateLimitedSinceStart > 0) {
             lines += gettext("Gedrosselte Abrufe seit dem Start: %1", settings.feedRateLimitedSinceStart)
+        }
+        // V1.9.314 (wave 4)
+        if (settings.carpoolReceivedHintsTotal > 0) lines += gettext("Empfangene Kurzhinweise: %1", settings.carpoolReceivedHintsTotal)
+        if (settings.carpoolReceivedRejectedSinceStart > 0) {
+            lines += gettext("Abgelehnte Kurzhinweise seit dem Start: %1", settings.carpoolReceivedRejectedSinceStart)
+        }
+        if (settings.carpoolReceivedUnknownOriginKeySinceStart > 0) {
+            lines +=
+                gettext(
+                    "Kurzhinweise ohne bekannten Schlüssel des Ursprungs seit dem Start: %1",
+                    settings.carpoolReceivedUnknownOriginKeySinceStart,
+                )
         }
         return lines
     }

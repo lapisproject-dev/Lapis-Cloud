@@ -50,6 +50,10 @@ internal class CarpoolRetentionPoller(
         runCatching { transaction { CarpoolFederationStore.deleteExpiredTombstones(now) } }
             .onSuccess { deleted -> if (deleted > 0) logger.info { "carpool tombstones: deleted $deleted expired row(s)" } }
             .onFailure { e -> logger.error(e) { "carpool tombstone cleanup tick failed" } }
+        // V1.9.314: copies of hints received from partners and their local blocks go when they expire.
+        runCatching { transaction { CarpoolReceivedStore.deleteExpired(now) } }
+            .onSuccess { deleted -> if (deleted > 0) logger.info { "carpool received hints: deleted $deleted expired row(s)" } }
+            .onFailure { e -> logger.error(e) { "carpool received hint cleanup tick failed" } }
         runCatching {
             transaction {
                 CarpoolWithdrawals.sweepInactiveAuthors(now = now, ids = CarpoolWithdrawalKey.current(), limit = SWEEP_LIMIT)

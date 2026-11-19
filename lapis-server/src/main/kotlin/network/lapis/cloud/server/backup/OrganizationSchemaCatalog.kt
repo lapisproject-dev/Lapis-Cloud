@@ -114,6 +114,17 @@ object OrganizationSchemaCatalog {
                 "Welle V1.9.244. Cache of the public events of the partner servers, refilled hourly by the PartnerFeedPoller. " +
                 "Restoring stale foreign data would show outdated events; partner_server and partner_blocklist ARE backed up " +
                 "(see docs/features/partner-servers.adoc).",
+            "carpool_received_hint" to
+                "Welle V1.9.314. Cache of the carpool hints received from partner servers (date, two postcode " +
+                "digits, a foreign pseudonym; " +
+                "no member, no trip). A refilled cache of foreign data that lives until the day of departure; " +
+                "restoring stale hints would " +
+                "hand out hints whose owners may have withdrawn them meanwhile. After a restore the copies are pulled again " +
+                "(see docs/architecture/carpool-federation.adoc).",
+            "carpool_received_tombstone" to
+                "Welle V1.9.314. Local blocks against re-importing a withdrawn foreign hint (pseudonym and origin " +
+                "host, at most 14 days). " +
+                "Meaningless without the excluded carpool_received_hint rows and never to be brought back by a restore.",
             "activism_signal" to
                 "Welle V1.9.246. A bare \"I would take part\" of a member for an action: political and therefore Art. 9 DSGVO relevant, " +
                 "and only ever shown as an aggregate (>= 5). The ADMIN-only whole-organization backup must not become a way to read who " +

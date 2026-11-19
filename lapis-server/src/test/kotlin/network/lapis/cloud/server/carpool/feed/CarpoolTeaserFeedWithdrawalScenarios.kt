@@ -22,6 +22,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
+import network.lapis.cloud.server.carpool.CarpoolOwnKeys
 import network.lapis.cloud.server.carpool.CarpoolParticipations
 import network.lapis.cloud.server.carpool.CarpoolTeaserTombstonePolicy
 import network.lapis.cloud.server.carpool.CarpoolWithdrawalTarget
@@ -66,6 +67,7 @@ abstract class CarpoolTeaserFeedWithdrawalScenarios(
         beforeSpec {
             db.activate()
             if (!db.isPostgres) DevSeedData.seedIfEmpty(force = true)
+            provisionOwnSigningKey()
         }
         installLaneGuards(db = db, checkDeadlocks = false)
         beforeTest {
@@ -250,6 +252,7 @@ abstract class CarpoolTeaserFeedWithdrawalScenarios(
                         partner = row,
                         settings = settings,
                         ids = TEST_IDS,
+                        ownKey = CarpoolOwnKeys.load(),
                         originHost = OWN_HOST,
                         today = OrganizationTimeZone.today(),
                         now = now,
@@ -263,6 +266,7 @@ abstract class CarpoolTeaserFeedWithdrawalScenarios(
                         partner = row,
                         settings = settings,
                         ids = TEST_IDS,
+                        ownKey = CarpoolOwnKeys.load(),
                         originHost = OWN_HOST,
                         today = OrganizationTimeZone.today(),
                         maxBytes = 4_000,
@@ -420,6 +424,7 @@ abstract class CarpoolTeaserFeedWithdrawalScenarios(
                         partner = row,
                         settings = settings,
                         ids = TEST_IDS,
+                        ownKey = CarpoolOwnKeys.load(),
                         originHost = OWN_HOST,
                         today = OrganizationTimeZone.today(),
                         beforeWithdrawalRead = {
@@ -457,6 +462,7 @@ abstract class CarpoolTeaserFeedWithdrawalScenarios(
                         partner = row,
                         settings = settings,
                         ids = TEST_IDS,
+                        ownKey = CarpoolOwnKeys.load(),
                         originHost = OWN_HOST,
                         today = OrganizationTimeZone.today(),
                     )
@@ -487,6 +493,7 @@ abstract class CarpoolTeaserFeedWithdrawalScenarios(
                             partner = row,
                             settings = settings,
                             ids = TEST_IDS,
+                            ownKey = CarpoolOwnKeys.load(),
                             originHost = OWN_HOST,
                             today = OrganizationTimeZone.today(),
                             beforeWithdrawalRead = {

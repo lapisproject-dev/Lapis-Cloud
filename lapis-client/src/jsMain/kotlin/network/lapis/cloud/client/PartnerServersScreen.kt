@@ -92,9 +92,12 @@ private fun renderPartnerServers(
     renderBlocklist(panel, overview.blocklist, reload)
 }
 
-/** The honesty sentence of wave 2: a partner with its own client can now fetch; Lapis servers do not fetch themselves yet. Remove with wave 3. */
-private const val CARPOOL_EXCHANGE_NOT_YET_NOTE =
-    "Freigegebene Partner können die Kurzhinweise abrufen. " + "Lapis-Server rufen sie erst ab einer späteren Version selbst ab."
+/** The honesty sentence since wave 4: this server pulls and hands on (within the reach), members see foreign hints only from a later version. */
+private const val CARPOOL_EXCHANGE_PULL_NOTE =
+    "Freigegebene Partner können die Kurzhinweise abrufen. " +
+        "Dieser Server ruft die Kurzhinweise freigegebener Partner selbst ab " +
+        "und gibt sie im Rahmen der Reichweite an freigegebene Partner weiter. " +
+        "Mitglieder sehen fremde Hinweise erst ab einer späteren Version."
 
 private const val CARPOOL_EXCHANGE_WITHDRAWAL_NOTE =
     "Zurückgezogene Kurzhinweise werden Partnern bis zu 14 Tage lang als zurückgezogen gemeldet, nur mit pseudonymer Kennung und Tag."
@@ -151,7 +154,7 @@ private fun renderCarpoolExchange(
     toggle.onClick { save() }
     // `subscribe` would call back at once with the current value (a reload loop); the DOM change event fires only on a choice by the person.
     reach?.onEvent { change = { save() } }
-    box.div(tr(CARPOOL_EXCHANGE_NOT_YET_NOTE), className = "text-muted small") { setAttribute("role", "status") }
+    box.div(tr(CARPOOL_EXCHANGE_PULL_NOTE), className = "text-muted small") { setAttribute("role", "status") }
     box.div(tr(CARPOOL_EXCHANGE_WITHDRAWAL_NOTE), className = "text-muted small")
     PartnerServersLogic.carpoolFeedSettingsLines(settings).forEach { box.div(it, className = "text-muted small") }
 }

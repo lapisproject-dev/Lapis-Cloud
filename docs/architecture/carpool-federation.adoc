@@ -4,13 +4,12 @@
 :toc-placement: preamble
 :icons: font
 
-NOTE: **Implementation status.** **Waves 1 to 3 of 7 exist.** Wave 1 (V1.9.311, schema V159) is the foundation: switches and consent. Wave 2 (V1.9.312,
-schema V160) is the **origin side of the teaser feed**: an approved direct partner *can* fetch a signed snapshot of the hints of this server. Wave 3
-(V1.9.313, schema V161) is the **withdrawal on the origin side**: a hint that is taken back is reported to partners as *withdrawn* for a short time
-(tombstones). **There is still no pull client**: no Lapis server fetches the feed yet (that comes in a later wave), no hint is displayed anywhere and
-nothing is passed on. No HTTP client exists for this feature: the origin only *answers* requests. Waves 4 to 7 below are the plan, not the code. The
-sentence on the partner page says so to the administrator ("Freigegebene Partner können die Kurzhinweise abrufen. Lapis-Server rufen sie erst ab einer
-späteren Version selbst ab.") and stays until a pull client exists.
+NOTE: **Implementation status.** **Waves 1 to 4 of 7 exist.** Wave 1 (V1.9.311, schema V159) is the foundation: switches and consent. Wave 2 (V1.9.312,
+schema V160) is the **origin side of the teaser feed**. Wave 3 (V1.9.313, schema V161) is the **withdrawal on the origin side** (tombstones). Wave 4
+(V1.9.314, schema V162) adds the **pull client**: this server fetches the feed of its approved direct partners, checks the signature of the origin of every
+hint, stores the hints it accepts (pseudonymous, until the day of departure), hands them on within the reach, and passes withdrawals on. **Still nothing is
+displayed to members** (wave 5): a member never sees a foreign hint. The sentence on the partner page says so to the administrator. Waves 5 to 7 below are the plan,
+not the code. It was **never run against a real partner server** and has had no legal review.
 
 == Goal
 
@@ -150,7 +149,7 @@ server's own hop limit, 1 to 3) plus the four-field `CarpoolTeaser`. There is no
 body) changes only when the content changes. The list is sorted by `(departureDate, teaserId)` and is a **complete snapshot** of what is eligible for
 **this partner** now.
 
-**`complete`.** The snapshot is bounded: at most 1000 items, 5000 scanned trips and 256 KiB. When any bound cuts the list, `complete` is `false`. A
+**`complete`.** The snapshot is bounded: at most 1000 items, 5000 scanned trips and 256 KiB (1 MiB since wave 4: every item carries an origin signature, see below). When any bound cuts the list, `complete` is `false`. A
 consumer (a later wave, the pull client) may treat a hint that is *missing* from the list as withdrawn **only when `complete` is `true`**.
 
 === Authentication and answers
@@ -317,6 +316,87 @@ limits and the same audit apply; it never carries an item.
 * **Backup.** The table is part of the backup (it holds nothing personal and belongs to the correctness of a withdrawal). A restore of an older backup brings
   back consents that were withdrawn after it (an existing property of a restore, not new).
 
+== Wave 4: pull client, further hops, pass-on of withdrawals (schema V162)
+
+[source,kuml,name="carpool-pull-chain"]
+----
+sequenceDiagram(name = "Carpool exchange -- origin, relay A, relay B (wave 4)") {
+    val origin = lifeline(name = "Origin O")
+    val a = lifeline(name = "Relay A")
+    val b = lifeline(name = "Relay B")
+
+    message(from = a, to = origin, label = "GET feed, signed with A's key, ETag (every 30 min + jitter)")
+    message(from = origin, to = a, label = "items with originSignature, withdrawn, complete")
+    message(from = a, to = a, label = "reader, origin key from the pin, verify, store hops = wire hops + 1")
+    message(from = b, to = a, label = "GET feed (A republishes: hops + 1 <= min(maxHops, A's limit, 3))")
+    message(from = origin, to = a, label = "withdrawn: A deletes its copy, blocks re-import, reports it onwards")
+    message(from = a, to = b, label = "withdrawn: B does the same (chain, bounded by 24 h staleness)")
+}
+----
+
+[source,kuml,name="carpool-pull-model"]
+----
+classDiagram(name = "Carpool received hint (wave 4)") {
+    val item = classOf(name = "CarpoolTeaserFeedItem") {
+        attribute(name = "originHost", type = "String")
+        attribute(name = "hops", type = "Int")
+        attribute(name = "maxHops", type = "Int")
+        attribute(name = "via", type = "List<String>")
+        attribute(name = "originSignature", type = "String")
+    }
+    val hint = classOf(name = "CarpoolReceivedHint") {
+        attribute(name = "originHost", type = "String")
+        attribute(name = "teaserId", type = "String")
+        attribute(name = "hops", type = "Int")
+        attribute(name = "sourcePartnerId", type = "UUID")
+        attribute(name = "expiresAt", type = "LocalDateTime")
+    }
+    association(source = item, target = hint) {
+        source { multiplicity(spec = "1"); role = "wire" }
+        target { multiplicity(spec = "0..1"); role = "copy" }
+    }
+}
+----
+
+Code: package `network.lapis.cloud.server.carpool.pull` is the **only** place with an outgoing connection for this feature (`CarpoolTeaserFeedClient`, same SSRF
+chain as the partner feed: public addresses only, pinned address, no redirects, body and time bounded). `CarpoolTeaserFeedReader` is pure; `CarpoolReceivedStore`
+is the only reader and writer of the two new tables; `CarpoolPullPoller` is started only in `Application.kt`.
+
+=== Decisions
+
+* **Wire, additive, `schemaVersion` stays 1.** Two fields at the end of an item: `via` (relay hosts from the origin, including the publishing server from
+  `hops >= 1`, so `via.size == hops`) and `originSignature`. A wave 4 client **requires** the signature: items of a wave 2/3 origin are dropped and counted; its
+  `withdrawn` list is still applied. A partner must run V1.9.314.
+* **`hops`** on the wire = relays before this feed (0 = the feed server is the origin). Stored `hops = wire + 1`. Accepted when `wire + 1 <= min(maxHops, 3)`
+  (the own limit does not limit what is *stored*); handed on to a partner when `stored + 1 <= min(maxHops, own limit, 3)`, never back to the source, the origin
+  or a host on the path. Example `maxHops = 2`: O to A (A stores 1), A to B (B stores 2), B hands on nothing.
+* **Origin signature.** Signed UTF-8 bytes, no trailing line feed: `lapis-carpool-teaser-origin/v1` LF `teaserId` LF `originHost` LF `departureDate` LF `fromArea` LF
+  `toArea` LF `maxHops`. Every field is validated first (64 hex id, canonical host, two digits, 1 to 3), so no field can contain a line feed. RSA
+  `SHA256withRSA` (PKCS#1 v1.5, deterministic, so the ETag stays stable), Base64. The purpose prefix separates it from HTTP signing strings, which start with
+  `(request-target): `. Applies to every item, also hop 0.
+* **Key of the origin without any new request:** the pinned key of a direct partner with that host, else the key pinned from the partner recursion (V162 columns
+  `partner_discovered_server.signing_*`, filled from the TLS fetch the recursion makes anyway). **Hop 2 and further therefore need the partner recursion**
+  to have reached the origin; otherwise the hint is dropped and counted (`unknownOriginKey`).
+* **Dedup key is `(origin_host, teaser_id)`**, shortest path wins; a hostile origin that reuses a foreign pseudonym under its own host displaces nothing.
+* **Withdrawals** only act on copies from that source or whose origin is that source. Effect: the copy goes, a local block (`carpool_received_tombstone`) is
+  written, and when the copy could have travelled on and a partner fetched our feed since, a global tombstone is written (the existing W3 table) so the chain continues. A re-import over another path stays blocked
+  until the block expires (at most 14 days); the reporting source or the origin itself (hop 0) may bring it back (renewed consent).
+* **`complete = true`** deletes the copies of that source that are neither listed nor withdrawn, **without** a block (missing is not withdrawn).
+* **Switching off:** instance off, sharing off for a partner, removing a partner, a block pattern, and a source that was not pulled successfully for 24 hours
+  (`STALE_AFTER`) delete the copies, report the forwardable ones as withdrawn, and forget the ETags. A restore brings ETags back but not the copies (the tables
+  are not backed up): a `304` with no copies although the last answer held some clears the ETag.
+* **Limits:** 1000 copies per source, 5000 in total, a feed of at most 1000 items and 1 MiB (shared constant for builder and client), pull interval 30 minutes plus
+  up to 10 minutes of jitter (the origin allows 12 per hour and partner), back-off 15 minutes doubling to 24 hours, a `429` waits at least an hour.
+* **Locking:** the source row of `partner_server` first, then the received rows, then tombstone inserts; never `organization_settings`, never `carpool_posting`.
+  The instance-wide switch-off takes all partner rows first. A rare deadlock between an apply and another switch-off is detected by the database and retried at the next tick.
+
+=== What wave 4 deliberately does not do
+
+* **No display and no member interface**: a foreign hint is never shown (wave 5). Only the administrator sees counters.
+* `hops` and `via` are **not signed** (they change at every relay): a dishonest relay can shorten the path or the hop count. Content and `maxHops` are protected.
+  A dishonest direct partner could spread a hint outside this protocol anyway.
+* **No legal review** (Art. 26 GDPR open, see below); default off; never run against a real partner server.
+
 == What wave 3 deliberately does not do
 
 * **No pull client**, no display, no pass-on: a partner with its own client can read `withdrawn`, a Lapis server does not yet. The hop count is still 0.
@@ -358,7 +438,7 @@ partner poll (V160). No pull client yet.
 |3 (V1.9.313, **built**) |Withdrawal, **origin side only**: a trip that is no longer eligible is missing from the next snapshot; additionally a short-lived
 **tombstone** per `teaserId` (V161, at most 14 days), so a partner that cached a hint can remove it before the next full snapshot. The pull client that reads it is not part of
 this wave; it comes in a later wave.
-|4 |Further hops: a server passes a hint on only to its own consenting partners and only while `hops + 1` stays within `min(maxHops, own limit)`. Deletion of
+|4 (V1.9.314, **built**) |Pull client, further hops and pass-on of withdrawals (see the section above). Planned text: Further hops: a server passes a hint on only to its own consenting partners and only while `hops + 1` stays within `min(maxHops, own limit)`. Deletion of
 a trip or of a member (GDPR erasure) is passed on along the same path. Origin from hop 2 on is proven by a **signature of the origin** over hint and
 envelope; a hop-2 server checks it against the key of the origin host. Without it an origin statement that was passed on could be forged.
 |5 |Display: the hints appear in the carpool page of the partner's members, labelled with the origin, as data and never as markup (the same `untrusted*`
@@ -386,7 +466,7 @@ rule as partner events). The owner sees which direct partners and which reach ap
 
 * Resolved in wave 2: the HMAC key of the `teaserId` is derived from `LAPIS_SECRET_ENCRYPTION_KEY` (no new secret).
 * Joint controllership (Art. 26 GDPR) is still not reviewed, and with wave 2 a real transfer is technically possible (default off).
-* Whether the pull client (which reads `withdrawn`) is wave 4 or a wave of its own is not decided; wave 4 ("further hops") presupposes it.
+* Resolved in wave 4: the pull client, further hops and the pass-on of withdrawals are one wave. Open: a signature chain per hop (so that `hops` and `via` are protected) would be a wave of its own.
 * Replay protection is per JVM; a multi-instance deployment would need a shared store.
 * Whether the owner is told **which** organisations receive the hint (proposed for wave 5: list of the approved direct partners and the reach).
 * Whether the board, not only the administrator, may switch the exchange (it would change the whole partner administration, a separate decision).

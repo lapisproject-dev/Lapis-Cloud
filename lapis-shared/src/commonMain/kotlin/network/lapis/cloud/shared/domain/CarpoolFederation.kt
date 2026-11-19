@@ -140,7 +140,40 @@ data class CarpoolFederationSettingsDto(
     val feedRateLimitedSinceStart: Long = 0,
     /** V1.9.313: withdrawals still live (reported to partners for up to 14 days): pseudonymous id and day only. */
     val carpoolWithdrawalsActive: Int = 0,
+    /** V1.9.314 (wave 4): hints received from partners that are cached right now (pseudonymous, not shown to members yet). */
+    val carpoolReceivedHintsTotal: Int = 0,
+    /** V1.9.314: received hints this server rejected since it started (bad signature, bad format, over a limit; all causes together). */
+    val carpoolReceivedRejectedSinceStart: Long = 0,
+    /** V1.9.314: received hints dropped because no key of their origin is known (hop 2 and further need the partner recursion). */
+    val carpoolReceivedUnknownOriginKeySinceStart: Long = 0,
 )
+
+/** V1.9.314 (wave 4): why the last pull of the carpool teaser feed of a partner failed. Codes only; never a body, never an address. */
+@Serializable
+enum class CarpoolPullErrorCode {
+    NOT_PUBLIC_ADDRESS,
+    REDIRECT,
+    HTTP_STATUS,
+    UNAVAILABLE,
+    RATE_LIMITED,
+    WRONG_CONTENT_TYPE,
+    TOO_LARGE,
+    TIMEOUT,
+    TLS,
+    UNREACHABLE,
+    MALFORMED,
+    SCHEMA,
+    NO_OWN_KEY,
+    INTERNAL,
+}
+
+/** V1.9.314 (wave 4): the outcome of the last pull of a partner. */
+@Serializable
+enum class CarpoolPullStatus {
+    OK,
+    NOT_MODIFIED,
+    FAILED,
+}
 
 /** What a member needs to know: is the exchange switched on at all (the owner dialog shows the consent box only then). */
 @Serializable

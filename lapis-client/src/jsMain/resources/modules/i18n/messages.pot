@@ -32229,7 +32229,55 @@ msgid "Reichweite"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
-msgid "Freigegebene Partner können die Kurzhinweise abrufen. Lapis-Server rufen sie erst ab einer späteren Version selbst ab."
+msgid "Freigegebene Partner können die Kurzhinweise abrufen. Dieser Server ruft die Kurzhinweise freigegebener Partner selbst ab und gibt sie im Rahmen der Reichweite an freigegebene Partner weiter. Mitglieder sehen fremde Hinweise erst ab einer späteren Version."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise zuletzt abgerufen: %1 (%2 übernommen, %3 abgelehnt)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Empfangene Kurzhinweise von diesem Partner: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abruf der Kurzhinweise fehlgeschlagen: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Empfangene Kurzhinweise: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abgelehnte Kurzhinweise seit dem Start: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise ohne bekannten Schlüssel des Ursprungs seit dem Start: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Partner gibt die Kurzhinweise nicht frei"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Zu viele Abrufe, später erneut"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Antwort hat ein unbekanntes Format"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Eigener Signaturschlüssel fehlt"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Die Antwort des Partners ist zu groß"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Interner Fehler"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1

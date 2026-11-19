@@ -32809,8 +32809,56 @@ msgid "Reichweite"
 msgstr "Portée"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
-msgid "Freigegebene Partner können die Kurzhinweise abrufen. Lapis-Server rufen sie erst ab einer späteren Version selbst ab."
-msgstr "Les partenaires autorisés peuvent récupérer les avis courts. Les serveurs Lapis ne les récupéreront eux-mêmes qu'à partir d'une version ultérieure."
+msgid "Freigegebene Partner können die Kurzhinweise abrufen. Dieser Server ruft die Kurzhinweise freigegebener Partner selbst ab und gibt sie im Rahmen der Reichweite an freigegebene Partner weiter. Mitglieder sehen fremde Hinweise erst ab einer späteren Version."
+msgstr "Les partenaires autorisés peuvent récupérer les avis courts. Ce serveur récupère lui-même les avis courts des partenaires autorisés et les transmet aux partenaires autorisés dans la limite de la portée. Les membres ne verront les avis étrangers qu'à partir d'une version ultérieure."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise zuletzt abgerufen: %1 (%2 übernommen, %3 abgelehnt)"
+msgstr "Avis courts récupérés en dernier : %1 (%2 acceptés, %3 refusés)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Empfangene Kurzhinweise von diesem Partner: %1"
+msgstr "Avis courts reçus de ce partenaire : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abruf der Kurzhinweise fehlgeschlagen: %1"
+msgstr "Échec de la récupération des avis courts : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Empfangene Kurzhinweise: %1"
+msgstr "Avis courts reçus : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abgelehnte Kurzhinweise seit dem Start: %1"
+msgstr "Avis courts refusés depuis le démarrage : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise ohne bekannten Schlüssel des Ursprungs seit dem Start: %1"
+msgstr "Avis courts sans clé connue de leur origine depuis le démarrage : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Partner gibt die Kurzhinweise nicht frei"
+msgstr "Le partenaire ne met pas les avis courts à disposition"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Zu viele Abrufe, später erneut"
+msgstr "Trop de requêtes, réessayer plus tard"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Antwort hat ein unbekanntes Format"
+msgstr "La réponse a un format inconnu"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Eigener Signaturschlüssel fehlt"
+msgstr "La clé de signature propre est absente"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Die Antwort des Partners ist zu groß"
+msgstr "La réponse du partenaire est trop volumineuse"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Interner Fehler"
+msgstr "Erreur interne"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
 msgid "Fahrten teilen"

@@ -32868,8 +32868,56 @@ msgid "Reichweite"
 msgstr "Bereik"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
-msgid "Freigegebene Partner können die Kurzhinweise abrufen. Lapis-Server rufen sie erst ab einer späteren Version selbst ab."
-msgstr "Goedgekeurde partners kunnen de korte meldingen ophalen. Lapis-servers halen ze pas vanaf een latere versie zelf op."
+msgid "Freigegebene Partner können die Kurzhinweise abrufen. Dieser Server ruft die Kurzhinweise freigegebener Partner selbst ab und gibt sie im Rahmen der Reichweite an freigegebene Partner weiter. Mitglieder sehen fremde Hinweise erst ab einer späteren Version."
+msgstr "Goedgekeurde partners kunnen de korte meldingen ophalen. Deze server haalt de korte meldingen van goedgekeurde partners zelf op en geeft ze binnen het bereik door aan goedgekeurde partners. Leden zien externe meldingen pas vanaf een latere versie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise zuletzt abgerufen: %1 (%2 übernommen, %3 abgelehnt)"
+msgstr "Korte meldingen laatst opgehaald: %1 (%2 overgenomen, %3 afgewezen)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Empfangene Kurzhinweise von diesem Partner: %1"
+msgstr "Korte meldingen ontvangen van deze partner: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abruf der Kurzhinweise fehlgeschlagen: %1"
+msgstr "Ophalen van de korte meldingen mislukt: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Empfangene Kurzhinweise: %1"
+msgstr "Ontvangen korte meldingen: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abgelehnte Kurzhinweise seit dem Start: %1"
+msgstr "Afgewezen korte meldingen sinds de start: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise ohne bekannten Schlüssel des Ursprungs seit dem Start: %1"
+msgstr "Korte meldingen zonder bekende sleutel van hun oorsprong sinds de start: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Partner gibt die Kurzhinweise nicht frei"
+msgstr "De partner geeft de korte meldingen niet vrij"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Zu viele Abrufe, später erneut"
+msgstr "Te veel verzoeken, probeer het later opnieuw"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Antwort hat ein unbekanntes Format"
+msgstr "Het antwoord heeft een onbekend formaat"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Eigener Signaturschlüssel fehlt"
+msgstr "Eigen ondertekeningssleutel ontbreekt"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Die Antwort des Partners ist zu groß"
+msgstr "Het antwoord van de partner is te groot"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersTexts.kt:1
+msgid "Interner Fehler"
+msgstr "Interne fout"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
 msgid "Fahrten teilen"

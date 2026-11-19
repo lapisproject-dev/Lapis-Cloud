@@ -4,6 +4,8 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toKotlinLocalDateTime
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
+import network.lapis.cloud.server.carpool.CarpoolReceivedStore
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PartnerBlocklistTable
 import network.lapis.cloud.server.db.generated.PartnerEventTable
@@ -23,6 +25,7 @@ import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.plus
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -57,6 +60,16 @@ internal data class PartnerRow(
     val carpoolFeedServedAt: LocalDateTime? = null,
     val carpoolFeedServedCount: Long = 0,
     val carpoolFeedLastItems: Int? = null,
+    /** V1.9.314 (wave 4): the pull state of THIS server towards the partner. */
+    val carpoolPullAt: LocalDateTime? = null,
+    val carpoolPullOkAt: LocalDateTime? = null,
+    val carpoolPullNextAt: LocalDateTime? = null,
+    val carpoolPullFailures: Int = 0,
+    val carpoolPullStatus: String? = null,
+    val carpoolPullError: String? = null,
+    val carpoolPullEtag: String? = null,
+    val carpoolPullLastAccepted: Int? = null,
+    val carpoolPullLastRejected: Int? = null,
 )
 
 internal data class BlockRow(
@@ -90,6 +103,7 @@ internal object PartnerServerStore {
     private const val BACKOFF_MAX_EXPONENT = 5
     private const val SLOT_SPREAD_SECONDS = 3600L
     const val DUE_LIMIT = 50
+    private const val BLOCKED_PULL_DELAY_HOURS = 24L
 
     // ── own identity and the list switch ────────────────────────────────────────
 
@@ -144,6 +158,15 @@ internal object PartnerServerStore {
             carpoolFeedServedAt = this[PartnerServerTable.carpoolFeedServedAt],
             carpoolFeedServedCount = this[PartnerServerTable.carpoolFeedServedCount],
             carpoolFeedLastItems = this[PartnerServerTable.carpoolFeedLastItems],
+            carpoolPullAt = this[PartnerServerTable.carpoolPullAt],
+            carpoolPullOkAt = this[PartnerServerTable.carpoolPullOkAt],
+            carpoolPullNextAt = this[PartnerServerTable.carpoolPullNextAt],
+            carpoolPullFailures = this[PartnerServerTable.carpoolPullFailures],
+            carpoolPullStatus = this[PartnerServerTable.carpoolPullStatus],
+            carpoolPullError = this[PartnerServerTable.carpoolPullError],
+            carpoolPullEtag = this[PartnerServerTable.carpoolPullEtag],
+            carpoolPullLastAccepted = this[PartnerServerTable.carpoolPullLastAccepted],
+            carpoolPullLastRejected = this[PartnerServerTable.carpoolPullLastRejected],
         )
 
     /** Ordered by host IN KOTLIN: the database collation decides how `-` and `.` sort (PostgreSQL ignores punctuation at first level, H2 does not). */
@@ -172,6 +195,14 @@ internal object PartnerServerStore {
             .forUpdate()
             .singleOrNull()
             ?.toPartnerRow()
+
+    /** Locks EVERY partner row (ascending id). Used by the instance-wide carpool switch-off so it serialises with every pull that is being applied. */
+    internal fun lockAllPartners(): List<PartnerRow> =
+        PartnerServerTable
+            .selectAll()
+            .orderBy(PartnerServerTable.id to SortOrder.ASC)
+            .forUpdate()
+            .map { it.toPartnerRow() }
 
     fun findPartnerByHost(host: String): PartnerRow? =
         PartnerServerTable
@@ -402,6 +433,102 @@ internal object PartnerServerStore {
         }
     }
 
+    // ── V1.9.314 (wave 4): the pull state of the carpool teaser feed of a DIRECT partner ──────────────────────────
+
+    /**
+     * The partners whose carpool teaser feed is due: active, carpool sharing on, a signing key pinned, not blocked, and `carpool_pull_next_at` empty or
+     * reached. Blocked hosts are pushed a day out instead of being selected (no DNS, no network for them).
+     */
+    fun dueForCarpoolPull(
+        now: LocalDateTime,
+        limit: Int,
+    ): List<PartnerRow> {
+        val patterns = blockPatterns()
+        val candidates =
+            PartnerServerTable
+                .selectAll()
+                .where {
+                    (PartnerServerTable.active eq true) and (PartnerServerTable.carpoolSharing eq true) and
+                        PartnerServerTable.signingPublicKeyPem.isNotNull() and
+                        (PartnerServerTable.carpoolPullNextAt.isNull() or (PartnerServerTable.carpoolPullNextAt lessEq now))
+                }.orderBy(PartnerServerTable.carpoolPullNextAt to SortOrder.ASC, PartnerServerTable.host to SortOrder.ASC)
+                .limit(limit)
+                .map { it.toPartnerRow() }
+        val (blocked, free) = candidates.partition { PartnerBlocklistPattern.isBlocked(host = it.host, patterns = patterns) }
+        blocked.forEach { row ->
+            PartnerServerTable.update({ PartnerServerTable.id eq row.id }) {
+                it[carpoolPullNextAt] =
+                    now.plusHoursKt(BLOCKED_PULL_DELAY_HOURS)
+            }
+        }
+        return free
+    }
+
+    /** A pull that was answered (200 or 304): resets the failure count, remembers the ETag (a `200` only) and the next try. */
+    fun recordCarpoolPullSuccess(
+        id: Uuid,
+        status: String,
+        accepted: Int?,
+        rejected: Int?,
+        etag: String?,
+        keepEtag: Boolean,
+        next: LocalDateTime,
+        now: LocalDateTime,
+    ) {
+        PartnerServerTable.update({ PartnerServerTable.id eq id }) {
+            it[carpoolPullAt] = now
+            it[carpoolPullOkAt] = now
+            it[carpoolPullNextAt] = next
+            it[carpoolPullFailures] = 0
+            it[carpoolPullStatus] = status
+            it[carpoolPullError] = null
+            if (!keepEtag) it[carpoolPullEtag] = etag
+            if (accepted != null) it[carpoolPullLastAccepted] = accepted
+            if (rejected != null) it[carpoolPullLastRejected] = rejected
+        }
+    }
+
+    /** A pull that failed. The last success stays (it decides when the copies of this partner are too old). */
+    fun recordCarpoolPullFailure(
+        id: Uuid,
+        error: String,
+        next: LocalDateTime,
+        now: LocalDateTime,
+    ) {
+        val failures = (findPartner(id)?.carpoolPullFailures ?: return) + 1
+        PartnerServerTable.update({ PartnerServerTable.id eq id }) {
+            it[carpoolPullAt] = now
+            it[carpoolPullNextAt] = next
+            it[carpoolPullFailures] = failures
+            it[carpoolPullStatus] = "FAILED"
+            it[carpoolPullError] = error
+        }
+    }
+
+    /** Forgets the ETag of one partner (or of every partner when [id] is `null`): the next pull is unconditional. */
+    fun clearCarpoolPullEtag(id: Uuid?) {
+        if (id == null) {
+            PartnerServerTable.update({ PartnerServerTable.carpoolPullEtag.isNotNull() }) { it[carpoolPullEtag] = null }
+        } else {
+            PartnerServerTable.update({ PartnerServerTable.id eq id }) { it[carpoolPullEtag] = null }
+        }
+    }
+
+    /**
+     * The pinned signing key of the DIRECT partner with exactly this [host], or `null`: the partner must be active and not blocked, a key must be
+     * pinned, and the key id must lie on the partner's own host. Verifies origin signatures of hints; no network.
+     */
+    fun pinnedSigningKeyFor(host: String): String? {
+        val row = findPartnerByHost(host) ?: return null
+        val pem = row.signingPublicKeyPem ?: return null
+        val keyId = row.signingKeyId ?: return null
+        if (!row.active || PartnerBlocklistPattern.isBlocked(host = host, patterns = blockPatterns())) return null
+        return if (keyIdHost(keyId) == host) pem else null
+    }
+
+    internal fun keyIdHost(keyId: String): String? =
+        runCatching { java.net.URI(keyId).host }.getOrNull()?.trimEnd('.')?.let { PartnerHost.normalizeHostOnly(it) }
+
     /** `304 Not Modified`: the cache is still right, so it lives on. */
     fun applyNotModified(
         id: Uuid,
@@ -465,11 +592,14 @@ internal object PartnerServerStore {
     }
 
     fun remove(id: Uuid): PartnerRow? {
-        val row = findPartner(id) ?: return null
+        val row = lockPartner(id) ?: return null
         // The events of the whole sub-tree and the discovered rows follow by ON DELETE CASCADE (V132).
         PartnerEventTable.deleteWhere { PartnerEventTable.partnerServerId eq id }
         // V1.9.313: the tombstones scoped to this partner go explicitly (independent of the foreign key's ON DELETE rule).
         CarpoolFederationStore.deletePartnerTombstones(id)
+        // V1.9.314: the hints received from this partner go too (reported as withdrawn when they could have been handed on), explicitly and BEFORE the
+        // row, independent of the foreign key's ON DELETE rule. The partner row is already locked by the caller's read order (partner first).
+        CarpoolReceivedStore.dropFromSource(sourceId = id, now = DbClock.nowLocalDateTime())
         PartnerServerTable.deleteWhere { PartnerServerTable.id eq id }
         return row
     }
@@ -518,6 +648,8 @@ internal object PartnerServerStore {
                 it[PartnerServerTable.etag] = null
             }
         }
+        // V1.9.314: received carpool hints whose source or origin matches the new pattern go (partner rows are already locked above).
+        CarpoolReceivedStore.dropMatchingBlock(patterns = listOf(pattern), now = DbClock.nowLocalDateTime())
         // Lock order: partner_server (above), then partner_discovered_server and partner_event (here).
         PartnerDiscoveryStore.purgeForBlock(pattern)
         return block to (existing == null && raced == null)

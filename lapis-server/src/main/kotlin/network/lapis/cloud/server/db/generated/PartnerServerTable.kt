@@ -32,6 +32,15 @@ public object PartnerServerTable : Table("partner_server") {
     public val carpoolFeedServedAt: Column<LocalDateTime?> = datetime("carpool_feed_served_at").nullable()
     public val carpoolFeedServedCount: Column<Long> = long("carpool_feed_served_count").default(0L)
     public val carpoolFeedLastItems: Column<Int?> = integer("carpool_feed_last_items").nullable()
+    public val carpoolPullAt: Column<LocalDateTime?> = datetime("carpool_pull_at").nullable()
+    public val carpoolPullOkAt: Column<LocalDateTime?> = datetime("carpool_pull_ok_at").nullable()
+    public val carpoolPullNextAt: Column<LocalDateTime?> = datetime("carpool_pull_next_at").nullable()
+    public val carpoolPullFailures: Column<Int> = integer("carpool_pull_failures").default(0)
+    public val carpoolPullStatus: Column<String?> = varchar("carpool_pull_status", 32).nullable()
+    public val carpoolPullError: Column<String?> = varchar("carpool_pull_error", 64).nullable()
+    public val carpoolPullEtag: Column<String?> = varchar("carpool_pull_etag", 200).nullable()
+    public val carpoolPullLastAccepted: Column<Int?> = integer("carpool_pull_last_accepted").nullable()
+    public val carpoolPullLastRejected: Column<Int?> = integer("carpool_pull_last_rejected").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

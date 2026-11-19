@@ -6,6 +6,18 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+Wave V1.9.314 "Mitfahrzentrale-Föderation, Pull-Client" (carpool exchange between partner servers, wave 4 of 7: pull client, further hops, pass-on of withdrawals), schema `V161` -> `V162` (one additive migration). Not released yet: no version bump.
+
+**Behaviour first:**
+
+- A server with the exchange switched on now **fetches** the carpool teaser feed of every approved direct partner (signed request, about every 30 minutes, back-off on failure), checks the **signature of the origin** of each hint, stores accepted hints (date, two postcode digits, foreign pseudonym; until the day of departure) and hands them on to other approved partners within the reach (hop limit up to 3). Withdrawals (and `complete` lists) remove copies and are passed on along the same path. Switching off, removing or blocking a partner, and a source not fetched for 24 hours drop the copies.
+- Wire: items gain `via` and `originSignature` (additive); a wave 4 client requires the signature, so a partner must run V1.9.314. The feed byte cap is now 1 MiB (shared by builder and client).
+- Administrator page: last pull, accepted/rejected counts, held hints per partner and totals.
+- A deactivated partner is no source for pass-on: its copies are not handed on to other partners (they age out after 24 hours without a successful pull). `V162` also clears the stored ETag of already discovered servers so that their signing key is pinned on the next full answer.
+- Known limit: withdrawals and the pass-on tombstones are keyed by the pseudonymous hint id only; a hostile partner that learned one of this server's hint ids can list it as its own hint and thereby clear this server's pass-on tombstone for that id (nothing is displaced locally).
+
+**Not verified / limits:** no lawyer review (Art. 26 GDPR open); never run against a real partner server; members do not see foreign hints yet (wave 5); hop 2 and further need the partner recursion to have reached the origin; `hops` and `via` are not signed; a re-import over another path stays blocked up to 14 days after a withdrawal.
+
 Wave V1.9.313 "Mitfahrzentrale-Föderation, Rückzug (Quellseite)" (carpool exchange between partner servers, wave 3 of 7: the withdrawal on the origin side), schema `V160` -> `V161` (one additive migration). Not released yet: no version bump. **There is no pull client**: no Lapis server reads the withdrawal list yet; a partner with its own client can.
 
 **Behaviour first:**

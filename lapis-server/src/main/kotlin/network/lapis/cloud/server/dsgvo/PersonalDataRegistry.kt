@@ -218,6 +218,14 @@ object PersonalDataRegistry {
                 "A withdrawn carpool hint: only the keyed HMAC pseudonym of the hint (not derivable or linkable without the " +
                 "server key), the partner scope and a life of at most 14 days. No member id, no trip id, no place, no text. " +
                 "Written before the trip is erased (see CarpoolPersonalData).",
+            "carpool_received_hint" to
+                "A pseudonymous FOREIGN hint (the day, two postcode digits, the HMAC pseudonym of its origin, the " +
+                "signature of the origin): no " +
+                "member, no trip, no contact, no place text of this organisation. Life until the day of departure. " +
+                "Whether the exchange needs " +
+                "an agreement between the organisations (Art. 26 GDPR) is NOT clarified (see docs/architecture/dsgvo.adoc).",
+            "carpool_received_tombstone" to
+                "A local block against re-importing a withdrawn foreign hint: pseudonym and origin host only, at most 14 days.",
             "document_folder" to "Pure organizational structure, no personal data.",
             "committee" to "Pure organizational structure, no personal data.",
             "vote_option" to

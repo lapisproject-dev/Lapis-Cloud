@@ -12,7 +12,14 @@ import java.io.File
 class CarpoolFederationI18nCatalogTest :
     FunSpec({
         val waveFiles =
-            listOf("PartnerServersScreen.kt", "PartnerServersLogic.kt", "CarpoolScreen.kt", "CarpoolFederationUi.kt", "ComplianceLabels.kt")
+            listOf(
+                "PartnerServersScreen.kt",
+                "PartnerServersLogic.kt",
+                "PartnerServersTexts.kt",
+                "CarpoolScreen.kt",
+                "CarpoolFederationUi.kt",
+                "ComplianceLabels.kt",
+            )
         val expected =
             listOf(
                 "Mitfahrzentrale-Austausch",
@@ -22,7 +29,7 @@ class CarpoolFederationI18nCatalogTest :
                 "Auch Partner unserer Partner",
                 "Eine Stufe weiter",
                 "Reichweite",
-                "Freigegebene Partner können die Kurzhinweise abrufen. Lapis-Server rufen sie erst ab einer späteren Version selbst ab.",
+                "Freigegebene Partner können die Kurzhinweise abrufen. Dieser Server ruft die Kurzhinweise freigegebener Partner selbst ab und gibt sie im Rahmen der Reichweite an freigegebene Partner weiter. Mitglieder sehen fremde Hinweise erst ab einer späteren Version.",
                 "Fahrten teilen",
                 "Diese Fahrt als Kurzhinweis an Partnerorganisationen weitergeben",
                 "So sehen Partner Ihre Fahrt: %1 · PLZ-Gebiet %2 → PLZ-Gebiet %3",
@@ -38,6 +45,19 @@ class CarpoolFederationI18nCatalogTest :
                 "Abgewiesene Abrufe seit dem Start: %1",
                 "Gedrosselte Abrufe seit dem Start: %1",
                 "Mitfahr-Kurzhinweise abgerufen",
+                // V1.9.314 (wave 4)
+                "Kurzhinweise zuletzt abgerufen: %1 (%2 übernommen, %3 abgelehnt)",
+                "Empfangene Kurzhinweise von diesem Partner: %1",
+                "Abruf der Kurzhinweise fehlgeschlagen: %1",
+                "Empfangene Kurzhinweise: %1",
+                "Abgelehnte Kurzhinweise seit dem Start: %1",
+                "Kurzhinweise ohne bekannten Schlüssel des Ursprungs seit dem Start: %1",
+                "Partner gibt die Kurzhinweise nicht frei",
+                "Zu viele Abrufe, später erneut",
+                "Antwort hat ein unbekanntes Format",
+                "Eigener Signaturschlüssel fehlt",
+                "Die Antwort des Partners ist zu groß",
+                "Interner Fehler",
             )
         val used by lazy {
             val constants = clientStringConstants()

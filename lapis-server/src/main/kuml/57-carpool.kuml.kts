@@ -173,6 +173,93 @@ classDiagram(name = "Carpool") {
             }
         }
 
+    // V1.9.314 (V162) W4: a hint of ANOTHER server -- date, two postcode digits and the HMAC pseudonym of its origin, nothing else (no member, no trip,
+    // no name, no contact, no place text). Read and written ONLY by CarpoolReceivedStore. The foreign key to partner_server is ON DELETE CASCADE in
+    // the real schema (the generated table cannot express it, so the store deletes the rows of a removed partner explicitly).
+    val carpoolReceivedHint =
+        classOf(name = "CarpoolReceivedHint") {
+            stereotype("Entity") { "tableName" to "carpool_received_hint"; "kotlinObjectName" to "CarpoolReceivedHintTable" }
+            stereotype("Index") { "columns" to listOf("origin_host", "teaser_id"); "unique" to true; "name" to "uq_carpool_received_hint_origin_teaser" }
+            stereotype("Index") { "columns" to listOf("source_partner_id"); "name" to "idx_carpool_received_hint_source" }
+            stereotype("Index") { "columns" to listOf("expires_at"); "name" to "idx_carpool_received_hint_expires" }
+            stereotype("Index") { "columns" to listOf("teaser_id"); "name" to "idx_carpool_received_hint_teaser" }
+
+            attribute(name = "id", type = "UUID") {
+                stereotype("Id")
+                stereotype("Column") { "columnName" to "id" }
+            }
+            attribute(name = "teaserId", type = "String") {
+                stereotype("Column") { "columnName" to "teaser_id"; "sqlType" to "VARCHAR(64)" }
+            }
+            attribute(name = "originHost", type = "String") {
+                stereotype("Column") { "columnName" to "origin_host"; "sqlType" to "VARCHAR(253)" }
+            }
+            attribute(name = "hops", type = "Int") {
+                stereotype("Column") { "columnName" to "hops"; "sqlType" to "SMALLINT" }
+            }
+            attribute(name = "maxHops", type = "Int") {
+                stereotype("Column") { "columnName" to "max_hops"; "sqlType" to "SMALLINT" }
+            }
+            attribute(name = "viaHosts", type = "String") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "via_hosts"; "sqlType" to "VARCHAR(800)" }
+            }
+            attribute(name = "sourcePartnerId", type = "UUID") {
+                stereotype("Column") { "columnName" to "source_partner_id"; "fkEntity" to "PartnerServer" }
+            }
+            attribute(name = "departureDate", type = "LocalDate") {
+                stereotype("Column") { "columnName" to "departure_date" }
+            }
+            attribute(name = "fromPostcodeArea", type = "String") {
+                stereotype("Column") { "columnName" to "from_postcode_area"; "sqlType" to "VARCHAR(2)" }
+            }
+            attribute(name = "toPostcodeArea", type = "String") {
+                stereotype("Column") { "columnName" to "to_postcode_area"; "sqlType" to "VARCHAR(2)" }
+            }
+            attribute(name = "originSignature", type = "String") {
+                stereotype("Column") { "columnName" to "origin_signature"; "sqlType" to "VARCHAR(1024)" }
+            }
+            attribute(name = "receivedAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "received_at" }
+            }
+            attribute(name = "lastSeenAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "last_seen_at" }
+            }
+            attribute(name = "expiresAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "expires_at" }
+            }
+        }
+
+    // V1.9.314 (V162) W4: a LOCAL block against re-importing a withdrawn hint of another server over another path; never sent anywhere. Read and
+    // written ONLY by CarpoolReceivedStore. The foreign key is ON DELETE SET NULL in the real schema.
+    val carpoolReceivedTombstone =
+        classOf(name = "CarpoolReceivedTombstone") {
+            stereotype("Entity") { "tableName" to "carpool_received_tombstone"; "kotlinObjectName" to "CarpoolReceivedTombstoneTable" }
+            stereotype("Index") { "columns" to listOf("origin_host", "teaser_id"); "unique" to true; "name" to "uq_carpool_received_tombstone_origin_teaser" }
+            stereotype("Index") { "columns" to listOf("expires_at"); "name" to "idx_carpool_received_tombstone_expires" }
+
+            attribute(name = "id", type = "UUID") {
+                stereotype("Id")
+                stereotype("Column") { "columnName" to "id" }
+            }
+            attribute(name = "teaserId", type = "String") {
+                stereotype("Column") { "columnName" to "teaser_id"; "sqlType" to "VARCHAR(64)" }
+            }
+            attribute(name = "originHost", type = "String") {
+                stereotype("Column") { "columnName" to "origin_host"; "sqlType" to "VARCHAR(253)" }
+            }
+            attribute(name = "reportedByPartnerId", type = "UUID") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "reported_by_partner_id"; "fkEntity" to "PartnerServer" }
+            }
+            attribute(name = "createdAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "created_at" }
+            }
+            attribute(name = "expiresAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "expires_at" }
+            }
+        }
+
     val carpoolParticipationInitiator =
         enumOf(name = "CarpoolParticipationInitiator") {
             literal(name = "DRIVER")
