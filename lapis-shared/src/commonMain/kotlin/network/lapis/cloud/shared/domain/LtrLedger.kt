@@ -106,6 +106,13 @@ enum class LtrLedgerEntryType {
      * `note` is `null`. Never reversed. 13 chars.
      */
     TENDER_PAYOUT,
+
+    /**
+     * V1.9.316 -- recognition of the attendance at a Sitzung (an ISSUANCE by the organisation, like [MINT] and [TENDER_PAYOUT]: ONE credit row, no
+     * debit). Written only by `MeetingRewardPayout.release`; `referenceId` is the MEETING id ([LtrLedgerReferenceType.MEETING]), `note` is `null`.
+     * LTR only, never EUR. Never reversed here (a correction is a manual booking). 14 chars.
+     */
+    MEETING_REWARD,
 }
 
 /**
@@ -115,10 +122,10 @@ enum class LtrLedgerEntryType {
  * [PEER_TRANSFER] the V0.6.3 addition for [LtrLedgerEntryType.PEER_TRANSFER_OUT]/
  * [LtrLedgerEntryType.PEER_TRANSFER_IN] (see that literal's KDoc), [AUCTION] the V0.6.2 addition
  * for every `AUCTION_*` [LtrLedgerEntryType] literal (`referenceId` always points at the
- * `auction.id`, never at `auction_bid`); [NOTICE] (V1.9.297) for [LtrLedgerEntryType.NOTICE_BOOST]; [TENDER] (V1.9.308) for [LtrLedgerEntryType.TENDER_PAYOUT]; additively extended by later waves.
+ * `auction.id`, never at `auction_bid`); [NOTICE] (V1.9.297) for [LtrLedgerEntryType.NOTICE_BOOST]; [TENDER] (V1.9.308) for [LtrLedgerEntryType.TENDER_PAYOUT]; [MEETING] (V1.9.316) for [LtrLedgerEntryType.MEETING_REWARD]; additively extended by later waves.
  */
 @Serializable
-enum class LtrLedgerReferenceType { CROWDFUNDING_PROJECT, VOTE, PEER_TRANSFER, AUCTION, SOCIAL_POST, NOTICE, TENDER }
+enum class LtrLedgerReferenceType { CROWDFUNDING_PROJECT, VOTE, PEER_TRANSFER, AUCTION, SOCIAL_POST, NOTICE, TENDER, MEETING }
 
 /**
  * One row of the append-only LTR ledger. [amountLtr] is signed: positive for a credit (e.g.

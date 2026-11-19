@@ -1,0 +1,77 @@
+= LTR recognition for attending a meeting (V1.9.316)
+:toc:
+:icons: font
+
+Operator view: link:../features/meeting-attendance-recognition.adoc[docs/features/meeting-attendance-recognition.adoc]. Migration `V164__meeting_attendance_recognition.sql`, model `83-meeting-reward.kuml.kts` (and the two literals in `08-ltr-balance.kuml.kts`), code in `network.lapis.cloud.server.meetingreward`, RPC `IMeetingRewardService` (registered LAST in `Application.kt`).
+
+WARNING: Tax and legal classification NOT reviewed; the feature was never tried on a real instance. See the CHANGELOG.
+
+== Decisions
+
+* **Issuance, not transfer.** One credit row `MEETING_REWARD` per recognised person, reference `MEETING` = the meeting id, `note` empty. There is no debit row and no organisation account (the ledger knows member accounts only), so "insufficient balance" cannot happen. LTR only; the ledger CHECK refuses nothing else and the payout file never names EUR.
+* **A NEW migration, not an extension of V163.** V157 to V163 are on the pushed master and probably applied on staging and instances; changing one in place would break its Flyway checksum.
+* **One writer per concern.** `MeetingRewardPayout.kt` is the only file that writes the ledger for this type; `MeetingRewardStore` is the only reader and writer of the five tables (the data-subject contributor may read them). Tripwire tests pin both (`MeetingRewardLedgerTripwireTest`).
+* **Everything about money is computed on the server** from live rows. A client sends only an id and the preview hash; no figure is ever taken from input.
+* **Audit.** `MEETING_REWARD_POLICY` and `MEETING_REWARD_SETTLEMENT` entries are written as the last database operation of the transaction. `14-audit-log.kuml.kts` is knowingly behind (it ends at `PARTG_REPORT_EXPORT`); V164 widens the database CHECK, the model is not extended here.
+
+== Lock order
+
+Every writing path: **policy row -> settlement row -> member rows (`forMemberUpdate`, ascending id) -> ledger -> audit (last)**. This refines the design's "settlement first": the policy row is locked first by every path so that a confirmation of a rule change and a release serialise against each other, and so do two releases of different meetings. A concurrent policy confirmation therefore never deadlocks with a release. The confirming administrator's account row is locked after the policy and the change row (tenure facts).
+
+The yearly cap per person is read only **after** the member rows are locked: on READ COMMITTED every statement sees a fresh snapshot, so two releases that touch the same person cannot both pass the limit. The loser recomputes a smaller figure, its hash no longer matches and the release is refused as stale; nothing is booked above the limit.
+
+[source,kuml,name="meeting-reward-release-sequence"]
+----
+sequenceDiagram(name = "Meeting reward -- preview to release") {
+    val admin = lifeline(name = "Administrator A")
+    val second = lifeline(name = "Administrator B")
+    val service = lifeline(name = "MeetingRewardService")
+    val facts = lifeline(name = "Facts (meeting, attendance, roles, confirmed protocol)")
+    val store = lifeline(name = "MeetingRewardStore")
+    val payout = lifeline(name = "MeetingRewardPayout")
+    val ledger = lifeline(name = "ltr_ledger_entry")
+
+    message(from = admin, to = service, label = "previewMeetingRewardSettlement(meeting)")
+    message(from = service, to = facts, label = "availability + lines + hash (read only)")
+    message(from = admin, to = service, label = "prepareMeetingRewardSettlement(meeting, hash)")
+    message(from = service, to = store, label = "lock policy, lock settlement; recompute; hash must match; insert settlement + lines (savepoint)")
+    message(from = second, to = service, label = "releaseMeetingRewardSettlement(meeting, hash)")
+    message(from = service, to = payout, label = "release(second, meeting, hash)")
+    message(from = payout, to = store, label = "lock policy, lock settlement (PREPARED), four eyes")
+    message(from = payout, to = facts, label = "lock members, THEN read yearly sums; recompute; hash must match")
+    message(from = payout, to = store, label = "conditional UPDATE PREPARED -> RELEASED (exactly one row)")
+    message(from = payout, to = ledger, label = "one MEETING_REWARD credit per line with amount > 0; line.ledger_entry_id (savepoint)")
+    message(from = service, to = service, label = "audit RELEASED (last write)")
+}
+----
+
+== Idempotency in four layers
+
+None of them is a partial index, so it holds on H2 and PostgreSQL:
+
+. the settlement row is locked `FOR UPDATE` and moves PREPARED -> RELEASED by a conditional `UPDATE ... WHERE status = 'PREPARED'`;
+. `meeting_reward_settlement.meeting_id` is UNIQUE (one settlement per meeting);
+. UNIQUE (`meeting_id`, `member_id`) and UNIQUE `idempotency_key` (`meeting-reward:{meetingId}:{memberId}`) on the lines;
+. UNIQUE `meeting_reward_line.ledger_entry_id` (several NULLs are allowed on H2 and PostgreSQL).
+
+A unique violation inside a transaction is translated only through a savepoint (a failed statement aborts a PostgreSQL transaction otherwise) and only `isUniqueViolation` is translated; anything else rolls everything back. A second release of a RELEASED settlement returns the stored view, writes nothing and no audit entry.
+
+== The hash
+
+SHA-256 over a canonical text: `meeting-reward-v1`, the meeting id, the id of the confirmed change that is in force, the id of the confirmed protocol version, and for every line (sorted by member id) the member id, attendance status, reason, role, base, bonus, amount (always `toPlainString` at scale 2), the reduced flag and the year. No names. A new `MessageDigest` per call. The release is refused when the rules or the protocol moved on, or when any recomputed figure differs.
+
+== Guards
+
+* **Attendance vs. protocol**: the counts per category and the names of the present people must equal the confirmed protocol snapshot (`ProtocolSnapshots.parse`). The protocol is read only through `ProtocolVersionStore.latestConfirmed`.
+* **Meeting date**: `MeetingTable.scheduledAt.date` (class B wall-clock of the organisation, not converted); the calendar year of it is the cap year.
+* **Recognisable members**: guest, friend and every status outside the organisation members that can hold LTR are never recognised (`isRecognisable`). A deliberate hardening against self-registered friends.
+* **Tenure of the second administrator**: `PeerGuard.eligibleApproverIds` measured against the proposal time.
+* **Fixed refusal texts**, never a name and never an amount. The client maps them to German (`MeetingRewardClientSupport.kt`); on today's transport only the exception type reaches the browser, the table is kept exact for the day a message can travel.
+* **DoS**: list limits are capped (500); a settlement is bounded by the attendance list of one meeting; at most 200 committees per proposal.
+
+== Not covered
+
+* A person who led the meeting but sits in no role does not earn the bonus (seat based).
+* A SUPERSEDED protocol triggers no reversal; a correction is a manual booking.
+* Two cooperating real administrators can change the rules and release a settlement; the resolution reference and the audit trail are the protection.
+* The yearly cap counts the lines of this feature only, not other issuances.

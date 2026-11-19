@@ -172,7 +172,8 @@ class PaymentsRegressionScanTest :
             // is caught the same way the other regression guards in this class are.
             // V1.9.297: 14 with NOTICE_BOOST (the bulletin board; a member-to-notice debit, nothing Euro-adjacent).
             // V1.9.308: 15 with TENDER_PAYOUT (the tender payout, an issuance of LTR to the winner; nothing Euro-adjacent: EUR stays unreachable).
-            LtrLedgerEntryType.entries.size shouldBe 15
+            // V1.9.316: 16 with MEETING_REWARD (the recognition for attending a Sitzung, an issuance of LTR; nothing Euro-adjacent: EUR stays unreachable).
+            LtrLedgerEntryType.entries.size shouldBe 16
         }
     })
 

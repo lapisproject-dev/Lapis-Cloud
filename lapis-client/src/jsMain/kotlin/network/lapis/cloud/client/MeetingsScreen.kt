@@ -448,6 +448,8 @@ private suspend fun buildMeetingDetail(
         renderAttendanceSection(panel, detail, canManage, audience, onChanged)
         renderResolutionSection(panel, detail, canManage, onChanged)
         renderProtocolSection(panel, detail.meeting.id, detail.attendanceVisible)
+        // V1.9.316: the LTR recognition for attending this Sitzung (administrators only).
+        renderMeetingAttendanceRecognitionCard(panel, detail.meeting.id)
     }
 }
 

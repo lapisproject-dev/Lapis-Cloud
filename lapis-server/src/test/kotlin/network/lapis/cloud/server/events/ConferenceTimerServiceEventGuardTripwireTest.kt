@@ -101,6 +101,7 @@ class ConferenceTimerServiceEventGuardTripwireTest :
             val activism = code.indexOf("registerService(IActivismService::class)")
             val noticeBoard = code.indexOf("registerService(INoticeBoardService::class)")
             val roomPoll = code.indexOf("registerService(IConferenceRoomPollService::class)")
+            val meetingReward = code.indexOf("registerService(IMeetingRewardService::class)")
             (timer >= 0) shouldBe true
             (agreementTexts > timer) shouldBe true
             (pulpitRecording > agreementTexts) shouldBe true
@@ -117,26 +118,28 @@ class ConferenceTimerServiceEventGuardTripwireTest :
             (activism > partnerServers) shouldBe true
             (noticeBoard > activism) shouldBe true
             (roomPoll > noticeBoard) shouldBe true
+            (meetingReward > roomPoll) shouldBe true
             // a new service is always appended (V1.9.244: the partner servers after the Protokoll finalising): the timer stays thirteenth to last, the
             // agreement texts twelfth to last, the pulpit recording eleventh to last, the member finder tenth to last, the tenders ninth to
             // last, the online counts eighth to last, the image gallery seventh to last, the dashboard sixth to last, the party report fifth
             // to last, the LupaBB sync fourth to last, the Protokoll draft third to last, the Protokoll finalising second to last, the
             // partner servers, V1.9.246: the activism module, V1.9.297: the bulletin board last
-            registrations[registrations.size - 16] shouldBe timer
-            registrations[registrations.size - 15] shouldBe agreementTexts
-            registrations[registrations.size - 14] shouldBe pulpitRecording
-            registrations[registrations.size - 13] shouldBe memberFinder
-            registrations[registrations.size - 12] shouldBe tenders
-            registrations[registrations.size - 11] shouldBe onlineCounts
-            registrations[registrations.size - 10] shouldBe attachedImages
-            registrations[registrations.size - 9] shouldBe dashboard
-            registrations[registrations.size - 8] shouldBe partyReport
-            registrations[registrations.size - 7] shouldBe lupaBbSync
-            registrations[registrations.size - 6] shouldBe protocolDraft
-            registrations[registrations.size - 5] shouldBe meetingProtocol
-            registrations[registrations.size - 4] shouldBe partnerServers
-            registrations[registrations.size - 3] shouldBe activism
-            registrations[registrations.size - 2] shouldBe noticeBoard
-            registrations.last() shouldBe roomPoll
+            registrations[registrations.size - 17] shouldBe timer
+            registrations[registrations.size - 16] shouldBe agreementTexts
+            registrations[registrations.size - 15] shouldBe pulpitRecording
+            registrations[registrations.size - 14] shouldBe memberFinder
+            registrations[registrations.size - 13] shouldBe tenders
+            registrations[registrations.size - 12] shouldBe onlineCounts
+            registrations[registrations.size - 11] shouldBe attachedImages
+            registrations[registrations.size - 10] shouldBe dashboard
+            registrations[registrations.size - 9] shouldBe partyReport
+            registrations[registrations.size - 8] shouldBe lupaBbSync
+            registrations[registrations.size - 7] shouldBe protocolDraft
+            registrations[registrations.size - 6] shouldBe meetingProtocol
+            registrations[registrations.size - 5] shouldBe partnerServers
+            registrations[registrations.size - 4] shouldBe activism
+            registrations[registrations.size - 3] shouldBe noticeBoard
+            registrations[registrations.size - 2] shouldBe roomPoll
+            registrations.last() shouldBe meetingReward
         }
     })

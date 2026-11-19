@@ -1174,3 +1174,15 @@ col:CarpoolReceivedTombstoneTable.expiresAt	A	stamped by the server clock (DbClo
 col:PartnerDiscoveredServerTable.signingKeyPinnedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:PartnerServerDto.carpoolPullAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:CarpoolReceivedHintTable.departureDate	D	calendar date (LocalDate) of the foreign trip as the origin sent it; never converted
+dto:MeetingRewardResolutionOptionDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MeetingRewardPolicyChangeDto.proposedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MeetingRewardPolicyChangeDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MeetingRewardSettlementViewDto.preparedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MeetingRewardSettlementViewDto.releasedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MeetingRewardOwnLineDto.meetingDate	D	calendar date (LocalDate); never converted
+col:MeetingRewardPolicyTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MeetingRewardPolicyChangeTable.proposedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MeetingRewardPolicyChangeTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MeetingRewardCommitteeTable.enabledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MeetingRewardSettlementTable.preparedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MeetingRewardSettlementTable.releasedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

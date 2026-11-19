@@ -702,6 +702,18 @@ enum class AuditEntityType {
      * flag only -- never a teaser id, a date, an area or a host text. 23 chars. Appended LAST.
      */
     CARPOOL_FEDERATION_FEED,
+
+    /**
+     * Welle V1.9.316 -- the rules of the LTR recognition for Sitzungen (proposal, confirmation, withdrawal, switching off); `entityId` = the
+     * `meeting_reward_policy_change` row. Snapshot [MeetingRewardPolicyAuditSnapshot]: ids, enums and amounts only, never a name. 21 chars. Appended LAST.
+     */
+    MEETING_REWARD_POLICY,
+
+    /**
+     * Welle V1.9.316 -- the settlement of one Sitzung (prepared, released, discarded); `entityId` = the `meeting_reward_settlement` id (also for a
+     * discarded one, whose row is gone). Snapshot [MeetingRewardSettlementAuditSnapshot]. 25 chars. Appended LAST.
+     */
+    MEETING_REWARD_SETTLEMENT,
 }
 
 /** V1.9.304 -- after-snapshot of an [AuditEntityType.CONFERENCE_ROOM_POLL] entry. */

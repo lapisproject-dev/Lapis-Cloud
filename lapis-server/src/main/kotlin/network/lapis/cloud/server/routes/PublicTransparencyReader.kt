@@ -84,11 +84,11 @@ internal data class PublicTransparencyStats(
  */
 internal object PublicTransparencyReader {
     /** The entry types that issue new LTR. Every other type moves or binds LTR that already exists. */
-    private val ISSUANCE_TYPES = listOf(LtrLedgerEntryType.MINT, LtrLedgerEntryType.TENDER_PAYOUT)
+    private val ISSUANCE_TYPES = listOf(LtrLedgerEntryType.MINT, LtrLedgerEntryType.TENDER_PAYOUT, LtrLedgerEntryType.MEETING_REWARD)
 
     /**
      * *Insgesamt ausgegebene LTR* sums ONLY the ISSUANCE rows -- [LtrLedgerEntryType.MINT] and, since V1.9.308, [LtrLedgerEntryType.TENDER_PAYOUT]
-     * (a tender payout is an issuance by the organisation as well; leaving it out would make the public figure untrue) -- deliberately NOT
+     * (a tender payout is an issuance by the organisation as well; leaving it out would make the public figure untrue) and, since V1.9.316, [LtrLedgerEntryType.MEETING_REWARD] (the recognition for attending a Sitzung is an issuance too) -- deliberately NOT
      * `SUM(amount_ltr)` over every entry type. A full-table sum would be the CURRENT free-balance
      * total (stakes bound into votes/projects/posts/auctions have no release path yet and would
      * silently DEPRESS that number every time a member spends), which is a different, less honest

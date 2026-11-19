@@ -32375,3 +32375,327 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
 msgid "Der Online-Mitgliedsantrag wird nicht mehr angeboten."
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Die Anerkennung für Sitzungen ist nicht eingeschaltet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Für dieses Gremium ist die Anerkennung nicht eingeschaltet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Die Sitzung hat nicht stattgefunden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Das Protokoll der Sitzung ist noch nicht bestätigt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Die Anwesenheit weicht vom bestätigten Protokoll ab."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Die Abrechnung hat sich geändert. Bitte bereiten Sie sie neu vor."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Dafür ist ein zweiter Admin nötig."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Der bestätigende Admin hat diese Rolle noch nicht lange genug."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Der Beschluss ist kein angenommener Beschluss der Mitgliederversammlung."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Es liegt bereits ein Vorschlag vor."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Die Ordnung hat sich seit dem Vorschlag geändert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Das Einschalten braucht einen Beschluss der Mitgliederversammlung."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Die Summe überschreitet die Obergrenze je Sitzung."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Die Abrechnung wurde bereits freigegeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Beträge dürfen höchstens zwei Nachkommastellen haben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Ein Betrag liegt außerhalb des erlaubten Bereichs."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Ein Gremium ist unbekannt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Der Hinweistext ist zu lang."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Diese Aktion ist im jetzigen Stand nicht möglich."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Die Daten wurden zwischenzeitlich geändert. Bitte laden Sie die Seite neu."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Nicht anwesend"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Obergrenze erreicht"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Auf die Obergrenze gekürzt"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Bereits abgerechnet"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Nicht berechtigt"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Das dürfen nur Admins."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Es ist nichts zur Freigabe vorbereitet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Änderung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Ausgeschaltet"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Vorgeschlagen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Anerkennung für Sitzungsteilnahme: %1, %2, davon Zuschlag %3"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingRewardClientSupport.kt:1
+msgid "Anerkennung für Sitzungsteilnahme: %1, %2"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "LTR-Anerkennung für Sitzungsteilnahme"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "Die steuerliche und rechtliche Einordnung wurde nicht geprüft."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "Vorbereitet"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "Freigegeben"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "Vorbereitet von %1 am %2"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "Freigegeben von %1 am %2"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "Summe: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "Sie erhalten aus dieser Abrechnung selbst LTR."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "Vorbereiten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "Die Abrechnung wurde vorbereitet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "Falls sich Daten geändert haben, bereiten Sie neu vor."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "Anerkennung freigeben?"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "Es werden insgesamt %1 LTR gutgeschrieben. Die Buchung lässt sich nicht rückgängig machen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "Die Anerkennung wurde gutgeschrieben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "Funktion"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:1
+msgid "Grundbetrag"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Grundbetrag %1 · Zuschläge: Vorsitz %2, Stellvertretung %3, Schriftführung %4, Geschäftsführung %5 · Obergrenzen: %6 je Person und Jahr, %7 je Sitzung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Eingeschaltet"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Keine Gremien ausgewählt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Gremien: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Wer an einer Sitzung teilnimmt, kann dafür LTR als Anerkennung erhalten. Die Ordnung ändert sich nur mit einem Beschluss der Mitgliederversammlung und der Bestätigung eines zweiten Admins; ausschalten kann ein einzelner Admin."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Beschluss: %1 – %2"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Anerkennung ausschalten?"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Danach werden keine Sitzungen mehr abgerechnet. Bereits freigegebene Buchungen bleiben bestehen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Die Anerkennung ist ausgeschaltet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Bisherige Änderungen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Offener Vorschlag"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Vorgeschlagen von %1 – wartet auf Bestätigung durch einen anderen Admin"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Bisher: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Neu: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Die Änderung ist in Kraft."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Der Vorschlag wurde zurückgezogen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Es gibt noch keinen angenommenen Beschluss einer Mitgliederversammlung."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Anerkennung einschalten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Zuschlag Vorsitz"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Zuschlag Stellvertretung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Zuschlag Schriftführung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Zuschlag Geschäftsführung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Obergrenze je Person und Jahr"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Obergrenze je Sitzung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Für diese Gremien gilt die Anerkennung:"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Beschluss der Mitgliederversammlung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Hinweis zum Beschluss (optional, z. B. TOP 7)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:1
+msgid "Der Vorschlag wurde gespeichert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:1
+msgid "Anerkennung (Sitzung)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "LTR-Anerkennung (Ordnung)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "LTR-Anerkennung (Abrechnung)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OrganizationScreen.kt:1
+msgid "Anerkennung für Sitzungen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OrganizationScreen.kt:1
+msgid "LTR als Anerkennung für die Teilnahme an Sitzungen"
+msgstr ""

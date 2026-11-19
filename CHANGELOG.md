@@ -6,6 +6,30 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+Wave V1.9.316 "LTR-Anerkennung fuer Sitzungsteilnahme" (LTR recognition for attending a meeting), schema `V163` -> `V164` (one additive migration). Not released yet: no version bump.
+
+**Behaviour first:**
+
+1. **New feature, off by default:** people who were PRESENT at a meeting of an enabled committee receive a small amount of LTR as *recognition* (an issuance, one credit row `MEETING_REWARD` per person; never EUR, never a payment). Base amount plus a function bonus (the maximum, never the sum, of the chair, deputy chair, secretary and managing director amounts over the roles held on the meeting date), a limit per person and calendar year (a line is reduced to what is left) and a limit per meeting (a total above it is refused).
+2. **The rules change only with a resolution of the general assembly plus a second administrator.** An administrator proposes the full new rules and must pick an adopted resolution of the general assembly; a second administrator who has held the role for at least seven days confirms. One open proposal at a time; a proposal whose old values moved is stale. Switching off needs one administrator. Every step is audited with old and new values.
+3. **A settlement per meeting, prepared by one and released by another administrator.** Available only when the feature is on, the committee takes part, the meeting was held, its protocol is confirmed and the attendance still matches the confirmed protocol. A preview shows every attendee with the amount or the reason; a hash binds meeting, rules, protocol and every figure; the release recomputes everything and refuses on any difference. Released settlements are final. Nobody who is not an administrator can see or do any of it; everybody sees their own recognition in their LTR account.
+4. **Only organisation members that can hold LTR are recognised** (never a guest, a friend or a withdrawn member); a represented person gets nothing, a representative only for their own presence.
+5. **Public figure:** "Insgesamt ausgegebene LTR" now includes `MEETING_REWARD` (an issuance).
+6. Backups made before `V164` cannot be restored, as after any schema change.
+
+**Technique:** `V164` adds `meeting_reward_policy` (singleton, seeded off), `meeting_reward_policy_change`, `meeting_reward_committee`, `meeting_reward_settlement` and `meeting_reward_line`, and widens the CHECKs of `ltr_ledger_entry` (`MEETING_REWARD`, `MEETING`) and `audit_log_entry` (`MEETING_REWARD_POLICY`, `MEETING_REWARD_SETTLEMENT`). New model `83-meeting-reward.kuml.kts`, new RPC `IMeetingRewardService` (eleven methods, registered LAST), new package `network.lapis.cloud.server.meetingreward`, DSGVO contributor `MeetingRewardPersonalData` (everything retained as booking evidence), restore-aware singleton, client section "Anerkennung fuer Sitzungen" on the Organisation page and a card on the page of a meeting. Lock order: policy row, settlement row, member rows, ledger, audit; the yearly sums are read only after the member rows are locked. Documentation: `docs/features/meeting-attendance-recognition.adoc`, `docs/architecture/meeting-attendance-recognition.adoc`.
+
+**Tests:** pure rules test, schema drift test, policy and settlement scenarios on H2 and on PostgreSQL (including parallel releases, parallel preparations, the yearly limit across two meetings and a rule confirmation in parallel with a release), tripwires (single ledger writer, single table reader, RPC surface, registration order), data-subject export and erasure, backup round trip, error coverage and i18n guards (seven catalogs), client label and ledger-text tests.
+
+**Not verified:**
+
+* **Never tried with a real general assembly** and never run on a real instance; the amounts were never tried with real members.
+* **The tax and legal classification has NOT been reviewed** (income of the recipient, social security, non-profit status); the screens say so. Do not switch the feature on in a real organisation before that is clarified.
+* **The screens were tested only with DOM tests in headless Chrome**; no person has seen them in a real browser or on staging.
+* The privacy page (a legal text) was **not** changed: the new data-subject contributor is covered by an allowlist entry in `LegalHtmlTest` (accounting umbrella) until somebody reviews whether the page should name the recognition.
+* Translations are model-written and not reviewed by a native speaker.
+* Known limits: the function bonus follows committee seats (who actually led a meeting does not count); the general assembly has no seats, so it earns the base amount only; a SUPERSEDED protocol triggers no automatic reversal (a correction is a manual booking); two cooperating real administrators can change the rules and release a settlement (the resolution reference and the audit trail are the protection); renaming a present member after the protocol was confirmed makes the settlement unavailable until a corrected protocol version is confirmed.
+
 Wave V1.9.315 "Admin-Schalter Mitglied werden" (an instance switch for the online membership application), schema `V162` -> `V163` (one additive migration). Not released yet: no version bump.
 
 **Behaviour first:**

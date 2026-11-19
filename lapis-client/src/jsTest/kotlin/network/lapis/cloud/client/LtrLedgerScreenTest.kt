@@ -110,4 +110,11 @@ class LtrLedgerScreenTest {
         assertEquals("success", ltrLedgerEntryTypeColor(LtrLedgerEntryType.TENDER_PAYOUT))
         assertEquals("Ausschreibung", ltrLedgerReferenceTypeLabel(LtrLedgerReferenceType.TENDER))
     }
+
+    @Test
+    fun theMeetingRecognition_hasItsOwnLabelColourAndReference() {
+        assertEquals("Anerkennung (Sitzung)", ltrLedgerEntryTypeLabel(LtrLedgerEntryType.MEETING_REWARD))
+        assertEquals("success", ltrLedgerEntryTypeColor(LtrLedgerEntryType.MEETING_REWARD))
+        assertEquals("Sitzung", ltrLedgerReferenceTypeLabel(LtrLedgerReferenceType.MEETING))
+    }
 }

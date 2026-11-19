@@ -15,6 +15,7 @@ RPC, no DTO change. Every switch and form calls the RPC it called before; the se
 |Recording & transmission (`aufzeichnung`) |Pulpit recording, recording and live streaming in event rooms, link to the stream destinations |Pulpit recording and events: on/off
 |Member finder (`mitglieder-finder`) |Switch of the member finder (operator notice dialog) |on/off
 |Tenders (`ausschreibungen`) |Default bid visibility of new tenders |The chosen visibility
+|Meeting recognition (`sitzungsanerkennung`, V1.9.316) |The LTR recognition for attending a meeting: switch, base amount, four function bonuses, two limits, the committees that take part; proposal with a resolution of the general assembly, confirmation by a second administrator, switch-off, history. See link:meeting-attendance-recognition.adoc[meeting-attendance-recognition.adoc] |Static text, no request
 |Actions (`aktionen`, V1.9.246) |Button "Einstellungen zu den Aktionen" to the settings page of the actions (notice texts per kind and country, approval of ideas, reports) |Static text, no request
 |Partner servers (`partnerserver`, V1.9.244) |Button "Partnerserver verwalten" to the partner page (add, pause, remove partners; block list; hide the own partner list) |Static text, no request
 |===

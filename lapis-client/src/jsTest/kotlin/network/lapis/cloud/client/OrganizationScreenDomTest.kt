@@ -132,6 +132,7 @@ class OrganizationScreenDomTest {
                         "org-aufzeichnung",
                         "org-mitglieder-finder",
                         "org-ausschreibungen",
+                        "org-sitzungsanerkennung",
                         "org-partnerserver",
                         "org-aktionen",
                     ),

@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 83 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 84 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -86,7 +86,8 @@ class DomainModelMergerTest :
             // Welle V1.9.246 "Aktionen A1" -- now 81 with the addition of 80-activism.kuml.kts.
             // Welle V1.9.297 "Schwarzes Brett" -- now 82 with the addition of 81-bulletin-board.kuml.kts.
             // Welle V1.9.304 "Raum-Umfragen" -- now 83 with the addition of 82-conference-room-poll.kuml.kts.
-            scriptFiles shouldHaveSize 83
+            // Welle V1.9.316 "LTR-Anerkennung fuer Sitzungsteilnahme" -- now 84 with the addition of 83-meeting-reward.kuml.kts.
+            scriptFiles shouldHaveSize 84
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -611,7 +612,8 @@ class DomainModelMergerTest :
             // 57-carpool.kuml.kts (V1.9.313, W3) adds the real table carpool_teaser_tombstone (276 -> 277); its PartnerServer stub is a duplicate name and adds none.
             // 74-tender.kuml.kts (V1.9.308) adds ONE real table (tender_payout); its LtrLedgerEntry stub dedups into the real entity, net +1 (271 -> 272).
             // 57-carpool.kuml.kts (V1.9.314, W4) adds TWO real tables (carpool_received_hint, carpool_received_tombstone), 277 -> 279.
-            val distinctTableNames = 279
+            // 83-meeting-reward.kuml.kts (V1.9.316) adds FIVE real tables (meeting_reward_policy, _policy_change, _committee, _settlement, _line), 279 -> 284.
+            val distinctTableNames = 284
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -991,6 +993,11 @@ class DomainModelMergerTest :
                     "TenderAcceptanceTable.kt",
                     // Welle V1.9.308 "Ausschreibungen, Auszahlung" -- ONE new real table (tender_payout) inside 74-tender.kuml.kts; LtrLedgerEntry is a stub.
                     "TenderPayoutTable.kt",
+                    "MeetingRewardPolicyTable.kt",
+                    "MeetingRewardPolicyChangeTable.kt",
+                    "MeetingRewardCommitteeTable.kt",
+                    "MeetingRewardSettlementTable.kt",
+                    "MeetingRewardLineTable.kt",
                     // Welle V1.9.222 "Bildergalerie" -- ONE new real table, no new stub.
                     "AttachedImageTable.kt",
                     // Welle V1.9.225 "Rechenschaftsbericht (PartG)" -- THREE new real tables; Member and RegionalChapter are stubs.

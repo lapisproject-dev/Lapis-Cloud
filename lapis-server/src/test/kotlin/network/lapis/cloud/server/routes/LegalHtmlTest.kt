@@ -389,6 +389,10 @@ class LegalHtmlTest :
                     // member administration already names; the processing is the organisation's own, manual and ADMIN-only. The privacy page
                     // is a legal text and was NOT changed without review: if it should name the sync, add a keyword entry above instead.
                     "lupabbSync",
+                    // V1.9.316: the LTR recognition for attending a meeting is bookkeeping data of the organisation (who prepared and released a
+                    // settlement, which line a member received), covered by the accounting umbrella bullet and retained as booking evidence. The
+                    // privacy page is a legal text and was NOT changed without review: if it should name the recognition, add a keyword entry above.
+                    "meeting-reward",
                 )
 
             PersonalDataRegistry.contributors.forEach { contributor ->

@@ -392,6 +392,7 @@ import network.lapis.cloud.server.rpc.MailDeliveryStatusService
 import network.lapis.cloud.server.rpc.MailingService
 import network.lapis.cloud.server.rpc.McpAccessService
 import network.lapis.cloud.server.rpc.MeetingProtocolService
+import network.lapis.cloud.server.rpc.MeetingRewardService
 import network.lapis.cloud.server.rpc.MemberAnniversaryService
 import network.lapis.cloud.server.rpc.MemberEmailChangeService
 import network.lapis.cloud.server.rpc.MemberFamilyService
@@ -514,6 +515,7 @@ import network.lapis.cloud.shared.rpc.IMailDeliveryStatusService
 import network.lapis.cloud.shared.rpc.IMailingService
 import network.lapis.cloud.shared.rpc.IMcpAccessService
 import network.lapis.cloud.shared.rpc.IMeetingProtocolService
+import network.lapis.cloud.shared.rpc.IMeetingRewardService
 import network.lapis.cloud.shared.rpc.IMemberAnniversaryService
 import network.lapis.cloud.shared.rpc.IMemberEmailChangeService
 import network.lapis.cloud.shared.rpc.IMemberFamilyService
@@ -3220,7 +3222,7 @@ internal fun Application.module(
         registerService(INoticeBoardService::class) { call ->
             NoticeBoardService(call = call, deps = noticeBoardDeps)
         }
-        // V1.9.304 Raum-Umfragen (A). THIS is the LAST registerService (after INoticeBoardService). New methods of the interface go to its end.
+        // V1.9.304 Raum-Umfragen (A). Second to last since V1.9.316 (the meeting recognition is the LAST registerService). New methods of the interface go to its end.
         registerService(IConferenceRoomPollService::class) { call ->
             ConferenceRoomPollService(
                 call = call,
@@ -3233,6 +3235,11 @@ internal fun Application.module(
                 versionLimiter = roomPollVersionLimiter,
                 publicBaseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
             )
+        }
+        // V1.9.316 LTR-Anerkennung fuer Sitzungsteilnahme. THIS is the LAST registerService (after IConferenceRoomPollService). New methods of the
+        // interface go to its end, never in between.
+        registerService(IMeetingRewardService::class) { call ->
+            MeetingRewardService(call = call)
         }
     }
 

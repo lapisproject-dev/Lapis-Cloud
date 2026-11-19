@@ -95,6 +95,8 @@ object PersonalDataRegistry {
             NoticePersonalData,
             // V1.9.304: the "who has answered" markers of a running room poll (deleted when the poll ends and on erasure).
             RoomPollPersonalData,
+            // V1.9.316: the LTR recognition for attending a Sitzung (proposals, confirmations, settlements, lines; all retained as booking evidence).
+            MeetingRewardPersonalData,
         )
 
     /**

@@ -1791,3 +1791,7 @@ a governance Sitzung and the Veranstaltung announcing it. Modelled in `39-events
 type `MEETING_EVENT_LINK`); the FK and `ON DELETE SET NULL` are SQL-only. See link:governance-committees.adoc[governance-committees.adoc], section
 "Meeting <-> event link".
 
+== LTR ledger issuances (V1.9.308, V1.9.316)
+
+Most ledger entry types move LTR that already exists (stakes, transfers, boosts). Three types are an **issuance by the organisation**: `MINT`, `TENDER_PAYOUT` (V1.9.308, the payout of an accepted tender) and `MEETING_REWARD` (V1.9.316, the recognition for attending a meeting). An issuance is ONE credit row on a member account: the ledger knows member accounts only and an organisation or system member is forbidden by doctrine, so there is no debit row and "insufficient balance" cannot happen. `PublicTransparencyReader` counts exactly these three types as "issued LTR". Each issuance has exactly one writer file (`TenderPayout.kt`, `MeetingRewardPayout.kt`), pinned by a tripwire test. Details: link:tenders.adoc[tenders] and link:meeting-attendance-recognition.adoc[meeting attendance recognition].
+

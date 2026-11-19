@@ -33,6 +33,7 @@ import network.lapis.cloud.shared.domain.PeerTransferCharacterization
 import network.lapis.cloud.shared.domain.PeerTransferInput
 import network.lapis.cloud.shared.domain.PeerTransferResultDto
 import network.lapis.cloud.shared.rpc.ILtrLedgerService
+import network.lapis.cloud.shared.rpc.IMeetingRewardService
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IPeerTransferService
 
@@ -148,6 +149,8 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
     // The error box with "Erneut versuchen" stays until a reload succeeds: a change of the filter must neither wipe
     // it nor paint the previous list over it (guideline P7).
     var entriesFailed = false
+    // V1.9.316: ledger id -> the text of the caller's own recognition line (best effort; a missing line just shows no note).
+    var meetingRewardNotes: Map<String, String> = emptyMap()
     // V1.9.185: a change of the filter fetches the list again (no "Aktualisieren" button any more). The select calls back once while it is
     // built; the filter only reloads after the first list has arrived.
     var entriesInitialLoaded = false
@@ -174,7 +177,7 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
             entriesPanel.p(tr("Keine Buchungen für diesen Filter."))
         } else {
             entriesPanel.dataTable(
-                columns = ltrEntryColumns(),
+                columns = ltrEntryColumns(resolvedNote = { entry -> meetingRewardNotes[entry.id] }),
                 rows = sortLtrEntries(filtered, entriesSort),
                 sort = entriesSort,
                 onSort = { next ->
@@ -197,7 +200,9 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
         entriesFailed = false
         AppScope.launch {
             val entries = guarded { rpcService<ILtrLedgerService>().listMyEntries() }
+            val rewardLines = runCatching { rpcService<IMeetingRewardService>().listMyMeetingRewardLines() }.getOrDefault(emptyList())
             if (mine != entriesGeneration) return@launch // a newer load has taken over
+            meetingRewardNotes = rewardLines.associate { it.ledgerEntryId to meetingRewardLedgerText(it) }
             entriesStatusRegion.clearStatus()
             entriesLoading = false
             if (entries == null) {
@@ -411,7 +416,7 @@ internal fun sortLtrEntries(
  * Columns of the LTR entry list / card list (Welle V1.4.27, W3: before, five `width = N.px` cells of a hand-built
  * row). The date is the identity of an entry and thus the card title. An entry without note and creator shows "--".
  */
-private fun ltrEntryColumns(): List<DataColumn<LtrLedgerEntryDto>> =
+private fun ltrEntryColumns(resolvedNote: (LtrLedgerEntryDto) -> String? = { null }): List<DataColumn<LtrLedgerEntryDto>> =
     listOf(
         systemDateTimeColumn(
             title = tr("Datum"),
@@ -439,7 +444,8 @@ private fun ltrEntryColumns(): List<DataColumn<LtrLedgerEntryDto>> =
             cell = { container, entry -> container.renderLtrReference(entry) },
         ),
         textColumn(title = tr("Notiz / erstellt von")) { entry: LtrLedgerEntryDto ->
-            val noteParts = listOfNotNull(entry.note, entry.createdByDisplayName?.let { gettext("von %1", it) })
+            // V1.9.316: the recognition for a Sitzung has no note of its own; its text is resolved at read time from the caller's own lines.
+            val noteParts = listOfNotNull(entry.note ?: resolvedNote(entry), entry.createdByDisplayName?.let { gettext("von %1", it) })
             if (noteParts.isEmpty()) "--" else noteParts.joinToString(" · ")
         },
     )
@@ -462,6 +468,9 @@ private fun Container.renderLtrReference(entry: LtrLedgerEntryDto) {
     } else if (referenceType == LtrLedgerReferenceType.TENDER && referenceId != null) {
         // V1.9.308: the payout of a tender links to the tender (the detail page decides who may see it).
         link(ltrLedgerReferenceTypeLabel(referenceType), url = "#${detailRoute(Routes.TENDERS, referenceId)}")
+    } else if (referenceType == LtrLedgerReferenceType.MEETING && referenceId != null) {
+        // V1.9.316: the recognition for attending a Sitzung links to the Sitzung (the detail page decides who may see it).
+        link(ltrLedgerReferenceTypeLabel(referenceType), url = "#${detailRoute(Routes.MEETINGS, referenceId)}")
     } else {
         span(referenceType?.let { ltrLedgerReferenceTypeLabel(it) } ?: "--") { addCssClasses("text-muted small") }
     }
@@ -924,6 +933,7 @@ fun ltrLedgerEntryTypeLabel(type: LtrLedgerEntryType): String =
         LtrLedgerEntryType.SOCIAL_POST_BOOST -> gettext("Beitrags-Boost")
         LtrLedgerEntryType.NOTICE_BOOST -> gettext("Aushang-Boost")
         LtrLedgerEntryType.TENDER_PAYOUT -> gettext("Auszahlung (Ausschreibung)")
+        LtrLedgerEntryType.MEETING_REWARD -> gettext("Anerkennung (Sitzung)")
     }
 
 fun ltrLedgerEntryTypeColor(type: LtrLedgerEntryType): String =
@@ -943,6 +953,7 @@ fun ltrLedgerEntryTypeColor(type: LtrLedgerEntryType): String =
         LtrLedgerEntryType.SOCIAL_POST_BOOST -> "warning"
         LtrLedgerEntryType.NOTICE_BOOST -> "warning"
         LtrLedgerEntryType.TENDER_PAYOUT -> "success"
+        LtrLedgerEntryType.MEETING_REWARD -> "success"
     }
 
 fun ltrLedgerReferenceTypeLabel(type: LtrLedgerReferenceType): String =
@@ -954,6 +965,7 @@ fun ltrLedgerReferenceTypeLabel(type: LtrLedgerReferenceType): String =
         LtrLedgerReferenceType.SOCIAL_POST -> gettext("Beitrag (Soziales Netzwerk)")
         LtrLedgerReferenceType.NOTICE -> gettext("Aushang (Schwarzes Brett)")
         LtrLedgerReferenceType.TENDER -> gettext("Ausschreibung")
+        LtrLedgerReferenceType.MEETING -> gettext("Sitzung")
     }
 
 fun peerTransferCharacterizationLabel(characterization: PeerTransferCharacterization): String =

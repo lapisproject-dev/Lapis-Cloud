@@ -142,10 +142,13 @@ class RoomPollTripwireTest :
                 )
         }
 
-        test("the service is the LAST registerService in Application.kt and the limiters are process-wide singletons") {
+        test(
+            "the service is the SECOND TO LAST registerService in Application.kt (the meeting recognition follows) and the limiters are process-wide singletons",
+        ) {
             val app = SourceScan.blank(EncounterSourceScan.mainFile("Application.kt").readText())
             val registrations = Regex("""registerService\(""").findAll(app).map { it.range.first }.toList()
-            registrations.last() shouldBe app.indexOf("registerService(IConferenceRoomPollService::class)")
+            registrations[registrations.size - 2] shouldBe app.indexOf("registerService(IConferenceRoomPollService::class)")
+            registrations.last() shouldBe app.indexOf("registerService(IMeetingRewardService::class)")
             listOf("roomPollWriteLimiter", "roomPollAnswerLimiter", "roomPollStateLimiter", "roomPollVersionLimiter").forEach {
                 Regex("""val $it = FederationInboxRateLimiter\(""").containsMatchIn(app) shouldBe true
             }

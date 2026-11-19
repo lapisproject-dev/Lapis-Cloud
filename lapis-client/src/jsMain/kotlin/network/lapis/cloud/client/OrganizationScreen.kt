@@ -142,6 +142,14 @@ private fun organizationSections(): List<OrganizationSection> =
             },
             build = { panel, refresh -> renderTenderDefaultsSettings(panel) { refresh() } },
         ),
+        // V1.9.316: static summary (no RPC on load); the section loads its own policy view.
+        OrganizationSection(
+            key = "sitzungsanerkennung",
+            icon = "fas fa-clipboard-check",
+            title = tr("Anerkennung für Sitzungen"),
+            summary = { _ -> tr("LTR als Anerkennung für die Teilnahme an Sitzungen") },
+            build = { panel, _ -> renderMeetingAttendanceRecognitionSettings(panel) },
+        ),
         // V1.9.244: static summary (no RPC on load); the content is one button to the page of its own.
         OrganizationSection(
             key = "partnerserver",

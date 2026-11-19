@@ -82,6 +82,9 @@ private val OIDC_SIGNING_KEY_SEED_ID = "00000000-0000-0000-0000-0000000000f7"
  */
 private val TRUST_ANCHOR_SIGNING_KEY_SEED_ID = "00000000-0000-0000-0000-0000000000f8"
 
+/** Fixed sentinel id of the single `meeting_reward_policy` row Flyway seeds (V164) -- see `MeetingRewardStore`. */
+private val MEETING_REWARD_POLICY_SEED_ID = "00000000-0000-0000-0000-0000000000f9"
+
 /**
  * V1.9.225: tables Flyway seeds with a FIXED SET of rows (not one singleton). Such a table counts as "not fresh" only when a row deviates from the
  * seed; the value is the SQL predicate that selects those deviating rows. `partg_report_position` holds the 42 legally fixed positions (fixed
@@ -100,6 +103,7 @@ private val SEEDED_SINGLETON_ROWS: Map<String, Pair<String, String>> =
         "federation_actor_key" to ("id" to FEDERATION_ACTOR_KEY_SEED_ID),
         "oidc_signing_key" to ("id" to OIDC_SIGNING_KEY_SEED_ID),
         "trust_anchor_signing_key" to ("id" to TRUST_ANCHOR_SIGNING_KEY_SEED_ID),
+        "meeting_reward_policy" to ("id" to MEETING_REWARD_POLICY_SEED_ID),
     )
 
 /** Result of a successful [OrganizationRestoreService.restore] call -- a failed restore throws instead of returning, see that method's KDoc. */

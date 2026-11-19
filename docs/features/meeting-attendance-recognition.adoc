@@ -1,0 +1,108 @@
+= LTR recognition for attending a meeting (V1.9.316)
+:toc:
+:icons: font
+
+Organisations may want to recognise the people who take part in a meeting. This feature issues a small amount of **LTR** to everyone who was present at a meeting of an enabled committee. It is an **issuance of LTR** (like a mint or a tender payout), never a payment, never EUR.
+Design, lock order, idempotency and the guards: link:../architecture/meeting-attendance-recognition.adoc[docs/architecture/meeting-attendance-recognition.adoc].
+
+WARNING: **Tax and legal classification NOT reviewed.** Whether and how such a recognition has to be treated for tax, social-security or non-profit purposes has not been checked by anybody. The screens say so in plain words. Do not switch the feature on in a real organisation before that was clarified.
+
+NOTE: **Not verified.** The feature was never tried with a real general assembly, the amounts were never tried on a real instance and the screens were tested only in headless Chrome (DOM tests), not by a person in a real browser. See the CHANGELOG.
+
+== What it does
+
+* It is **off** by default. An administrator switches it on in the page "Organisation", section "Anerkennung für Sitzungen".
+* It only applies to the **committees** that were selected there. A meeting of any other committee is never settled.
+* After a meeting was **held** and its **protocol is confirmed**, an administrator prepares a **settlement** on the page of the meeting, and a **second administrator releases** it. Release books one credit row `MEETING_REWARD` per recognised person in the LTR ledger (reference: the meeting).
+* Everybody sees their own recognition in their LTR account ("Anerkennung (Sitzung)", with committee and date). Nobody sees the amounts of others.
+
+== Who gets what
+
+[cols="2,5"]
+|===
+|Attendance |Result
+|PRESENT |the **base amount**, plus a **function bonus** (see below), up to the limits
+|EXCUSED, UNEXCUSED (shown as "Nicht anwesend"), GUEST |nothing, with the reason shown in the settlement
+|REPRESENTED |nothing for the represented person. A representative is paid only for their **own** PRESENT row, never for representing somebody
+|Member status guest, friend, withdrawn, rejected, deceased, anonymised, applicant |nothing ("Nicht berechtigt"): only organisation members that can hold LTR are recognised
+|===
+
+All amounts are LTR with at most two decimal places. A third decimal place is refused (nothing is ever rounded).
+
+=== Function bonus
+
+The bonus is the **maximum**, never the sum, of the configured amounts over the roles a person held **on the date of the meeting** (`since <= date`, `until` empty or `>= date`):
+
+* chair, deputy chair, secretary and managing director can carry a bonus;
+* general secretary, treasurer, press spokesperson, assessor and plain member never do (the display role then shows the highest role, without an amount);
+* when two roles share the maximum, the one with the lower rank is shown.
+
+KNOWN LIMIT: the bonus follows the committee seats. **Who actually led a meeting** (the lead or the minute taker of the session) does **not** count. The general assembly has no seat rows, so a meeting of the general assembly earns the base amount only; the settlement shows no function there.
+
+=== Limits
+
+* **Per person and calendar year** (the year of the meeting date): the person never receives more than the limit in total. A line that would go above is **reduced to what is left** ("Auf die Obergrenze gekürzt"); at the limit it is zero ("Obergrenze erreicht").
+* **Per meeting**: a total above the limit is **refused** when the settlement is prepared and released (no proportional reduction). The administrators fix the rules or the attendance instead.
+
+== Changing the rules
+
+The rules (switch, base amount, four bonuses, two limits, the committees) change only by a **proposal** in a single step:
+
+. An administrator proposes the complete new rules and must pick an **adopted resolution of the general assembly** (a resolution of a meeting of the committee type "Mitgliederversammlung"). An optional note such as "TOP 7" is stored beside it. The old and the new values are stored.
+. A **second administrator confirms**. The confirming administrator must have held the administrator role for at least **seven days** at the time of the proposal (`PeerGuard.ADMIN_TENURE`). Without that, one administrator could appoint a puppet administrator and confirm their own proposal.
+. At most **one** proposal is open at a time. A proposal can be withdrawn by any administrator. A proposal whose "old" values no longer equal the values in force is **stale** and cannot be confirmed.
+. **Switching off** needs one administrator only (it can never create LTR) and is idempotent. Switching **on** is possible only through a proposal, i.e. always with a resolution and a second administrator.
+
+Every step is audited with the old and the new values and the resolution (entity types `MEETING_REWARD_POLICY` and `MEETING_REWARD_SETTLEMENT`).
+
+KNOWN LIMIT: two real administrators who work together can still change the rules. The protection is the resolution reference and the audit trail, not a technical block.
+
+== Settlement of a meeting
+
+[source,kuml,name="meeting-reward-settlement-state-machine"]
+----
+stateDiagram(name = "Meeting reward settlement") {
+    val start = initialState()
+    val preview = state(name = "PREVIEW (live, nothing stored)")
+    val prepared = state(name = "PREPARED")
+    val released = finalState(name = "RELEASED")
+
+    transition(source = start, target = preview) { trigger = "previewMeetingRewardSettlement()" }
+    transition(source = preview, target = prepared) { trigger = "prepareMeetingRewardSettlement(hash)" }
+    transition(source = prepared, target = preview) { trigger = "discardMeetingRewardSettlement()" }
+    transition(source = prepared, target = released) { trigger = "releaseMeetingRewardSettlement(hash) by a second administrator" }
+}
+----
+
+[source,kuml,name="meeting-reward-policy-change-state-machine"]
+----
+stateDiagram(name = "Meeting reward rules change") {
+    val start = initialState()
+    val proposed = state(name = "PROPOSED")
+    val confirmed = finalState(name = "CONFIRMED")
+    val withdrawn = finalState(name = "WITHDRAWN")
+
+    transition(source = start, target = proposed) { trigger = "proposeMeetingRewardPolicyChange() (resolution of the general assembly)" }
+    transition(source = proposed, target = confirmed) { trigger = "confirmMeetingRewardPolicyChange() by a second, tenured administrator" }
+    transition(source = proposed, target = withdrawn) { trigger = "withdrawMeetingRewardPolicyChange()" }
+}
+----
+
+A settlement is **available** only when all of these hold (the first failing one is shown): the feature is on, the committee takes part, the meeting was held, its protocol is **confirmed**, and the attendance still **matches the confirmed protocol**. The last check compares the number of people per category and the names of the people present with the protocol; it keeps an administrator from adding themselves as "present" after the protocol was confirmed. It also trips when a present member was renamed after the confirmation: confirm a corrected protocol version then.
+
+The **preview** shows every attendee with the amount or the reason, plus the total, and a **hash** over the meeting, the rules in force, the confirmed protocol version and every figure. **Preparing** stores the figures and needs that hash; if anything moved, the call is refused. **Releasing** by another administrator recomputes everything from the live rows and compares it with the stored hash. A mismatch (attendance, a member status, the rules, the protocol, the yearly sums) is refused ("prepare it again") and nothing is booked. A released settlement is final: it is never reversed here. A correction is a manual booking in the ledger. A newer **SUPERSEDED** protocol does not trigger any automatic reversal either.
+
+An administrator who is **recognised in the same settlement** may still prepare or release it (they are not excluded); the settlement and the audit entry mark this (`callerIsBeneficiary`, `preparerIsBeneficiary`, `releaserIsBeneficiary`).
+
+== Roles
+
+[cols="2,5"]
+|===
+|Who |May
+|ADMIN |propose, confirm, withdraw and switch off the rules; preview, prepare, release and discard a settlement. Deliberately administrators only (the tender payout also admits the board and the treasurer; this feature does not)
+|Anybody else |nothing, except the read of their own recognition (no member parameter exists)
+|===
+
+== Data and privacy
+
+The five tables `meeting_reward_policy`, `meeting_reward_policy_change`, `meeting_reward_committee`, `meeting_reward_settlement` and `meeting_reward_line` travel in the organisation backup (the seeded policy row is overwritten, not duplicated). The data-subject export lists the member's own lines and the administrator steps; erasure **retains** everything as booking evidence (GoBD): the records name a person only by id and the name leaves with the anonymised member row. No log line carries a name or an amount. The audit snapshots carry ids, enums and amounts, never a name.

@@ -237,6 +237,9 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.CARPOOL_FEDERATION_OPT_IN -> gettext("Mitfahrzentrale: Weitergabe an Partnerorganisationen")
         // V1.9.312 -- a partner server fetched the short hints; the entry carries the number of hints only.
         AuditEntityType.CARPOOL_FEDERATION_FEED -> gettext("Mitfahr-Kurzhinweise abgerufen")
+        // V1.9.316 -- the rules of the LTR recognition for Sitzungen (proposal, confirmation, withdrawal, switch-off) and the settlement of one Sitzung.
+        AuditEntityType.MEETING_REWARD_POLICY -> gettext("LTR-Anerkennung (Ordnung)")
+        AuditEntityType.MEETING_REWARD_SETTLEMENT -> gettext("LTR-Anerkennung (Abrechnung)")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -398,6 +401,9 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.CARPOOL_FEDERATION_OPT_IN -> "secondary"
         // V1.9.312 -- a transfer record, no money: neutral hue.
         AuditEntityType.CARPOOL_FEDERATION_FEED -> "secondary"
+        // "warning" -- an issuance of LTR is a consequential act; the label says it too, never colour alone.
+        AuditEntityType.MEETING_REWARD_POLICY -> "warning"
+        AuditEntityType.MEETING_REWARD_SETTLEMENT -> "warning"
     }
 
 // ------------------------------------------------------------------------------------------------
