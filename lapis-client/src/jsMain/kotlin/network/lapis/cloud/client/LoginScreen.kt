@@ -54,9 +54,12 @@ fun renderLoginScreen(container: SimplePanel) {
             renderForgotPasswordToggle(this)
         }
 
-        div {
-            marginTop = 8.px
-            link(tr("Noch kein Konto? Jetzt Mitglied werden."), url = "#${Routes.REGISTER}")
+        // V1.9.315 -- hidden when the admin switched the online membership application off (or in Keycloak mode).
+        if (membershipApplicationOpenNow()) {
+            div {
+                marginTop = 8.px
+                link(tr("Noch kein Konto? Jetzt Mitglied werden."), url = "#${Routes.REGISTER}")
+            }
         }
 
         // V0.11.0 FRIEND self-registration -- third entry link, for a caller who wants NOTHING but

@@ -94,6 +94,7 @@ import network.lapis.cloud.shared.rpc.MemberPublicBioMissingException
 import network.lapis.cloud.shared.rpc.MemberPublicBioNotEligibleException
 import network.lapis.cloud.shared.rpc.MemberPublicBioRateLimitedException
 import network.lapis.cloud.shared.rpc.MemberPublicBioValidationException
+import network.lapis.cloud.shared.rpc.MembershipApplicationClosedException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.PartyReportInvalidInputException
 import network.lapis.cloud.shared.rpc.PartyReportModeConfirmationRequiredException
@@ -228,6 +229,9 @@ suspend fun <T> guarded(block: suspend () -> T): T? =
 internal fun typedRefusalText(e: Throwable): String? =
     when (e) {
         is RateLimitedException -> tr("Zu viele Anfragen – bitte kurz warten.")
+        // V1.9.315: the online membership application is switched off (the registration screen renders its own closed state).
+        is MembershipApplicationClosedException ->
+            tr("Ein Online-Mitgliedsantrag ist auf dieser Plattform nicht möglich. Bitte wenden Sie sich direkt an die Organisation.")
         is ExternalMemberIdTakenException -> tr("Diese ID ist bereits einem anderen Mitglied zugeordnet.")
         is ExternalMemberIdSourceNotConfiguredException -> tr("Für diese Instanz ist keine externe Mitglieds-ID-Quelle eingerichtet.")
         is FoundingMemberRateLimitedException -> tr("Zu viele Anfragen – bitte kurz warten.")

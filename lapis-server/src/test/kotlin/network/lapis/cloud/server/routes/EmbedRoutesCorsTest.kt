@@ -29,6 +29,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.embed.EmbedOriginAllowlist
@@ -36,6 +37,7 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.mail.PasswordResetMailer
+import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.testdb.legacyAccountRole
@@ -49,6 +51,7 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
@@ -329,6 +332,33 @@ class EmbedRoutesCorsTest :
         ) {
             testApp(config = EmbedConfig.DISABLED) {
                 client.get("/api/embed/v1/events").status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        test("V1.9.315: the ADMIN status reports whether the join block is shown; it follows the switch and stays ADMIN-only") {
+            testApp(config = EmbedConfig.DISABLED) {
+                val (adminId, token) = createAdminSessionCookie("embed-cors-join-admin@example.org")
+
+                fun setSwitch(value: Boolean) =
+                    transaction {
+                        OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                            it[membershipApplicationEnabled] = value
+                        }
+                    }
+                try {
+                    client.get("/api/embed/v1/admin/status").status shouldBe HttpStatusCode.Unauthorized
+                    setSwitch(true)
+                    client
+                        .get("/api/embed/v1/admin/status") { header(HttpHeaders.Cookie, "lapis_session=$token") }
+                        .bodyAsText() shouldContain "\"membershipApplicationOpen\":true"
+                    setSwitch(false)
+                    client
+                        .get("/api/embed/v1/admin/status") { header(HttpHeaders.Cookie, "lapis_session=$token") }
+                        .bodyAsText() shouldContain "\"membershipApplicationOpen\":false"
+                } finally {
+                    setSwitch(true)
+                    deleteTestMember(adminId)
+                }
             }
         }
 

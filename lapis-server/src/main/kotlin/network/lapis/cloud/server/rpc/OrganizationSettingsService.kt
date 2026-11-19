@@ -287,6 +287,36 @@ class OrganizationSettingsService(
     }
 
     /**
+     * V1.9.315 -- the ONLY way to change [OrganizationSettingsDto.membershipApplicationEnabled] (ADMIN). A change writes one
+     * [AuditEntityType.ORGANIZATION_SETTINGS] `UPDATE` entry (one-field JSON snapshot, no personal data); the same value writes nothing.
+     */
+    override suspend fun updateMembershipApplicationEnabled(enabled: Boolean): OrganizationSettingsDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val result =
+            transaction {
+                val before = MembershipApplicationStore.load()
+                if (before != enabled) {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[membershipApplicationEnabled] = enabled
+                    }
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.ORGANIZATION_SETTINGS,
+                        entityId = ORGANIZATION_SETTINGS_ID,
+                        action = AuditAction.UPDATE,
+                        before = "{\"membershipApplicationEnabled\":$before}",
+                        after = "{\"membershipApplicationEnabled\":$enabled}",
+                    )
+                }
+                loadOrganizationSettings().withInfrastructure() to (before != enabled)
+            }
+        if (result.second) logger.info { "membership application enabled set to $enabled by ${current.memberId}" }
+        return result.first
+    }
+
+    /**
      * V1.9.129 -- the ONLY way to change [OrganizationSettingsDto.videoOverlaysOffered] (ADMIN). A change writes one
      * [AuditEntityType.ORGANIZATION_SETTINGS] `UPDATE` entry (before/after as a one-field JSON snapshot, no personal data); setting the
      * value it already has writes neither a row nor an audit entry. The generic [updateOrganizationSettings] never touches the column.
@@ -777,6 +807,7 @@ class OrganizationSettingsService(
                 // V1.9.124: noiseSuppressionDefault is likewise DELIBERATELY absent -- only
                 // updateNoiseSuppressionDefault (ADMIN, audited on change) may set it.
                 // V1.9.129: videoOverlaysOffered likewise -- only updateVideoOverlaysOffered may set it.
+                // V1.9.315: membershipApplicationEnabled likewise -- only updateMembershipApplicationEnabled may set it.
                 // V1.9.143: pulpitRecordingEnabled / pulpitRecordingNoticeVersion / pulpitRecordingRequireConfirmation likewise -- only
                 // updatePulpitRecordingEnabled / updatePulpitRecordingRequireConfirmation may set them.
                 // V1.9.144: memberFinderEnabled / memberFinderNoticeVersion likewise -- only updateMemberFinderEnabled may set them.
@@ -1005,6 +1036,8 @@ fun ResultRow.toOrganizationSettingsDto(): OrganizationSettingsDto =
         pauseMusicVersion = this[OrganizationSettingsTable.pauseMusicKey]?.toString()?.take(8),
         // V1.9.262 -- read-only here, set only through setConferenceBroadcastViewDefault.
         conferenceBroadcastViewDefault = this[OrganizationSettingsTable.conferenceBroadcastViewDefault],
+        // V1.9.315 -- read-only here, set only through updateMembershipApplicationEnabled.
+        membershipApplicationEnabled = this[OrganizationSettingsTable.membershipApplicationEnabled],
     )
 
 /**
@@ -1057,6 +1090,27 @@ internal object VideoOverlaysOfferedStore {
     /** For the join answers: opens its own transaction and NEVER fails -- the safe answer is "off", today's behaviour. */
     fun currentValue(): Boolean = runCatching { transaction { load() } }.getOrDefault(false)
 }
+
+/** V1.9.315 -- the instance switch "Mitglied werden". A missing row (never happens, V1 seeds it) means TRUE (today's behaviour). */
+internal object MembershipApplicationStore {
+    /** Must run inside an open `transaction {}`. */
+    fun load(): Boolean =
+        OrganizationSettingsTable
+            .select(OrganizationSettingsTable.membershipApplicationEnabled)
+            .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+            .singleOrNull()
+            ?.get(OrganizationSettingsTable.membershipApplicationEnabled)
+            ?: true
+
+    /** UI projection only (shell, landing, embed): own transaction; a DB failure means TRUE (the server gate itself stays strict). */
+    fun currentValueForDisplay(): Boolean = runCatching { transaction { load() } }.getOrDefault(true)
+}
+
+/** The single server-side rule, mirrors the client's `isMembershipApplicationOpen`. */
+internal fun membershipApplicationOpen(
+    enabled: Boolean,
+    keycloakEnabled: Boolean,
+): Boolean = enabled && !keycloakEnabled
 
 /** V1.9.143 -- the three settings of the optional pulpit recording. */
 internal data class PulpitRecordingSettings(

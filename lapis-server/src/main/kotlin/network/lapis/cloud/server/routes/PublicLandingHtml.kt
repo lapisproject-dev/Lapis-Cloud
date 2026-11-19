@@ -98,7 +98,12 @@ internal object PublicLandingHtml {
                         nav = nav,
                     )
                 }
-                renderHero(baseUrl = baseUrl, branding = branding, strings = strings)
+                renderHero(
+                    baseUrl = baseUrl,
+                    branding = branding,
+                    strings = strings,
+                    membershipApplicationOpen = view.membershipApplicationOpen,
+                )
                 main {
                     attributes["id"] = "main"
                     view.stats?.let { renderStats(stats = it, strings = strings) }
@@ -177,11 +182,17 @@ internal object PublicLandingHtml {
         baseUrl: String,
         branding: ResolvedBranding,
         strings: PublicUiStrings,
+        /** V1.9.315 -- off (switch or Keycloak mode): the primary CTA leads to the login instead of the application form. */
+        membershipApplicationOpen: Boolean = true,
     ) {
         section(classes = "hero") {
             h1 { +branding.title }
             p { +strings.tagline }
-            a(href = "$baseUrl/app#/register", classes = "cta cta-primary") { +strings.register }
+            if (membershipApplicationOpen) {
+                a(href = "$baseUrl/app#/register", classes = "cta cta-primary") { +strings.register }
+            } else {
+                a(href = "$baseUrl/app#/login", classes = "cta cta-primary") { +strings.login }
+            }
         }
     }
 
@@ -265,4 +276,6 @@ internal object PublicLandingHtml {
 internal data class PublicLandingView(
     val stats: PublicTransparencyStats?,
     val topPosts: List<PublicPostView>,
+    /** V1.9.315 -- `enabled && !keycloak`; `false` turns the hero CTA into "Anmelden". */
+    val membershipApplicationOpen: Boolean = true,
 )

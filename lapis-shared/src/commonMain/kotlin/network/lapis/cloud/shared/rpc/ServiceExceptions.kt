@@ -1252,3 +1252,14 @@ class ExternalMemberIdTakenException(
 class ExternalMemberIdSourceNotConfiguredException(
     override val message: String = "No external member id source is configured",
 ) : AbstractServiceException()
+
+/**
+ * Welle V1.9.315 -- distinct type (Kilua RPC transmits only the exception TYPE). The online membership application is switched off on this
+ * instance. Constant message: no reason, no Keycloak hint, independent of the input.
+ */
+@RpcServiceException
+class MembershipApplicationClosedException(
+    override val message: String = MEMBERSHIP_APPLICATION_CLOSED_MESSAGE,
+) : AbstractServiceException()
+
+const val MEMBERSHIP_APPLICATION_CLOSED_MESSAGE = "Online membership applications are not available on this server."

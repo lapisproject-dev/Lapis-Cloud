@@ -58,6 +58,10 @@ private val GLOSSARY_EXEMPT_MSGIDS: Map<String, String> =
         "Antrag" to "MemberStatus.APPLICATION: the status of a membership APPLICATION (Application/Domanda), not a motion or a request",
         "Antrag von %1 annehmen" to "V1.9.118: decision dialog of a membership APPLICATION (accept), not a motion or a request",
         "Antrag von %1 ablehnen" to "decision dialog of a membership APPLICATION (reject), not a motion or a request",
+        "Wenn ausgeschaltet, verschwinden alle Links „Mitglied werden“ (Anmeldeseite, öffentliche Startseite, " +
+            "Einbettungs-Widget auf fremden Webseiten), und der Server nimmt keine Online-Anträge mehr an. " +
+            "Die Registrierung als Freund oder Gast bleibt möglich. Bereits eingegangene Anträge bleiben unverändert." to
+            "V1.9.315: switch 'Mitglied werden', 'Anträge' are membership APPLICATIONS, not motions",
         "Eine Befreiung von der Voranmeldungspflicht ist nur auf Antrag und im Ermessen des Finanzamts möglich." to
             "tax law: an exemption 'on application' (auf Antrag), not a motion or a request",
     )

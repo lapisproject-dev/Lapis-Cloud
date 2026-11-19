@@ -83,9 +83,10 @@ private fun organizationSections(): List<OrganizationSection> =
                     ""
                 } else {
                     gettext(
-                        "Zeitzone: %1 · Mitgliederzahl öffentlich: %2",
+                        "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3",
                         state.zoneId ?: "–",
                         settings?.let { onOff(it.showPublicMemberCount) } ?: "–",
+                        settings?.let { onOff(it.membershipApplicationEnabled) } ?: "–",
                     )
                 }
             },
@@ -93,6 +94,8 @@ private fun organizationSections(): List<OrganizationSection> =
                 renderOrganizationTimeZoneSettings(panel) { refresh() }
                 panel.h3(tr("Öffentliche Sichtbarkeit")) { addCssClasses("h6 mt-3") }
                 renderPublicMemberCountSwitch(panel) { refresh() }
+                panel.h3(tr("Mitgliedsantrag")) { addCssClasses("h6 mt-3") }
+                renderMembershipApplicationSwitch(panel) { refresh() }
             },
         ),
         OrganizationSection(

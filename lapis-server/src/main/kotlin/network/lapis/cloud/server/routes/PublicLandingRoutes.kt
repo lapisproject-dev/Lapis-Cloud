@@ -7,6 +7,8 @@ import io.ktor.server.routing.get
 import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.rpc.MembershipApplicationStore
+import network.lapis.cloud.server.rpc.membershipApplicationOpen
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
@@ -74,6 +76,11 @@ fun Route.registerPublicLandingRoutes(
     branding: ResolvedBranding,
     /** Welle V1.9.11 -- shared, process-lifetime nav-availability provider, see [PublicNavAvailabilityProvider] KDoc. No default -- every caller (production, tests) must pass one explicitly. */
     navAvailability: PublicNavAvailabilityProvider,
+    /**
+     * V1.9.315 -- Keycloak mode (`keycloakConfig.enabled`, the same flag the server gate uses). With it on, the hero offers "Anmelden"
+     * instead of "Mitglied werden", exactly as with the switch off. Default `false` keeps every existing caller/test unchanged.
+     */
+    keycloakEnabled: Boolean = false,
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
     // See class KDoc "Body memoization" -- a fresh holder PER [registerPublicLandingRoutes] call
@@ -109,6 +116,7 @@ fun Route.registerPublicLandingRoutes(
                     baseUrl = baseUrl,
                     branding = branding,
                     navAvailability = navAvailability,
+                    keycloakEnabled = keycloakEnabled,
                 )
             call.respondPublicCacheable(
                 body = body,
@@ -140,10 +148,12 @@ fun Route.registerPublicLandingRoutes(
  * Kennzahlenblock überhaupt erscheint) zurückgeschlossen werden können. Der Block erscheint dann
  * genau dann, wenn es etwas anderes zu zeigen gibt (Beiträge oder ein positiver LTR-Gesamtwert).
  */
-private fun buildView(): PublicLandingView {
+private fun buildView(keycloakEnabled: Boolean): PublicLandingView {
+    // V1.9.315: inside the caller's open transaction -- MembershipApplicationStore.load(), never currentValueForDisplay() (nested transaction).
+    val membershipOpen = membershipApplicationOpen(enabled = MembershipApplicationStore.load(), keycloakEnabled = keycloakEnabled)
     val stats = PublicTransparencyReader.loadStats()
     val posts = if (stats.publicPostCount == 0L) emptyList() else loadTopPosts(limit = LANDING_TOP_POSTS_LIMIT)
-    return PublicLandingView(stats = stats.takeIf { showStats(it) }, topPosts = posts)
+    return PublicLandingView(stats = stats.takeIf { showStats(it) }, topPosts = posts, membershipApplicationOpen = membershipOpen)
 }
 
 /**
@@ -196,11 +206,12 @@ private fun renderCachedBody(
     branding: ResolvedBranding,
     /** Welle V1.9.11 -- `.current()` is only ever called on a CACHE MISS, and never from inside the `transaction { buildView() }` below (see [PublicNavAvailabilityProvider.current] KDoc "S2, keine verschachtelte Transaktion"). */
     navAvailability: PublicNavAvailabilityProvider,
+    keycloakEnabled: Boolean,
 ): String {
     val now = Clock.System.now()
     cachedBody[lang]?.let { cached -> if (cached.expiresAt > now) return cached.body }
     val nav = navAvailability.current()
-    val view = transaction { buildView() }
+    val view = transaction { buildView(keycloakEnabled = keycloakEnabled) }
     val body = PublicLandingHtml.page(view = view, baseUrl = baseUrl, branding = branding, lang = lang, nav = nav)
     cachedBody[lang] = CachedLandingBody(body = body, expiresAt = now + LANDING_CACHE_TTL)
     return body

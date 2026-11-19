@@ -65,6 +65,26 @@ class ClientShellTest :
             shell.indexHtml!! shouldContain """src="main.bundle.js""""
         }
 
+        test("V1.9.315: both variants of the shell carry the same build id and differ ONLY in the switch field of the brand payload") {
+            val root = tempRoot()
+            File(root, "index.html").writeText(REAL_INDEX_HTML.readText())
+            File(root, ClientBuildId.BUNDLE_FILE_NAME).writeText("console.log('bundle');")
+
+            val shell = ClientShell.load(clientDistRoot = root, branding = BRANDING)
+
+            val open = shell.indexHtmlFor(membershipApplicationEnabled = true)!!
+            val closed = shell.indexHtmlFor(membershipApplicationEnabled = false)!!
+            open shouldBe shell.indexHtml
+            open shouldContain "\"membershipApplicationEnabled\":true"
+            closed shouldContain "\"membershipApplicationEnabled\":false"
+            closed shouldContain """<meta name="lapis-client-build" content="${shell.buildId}">"""
+            open.replace("\"membershipApplicationEnabled\":true", "\"membershipApplicationEnabled\":false") shouldBe closed
+        }
+
+        test("V1.9.315: a hand-built shell without the closed variant falls back to the one shell") {
+            ClientShell(indexHtml = "<html/>", buildId = null).indexHtmlFor(membershipApplicationEnabled = false) shouldBe "<html/>"
+        }
+
         test("bundle without index.html -> id is still available (route answers although /app 404s)") {
             val root = tempRoot()
             File(root, ClientBuildId.BUNDLE_FILE_NAME).writeText("x")

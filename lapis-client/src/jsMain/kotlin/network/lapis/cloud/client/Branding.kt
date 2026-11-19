@@ -32,6 +32,11 @@ private data class BrandPayload(
      */
     val emergencyAdminLoginEnabled: Boolean = false,
     /**
+     * V1.9.315 -- mirrors `BrandingHtml.inject`'s `membershipApplicationEnabled` (the raw instance switch "Mitglied werden"). Defaults to
+     * `true`: a missing key or an unreadable payload keeps today's behaviour (links visible); the server stays the authority.
+     */
+    val membershipApplicationEnabled: Boolean = true,
+    /**
      * V1.9.265 -- the resolved logo variants (`BrandingHtml.renderLogosJson` on the server). Present ONLY when the operator configured
      * at least one `LAPIS_BRAND_*_PATH` variant; absent on every older/legacy-only payload, which therefore renders exactly as before.
      */
@@ -169,6 +174,10 @@ object Branding {
      */
     val emergencyAdminLoginEnabled: Boolean
         get() = readPayload()?.emergencyAdminLoginEnabled ?: false
+
+    /** V1.9.315 -- the raw switch; combine with [keycloakMode] through [isMembershipApplicationOpen] (never read on its own). */
+    val membershipApplicationEnabled: Boolean
+        get() = readPayload()?.membershipApplicationEnabled ?: true
 
     private fun readPayload(): BrandPayload? {
         val raw = document.getElementById(ELEMENT_ID)?.textContent?.takeUnless { it.isBlank() } ?: return null

@@ -22,6 +22,7 @@ import network.lapis.cloud.shared.domain.RegistrationInput
 import network.lapis.cloud.shared.rpc.AgreementTextOutdatedException
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.IRegistrationService
+import network.lapis.cloud.shared.rpc.MembershipApplicationClosedException
 import network.lapis.cloud.shared.rpc.RegionalChapterRequiredException
 
 /**
@@ -47,6 +48,11 @@ fun renderRegistrationScreen(container: SimplePanel) {
     // Muster. root.h1 bleibt unverändert der screenspezifische Titel.
     root.brandLockup()
     root.pageHeader(tr("Mitglied werden"))
+    // V1.9.315 -- application closed (switch off / Keycloak mode): the explanation and the way back, no RPC, no friend link, no reason.
+    if (!membershipApplicationOpenNow()) {
+        renderMembershipApplicationClosed(root)
+        return
+    }
     val loadingNotice = root.p(tr("Beitrittsvertrag wird geladen ..."))
 
     AppScope.launch {
@@ -55,7 +61,7 @@ fun renderRegistrationScreen(container: SimplePanel) {
         // there never blocks the registration form itself.
         val (agreement, chapters) =
             coroutineScope {
-                val agreementDeferred = async { loadMembershipAgreement() }
+                val agreementDeferred = async { loadMembershipAgreement(root) }
                 val chaptersDeferred = async { loadRegionalChapterOptionsOrEmpty() }
                 agreementDeferred.await() to chaptersDeferred.await()
             }
@@ -64,11 +70,34 @@ fun renderRegistrationScreen(container: SimplePanel) {
     }
 }
 
-/** The ONE read of the current text -- the first load and the reload after "the text changed" both use it. `null` = failed (the person was told). */
-private suspend fun loadMembershipAgreement(): MembershipAgreementDto? =
-    guarded {
-        rpcService<IRegistrationService>().getMembershipAgreement()
+/**
+ * V1.9.315 -- the closed state of the online membership application: one fixed sentence and the way to the login. Used up front (the page
+ * payload says "off"), after a refused agreement load and after a refused submit (the switch was turned off while the page was open).
+ */
+internal fun renderMembershipApplicationClosed(root: SimplePanel) {
+    root.p(tr("Ein Online-Mitgliedsantrag ist auf dieser Plattform nicht möglich. Bitte wenden Sie sich direkt an die Organisation."))
+    root.div {
+        marginTop = 8.px
+        link(tr("Zur Anmeldung"), url = "#${Routes.LOGIN}")
     }
+}
+
+/** The ONE read of the current text -- the first load and the reload after "the text changed" both use it. `null` = failed (the person was told). */
+private suspend fun loadMembershipAgreement(root: SimplePanel? = null): MembershipAgreementDto? {
+    var closed = false
+    val agreement =
+        guarded {
+            // V1.9.315 -- `guarded` would toast a generic error; the closed state gets its own fixed text instead (no toast).
+            try {
+                rpcService<IRegistrationService>().getMembershipAgreement()
+            } catch (e: MembershipApplicationClosedException) {
+                closed = true
+                null
+            }
+        }
+    if (closed) root?.let { renderMembershipApplicationClosed(it) }
+    return agreement
+}
 
 private fun renderRegistrationForm(
     root: SimplePanel,
@@ -191,6 +220,11 @@ private fun renderRegistrationForm(
                     )
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
+                } catch (e: MembershipApplicationClosedException) {
+                    // V1.9.315 -- the switch was turned off while this page was open: the same fixed text, the form disappears.
+                    root.removeAll()
+                    renderMembershipApplicationClosed(root)
+                    null
                 } catch (e: AgreementTextOutdatedException) {
                     // V1.9.134 -- the text was replaced while this form was open: a fixed toast (Kilua carries no message), the new text
                     // is loaded into the frame, the consent is withdrawn and everything typed stays.

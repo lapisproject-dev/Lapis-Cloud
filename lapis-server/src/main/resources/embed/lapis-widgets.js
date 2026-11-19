@@ -160,6 +160,13 @@
   }
 
   function hydrateJoin(host) {
+    fetch(LAPIS_ORIGIN + "/api/embed/v1/join", { credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { if (d && d.open === false) { host.hidden = true; } else { renderJoin(host); } })
+      .catch(function () { renderJoin(host); });
+  }
+
+  function renderJoin(host) {
     var root = mount(host);
     var link = document.createElement("a");
     link.className = "b o";

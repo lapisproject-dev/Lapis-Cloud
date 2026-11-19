@@ -26937,8 +26937,8 @@ msgstr "activado"
 msgid "aus"
 msgstr "desactivado"
 
-msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2"
-msgstr "Zona horaria: %1 · Número de miembros público: %2"
+msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3"
+msgstr "Zona horaria: %1 · Número de miembros público: %2 · Solicitud de afiliación en línea: %3"
 
 msgid "Rauschunterdrückung: %1 · Overlays: %2"
 msgstr "Supresión de ruido: %1 · Superposiciones: %2"
@@ -32556,3 +32556,31 @@ msgstr "Los avisos breves retirados se comunican a los socios como retirados has
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolFederationUi.kt:1
 msgid "Partner erhalten beim nächsten Abruf eine Rückzugsmeldung. Bereits übertragene Hinweise können wir dort nicht selbst löschen."
 msgstr "Los socios reciben un aviso de retirada en su próxima consulta. No podemos borrar por nuestra cuenta los avisos ya transmitidos."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Mitgliedsantrag"
+msgstr "Solicitud de afiliación"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Online-Mitgliedsantrag anbieten („Mitglied werden“)"
+msgstr "Ofrecer la solicitud de afiliación en línea («Hacerse miembro»)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Wenn ausgeschaltet, verschwinden alle Links „Mitglied werden“ (Anmeldeseite, öffentliche Startseite, Einbettungs-Widget auf fremden Webseiten), und der Server nimmt keine Online-Anträge mehr an. Die Registrierung als Freund oder Gast bleibt möglich. Bereits eingegangene Anträge bleiben unverändert."
+msgstr "Si se desactiva, desaparecen todos los enlaces «Hacerse miembro» (página de inicio de sesión, página de inicio pública, widget incrustado en otros sitios web) y el servidor deja de aceptar solicitudes en línea. El registro como amigo o invitado sigue siendo posible. Las solicitudes ya recibidas no cambian."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Ein Online-Mitgliedsantrag ist auf dieser Plattform nicht möglich. Bitte wenden Sie sich direkt an die Organisation."
+msgstr "Una solicitud de afiliación en línea no es posible en esta plataforma. Póngase en contacto directamente con la organización."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Der Baustein „Mitglied werden“ ist ausgeblendet, weil der Online-Mitgliedsantrag ausgeschaltet ist."
+msgstr "El bloque «Hacerse miembro» está oculto porque la solicitud de afiliación en línea está desactivada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Der Online-Mitgliedsantrag wird angeboten."
+msgstr "La solicitud de afiliación en línea se ofrece ahora."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Der Online-Mitgliedsantrag wird nicht mehr angeboten."
+msgstr "La solicitud de afiliación en línea ya no se ofrece."

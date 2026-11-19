@@ -63,4 +63,17 @@ class EmbedIntegrationScreenTest {
         val withoutSlash = buildEmbedSnippet("https://cloud.example.org")
         assertEquals(withoutSlash, withSlash)
     }
+
+    @Test
+    fun buildEmbedSnippet_withoutJoin_dropsOnlyTheJoinBlock() {
+        val withJoin = buildEmbedSnippet("https://cloud.example.org")
+        val withoutJoin = buildEmbedSnippet("https://cloud.example.org", includeJoin = false)
+        assertTrue(withJoin.contains("data-lapis-widget=\"join\""))
+        assertTrue(!withoutJoin.contains("data-lapis-widget=\"join\""))
+        assertTrue(!withoutJoin.contains("Mitglied werden"))
+        listOf("login", "donate", "event").forEach { kind -> assertTrue(withoutJoin.contains("data-lapis-widget=\"$kind\"")) }
+        assertTrue(!withoutJoin.contains("\n\n\n"), "no stray blank block where the join block was")
+        assertEquals(withJoin.replace(Regex("<div data-lapis-widget=\"join\">[\\s\\S]*?</div>\n\n"), ""), withoutJoin)
+        assertEquals(withoutJoin, buildEmbedSnippet("https://cloud.example.org", includeJoin = false))
+    }
 }

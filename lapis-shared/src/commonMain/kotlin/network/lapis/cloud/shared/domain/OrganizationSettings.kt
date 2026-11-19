@@ -261,6 +261,12 @@ data class OrganizationSettingsDto(
      * changes an existing room (only applyBroadcastViewDefaultToExistingRooms does). Read-only here, set via setConferenceBroadcastViewDefault.
      */
     val conferenceBroadcastViewDefault: ConferenceBroadcastView = ConferenceBroadcastView.RASTER,
+    /**
+     * V1.9.315 -- whether the online membership application ("Mitglied werden") is offered on this instance. **Read-only here**: it changes
+     * only through [network.lapis.cloud.shared.rpc.IOrganizationSettingsService.updateMembershipApplicationEnabled] (ADMIN, audited).
+     * `true` = the behaviour before V1.9.315.
+     */
+    val membershipApplicationEnabled: Boolean = true,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */

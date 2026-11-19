@@ -649,6 +649,8 @@ are restricted server-side (this is enforcement, not UI discretion):
 * `POST /api/auth/password-reset/request` and `/confirm` return `404` for everyone, admins included.
 * `RegistrationService.registerApplication` and `registerFriend` throw `ConflictException`, so
   self-registration stops entirely.
++
+Since V1.9.315 the "Mitglied werden" links are also hidden in Keycloak mode, and `registerApplication` checks the instance switch for the online membership application *before* this refusal (a closed application answers `MembershipApplicationClosedException`, see link:../features/organisation-settings.adoc[organisation page]).
 
 The guarantee that the admin path survives a Keycloak outage follows from the architecture, not from
 fallback logic that could itself fail:

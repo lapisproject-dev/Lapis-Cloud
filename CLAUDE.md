@@ -121,6 +121,10 @@ Details: `docs/architecture/secret-files.adoc`. Kurzregeln:
 
 - Gast-Föderation: Die RP fordert ausschließlich `OidcScopes.FEDERATION` an; `OidcScopes.ALL` nur für Issuer/Discovery (Tripwire `OidcFederationScopeTripwireTest`). Details: `docs/architecture/oidc-guest-federation.adoc`.
 
+## Schalter „Mitglied werden“ (V1.9.315)
+
+- Jeder Selbstbedienungs-Pfad, der einen Mitgliedsantrag erzeugt (`registerApplication`, `applyForMembership`) oder den Vertragstext dazu liefert (`getMembershipAgreement`), ruft in `RegistrationService` als **erste Anweisung** `requireMembershipApplicationEnabled()` (strikter Read, konstante `MembershipApplicationClosedException`, kein Schreiben, kein Limiter-Eintrag). Ein neuer Pfad, der `MemberStatus.APPLICATION` setzt, ist entweder so gesperrt oder bewusst intern/Admin (Tripwire: `MembershipApplicationGateTripwireTest`). Anzeige-Reads (Shell, Startseite, Embed) nutzen `MembershipApplicationStore.currentValueForDisplay()` und im Landing-`buildView` `load()` (keine verschachtelte Transaktion). Details: `docs/features/organisation-settings.adoc`.
+
 ## Buchhaltungs-Export (V1.9.65)
 
 Details: `docs/architecture/accounting-export-idempotency.adoc`. Jeder Schreibzugriff nach einem `claim` trägt das Fencing-Token (`claim_generation`, nie zurückgesetzt) und liefert `FencedWrite`; neue

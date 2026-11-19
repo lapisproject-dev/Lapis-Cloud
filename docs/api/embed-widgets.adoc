@@ -111,6 +111,19 @@ mirror of the events list widget. Unlike the events list (since V1.9.248), it ha
 
 All six are opt-in, `LAPIS_EMBED_ENABLED=false` by default (see <<environment-variables>>).
 
+[[join-visibility]]
+=== The `join` block follows the online membership application switch (wave V1.9.315)
+
+`GET /api/embed/v1/join` answers exactly `{"open":true}` or `{"open":false}`: whether the online membership application is offered (the administrator switch
+"Mitglied werden" is on and the instance is not in Keycloak mode). Same posture as the other embed reads: it exists only when `LAPIS_EMBED_ENABLED=true`,
+CORS only for the allowed origins (`403` for any other `Origin`, a request without `Origin` is served), `Cache-Control: no-store`, `Vary: Origin`,
+`X-Content-Type-Options: nosniff`, rate limit per client address (`429` with `Retry-After`), no cookie is read or set (the widget calls it with
+`credentials: "omit"`).
+
+`hydrateJoin()` fetches it and hides the host element only on an explicit `open:false`. The plain fallback link stays visible until the answer arrives and
+on every error or a page whose origin is not allowed (fail open); the server refuses the application regardless, so a stale or visible link is never an
+access path. The ADMIN status screen reports `membershipApplicationOpen` and, when it is `false`, shows the snippet without the `join` block.
+
 [[embedding-snippet]]
 == Embedding snippet
 

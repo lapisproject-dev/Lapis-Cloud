@@ -403,6 +403,7 @@ import network.lapis.cloud.server.rpc.MemberPhotoService
 import network.lapis.cloud.server.rpc.MemberPublicProfileService
 import network.lapis.cloud.server.rpc.MemberService
 import network.lapis.cloud.server.rpc.MemberStatisticsService
+import network.lapis.cloud.server.rpc.MembershipApplicationStore
 import network.lapis.cloud.server.rpc.NoticeBoardService
 import network.lapis.cloud.server.rpc.OnlineCountsService
 import network.lapis.cloud.server.rpc.OpenItemService
@@ -2420,6 +2421,8 @@ internal fun Application.module(
     // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- same posture as embedEventsFeedRateLimiter above.
     val embedArticlesFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     // Welle V1.9.20 -- ONE shared budget for the three read-only profile feeds (board/politicians/chapters).
+    // V1.9.315 -- GET /api/embed/v1/join, ONE shared instance (never one per request).
+    val embedJoinRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     val embedProfilesFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
 
     // Welle V1.4.1b "Öffentliche Website-Integration -- anonymer Spenden-Pfad" -- der schärfste
@@ -3441,6 +3444,7 @@ internal fun Application.module(
             readRateLimiter = publicLandingRateLimiter,
             branding = resolvedBranding,
             navAvailability = publicNavAvailability,
+            keycloakEnabled = keycloakConfig.enabled,
         )
         // V1.4.7 "Rechtstexte" -- literal routes (/impressum, /datenschutz), same "registered
         // before staticFiles" reasoning as registerSocialPublicRoutes' own routes.
@@ -3649,6 +3653,8 @@ internal fun Application.module(
             articlesFeedRateLimiter = embedArticlesFeedRateLimiter,
             profilesFeedRateLimiter = embedProfilesFeedRateLimiter,
             brandTitle = resolvedBranding.title,
+            keycloakEnabled = keycloakConfig.enabled,
+            joinRateLimiter = embedJoinRateLimiter,
         )
         getAllServiceManagers().forEach { applyRoutes(it) }
         // V1.2.5 White-Label-Branding -- literal routes, registered before staticFiles below for
@@ -3706,7 +3712,9 @@ private suspend fun serveIndexHtml(
     call: ApplicationCall,
     shell: ClientShell,
 ) {
-    val indexHtml = shell.indexHtml
+    // V1.9.315: the shell is built once per process, the switch "Mitglied werden" changes at runtime -- pick the matching variant per
+    // request (one primary-key read, a DB failure means "on"; the server gate stays strict).
+    val indexHtml = shell.indexHtmlFor(membershipApplicationEnabled = MembershipApplicationStore.currentValueForDisplay())
     if (indexHtml == null) {
         call.respond(HttpStatusCode.NotFound)
         return

@@ -20,7 +20,17 @@ internal data class ClientShell(
     val indexHtml: String?,
     /** The build id stamped into [indexHtml] (also served by the version route), or `null` without a bundle. */
     val buildId: String?,
+    /**
+     * V1.9.315 -- the same shell with the payload field `membershipApplicationEnabled:false`. The shell is built once per process but the
+     * switch changes at runtime, so both variants are rendered up front (cheap strings; the build-id hash runs once) and the request picks
+     * one. `null` (hand-built shells in tests) falls back to [indexHtml].
+     */
+    val indexHtmlMembershipClosed: String? = null,
 ) {
+    /** The shell matching the current state of the switch "Mitglied werden". */
+    fun indexHtmlFor(membershipApplicationEnabled: Boolean): String? =
+        if (membershipApplicationEnabled) indexHtml else indexHtmlMembershipClosed ?: indexHtml
+
     companion object {
         /**
          * Reads `index.html` under [clientDistRoot], injects branding first and the build id second.
@@ -46,26 +56,31 @@ internal data class ClientShell(
         ): ClientShell {
             val buildId = ClientBuildId.compute(clientDistRoot = clientDistRoot)
             val indexFile = File(clientDistRoot, "index.html")
-            val html =
-                if (!indexFile.exists()) {
-                    null
-                } else {
+            val raw = if (indexFile.exists()) indexFile.readText() else null
+
+            fun render(membershipApplicationEnabled: Boolean): String? =
+                raw?.let {
                     ClientVersionHtml.inject(
                         html =
                             ThemeHtml.inject(
                                 html =
                                     BrandingHtml.inject(
-                                        html = indexFile.readText(),
+                                        html = it,
                                         brand = branding,
                                         keycloakMode = keycloakEnabled,
                                         emergencyAdminLoginEnabled = emergencyAdminLoginEnabled,
+                                        membershipApplicationEnabled = membershipApplicationEnabled,
                                     ),
                                 theme = theme,
                             ),
                         buildId = buildId,
                     )
                 }
-            return ClientShell(indexHtml = html, buildId = buildId)
+            return ClientShell(
+                indexHtml = render(membershipApplicationEnabled = true),
+                buildId = buildId,
+                indexHtmlMembershipClosed = render(membershipApplicationEnabled = false),
+            )
         }
     }
 }

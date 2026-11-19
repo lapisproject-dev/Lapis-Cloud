@@ -63,6 +63,7 @@ import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.DecisionNotificationOutcome
 import network.lapis.cloud.shared.rpc.IRegistrationService
 import network.lapis.cloud.shared.rpc.MemberDecisionResultDto
+import network.lapis.cloud.shared.rpc.MembershipApplicationClosedException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.RegionalChapterRequiredException
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -210,8 +211,9 @@ class RegistrationService internal constructor(
     private val peerNotifier = PeerNotifier(mailer = peerNotificationMailer, smtpConfigState = peerSmtpConfigState)
 
     /** V1.9.134 -- the live text: the published version with the highest sequence number, else the built-in placeholder. Never the draft. */
-    override suspend fun getMembershipAgreement(): MembershipAgreementDto =
-        AgreementTextResolver.current(kind = AgreementTextKind.MEMBERSHIP).let {
+    override suspend fun getMembershipAgreement(): MembershipAgreementDto {
+        requireMembershipApplicationEnabled()
+        return AgreementTextResolver.current(kind = AgreementTextKind.MEMBERSHIP).let {
             MembershipAgreementDto(
                 version = it.versionLabel,
                 text = it.body,
@@ -220,6 +222,15 @@ class RegistrationService internal constructor(
                 renderedHtml = AgreementMarkdown.htmlFor(format = it.format, body = it.body),
             )
         }
+    }
+
+    /**
+     * V1.9.315 -- FIRST statement of every self-service path that creates a membership application. Strict read (no fallback): a DB failure
+     * fails the call. Constant answer, independent of the input: no DB write, no rate-limiter entry, no existence/timing leak.
+     */
+    private fun requireMembershipApplicationEnabled() {
+        if (!transaction { MembershipApplicationStore.load() }) throw MembershipApplicationClosedException()
+    }
 
     override suspend fun listRegionalChapterOptions(): List<RegionalChapterRefDto> =
         transaction {
@@ -239,6 +250,7 @@ class RegistrationService internal constructor(
      * (reusing the same [LoginRateLimiter] class, a fresh instance for this endpoint).
      */
     override suspend fun registerApplication(input: RegistrationInput) {
+        requireMembershipApplicationEnabled()
         // Review finding 3 fix -- see constructor KDoc "Keycloak mode". Checked first, before any
         // rate-limiting/validation work: a local password created here can never be used to log in
         // once Keycloak mode is on, so reject cleanly instead of silently producing a permanently
@@ -938,6 +950,7 @@ class RegistrationService internal constructor(
         agreementSha256: String,
         regionalChapterId: String?,
     ): MemberDto {
+        requireMembershipApplicationEnabled()
         val current = resolveCurrentMember(call)
         if (!AgreementTextResolver.matchesCurrent(
                 kind = AgreementTextKind.MEMBERSHIP,

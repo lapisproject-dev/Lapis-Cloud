@@ -155,9 +155,12 @@ private fun renderFriendRegistrationForm(
         }
     }
 
-    root.div {
-        marginTop = 8.px
-        link(tr("Doch lieber Mitglied werden? Zum Beitrittsantrag."), url = "#${Routes.REGISTER}")
+    // V1.9.315 -- hidden when the online membership application is off (the friend form itself stays).
+    if (membershipApplicationOpenNow()) {
+        root.div {
+            marginTop = 8.px
+            link(tr("Doch lieber Mitglied werden? Zum Beitrittsantrag."), url = "#${Routes.REGISTER}")
+        }
     }
     root.div {
         link(tr("Bereits ein Konto? Zur Anmeldung."), url = "#${Routes.LOGIN}")

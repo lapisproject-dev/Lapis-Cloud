@@ -6,6 +6,23 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+Wave V1.9.315 "Admin-Schalter Mitglied werden" (an instance switch for the online membership application), schema `V162` -> `V163` (one additive migration). Not released yet: no version bump.
+
+**Behaviour first:**
+
+1. **New ADMIN switch** *Online-Mitgliedsantrag anbieten ("Mitglied werden")* in the section *General* of the Organisation page; **default on** (today's behaviour on every instance). A change writes one audit entry, the same value writes nothing.
+2. **When it is off:** every "Mitglied werden" link disappears (login page, friend registration page, hero button of the public start page which becomes "Anmelden", and the `join` block of the embed widget via the new `GET /api/embed/v1/join`); the registration page shows one fixed sentence and a link to the login; the server **refuses** `registerApplication`, `getMembershipAgreement` and `applyForMembership` (a friend turning into an applicant) with one constant `MembershipApplicationClosedException`, as their first statement, so there is no database write, no rate-limiter entry and no way to tell an existing e-mail from a new one. Registration as a friend or guest, the chapter list, applications already received and the administrator/board paths are unchanged.
+3. **Keycloak instances lose the links as well** (the server already refused local self-registration there): the rule is `switch on AND NOT Keycloak mode`.
+4. **`applyForMembership` is blocked** when the switch is off (otherwise any friend account could bypass it).
+5. Backups made before `V163` cannot be restored, as after any schema change.
+6. The single-page app shell is built once per process but the switch changes at runtime, so both shell variants are rendered up front and picked per request (one primary-key read). The public start page can show the old button for up to a few minutes (page cache and `Cache-Control: public, max-age=300`); the server refuses meanwhile.
+
+**Technique:** `V163` adds `organization_settings.membership_application_enabled BOOLEAN NOT NULL DEFAULT TRUE`. New RPC `IOrganizationSettingsService.updateMembershipApplicationEnabled` and DTO field `OrganizationSettingsDto.membershipApplicationEnabled` (appended; not in `OrganizationSettingsInput`), new exception type `MembershipApplicationClosedException` (Kilua transmits only the type), brand payload field `membershipApplicationEnabled`, `EmbedAdminStatus.membershipApplicationOpen`, `buildEmbedSnippet(includeJoin)`. The widget script grew to about 24.2 KB (budget 24576 bytes unchanged).
+
+**Tests:** migration scenarios (H2 and PostgreSQL), `OrganizationSettingsMembershipApplicationTest`, `RegistrationServiceMembershipSwitchTest`, `MembershipApplicationGateTripwireTest`, `EmbedJoinRoutesTest`, `PublicLandingMembershipSwitchTest`, shell, brand payload, asset, admin status and i18n guards, and client tests (visibility rule, login/friend/registration screens, snippet).
+
+**Not verified:** never run against the real Apolda instance or any other deployed instance; the embed widget was not run in a real browser on a foreign page; translations are model-written and not reviewed by a native speaker.
+
 Wave V1.9.314 "Mitfahrzentrale-Föderation, Pull-Client" (carpool exchange between partner servers, wave 4 of 7: pull client, further hops, pass-on of withdrawals), schema `V161` -> `V162` (one additive migration). Not released yet: no version bump.
 
 **Behaviour first:**

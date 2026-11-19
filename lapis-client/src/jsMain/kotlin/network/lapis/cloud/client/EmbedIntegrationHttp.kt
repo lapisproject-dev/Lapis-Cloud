@@ -26,6 +26,8 @@ data class EmbedAdminStatus(
     /** Welle V1.4.1b. */
     val donationWidgetAvailable: Boolean,
     val donationWidgetUnavailableReason: String?,
+    /** V1.9.315 -- the "Mitglied werden" block is currently shown (`switch on && not Keycloak mode`); default `true` for older servers. */
+    val membershipApplicationOpen: Boolean = true,
 )
 
 object EmbedIntegrationHttp {
@@ -69,25 +71,20 @@ object EmbedIntegrationHttp {
  * slug unreplaced is not silently wrong: the widget's `hydrateEvent()` logs a `console.error` and
  * never mounts, leaving this very fallback link visible instead.
  */
-fun buildEmbedSnippet(publicBaseUrl: String): String {
+fun buildEmbedSnippet(
+    publicBaseUrl: String,
+    /** V1.9.315 -- `false` (online membership application off): the `join` block is left out. */
+    includeJoin: Boolean = true,
+): String {
     val base = publicBaseUrl.trimEnd('/')
-    return """
-        |<script src="$base/embed/v1/lapis-widgets.js" async></script>
-        |
-        |<div data-lapis-widget="login">
-        |  <a href="$base/app#/login">Anmelden</a>
-        |</div>
-        |
-        |<div data-lapis-widget="join">
-        |  <a href="$base/app#/register">Mitglied werden</a>
-        |</div>
-        |
-        |<div data-lapis-widget="donate" data-lapis-fallback-url="">
-        |  <a href="$base/app#/donate">Spenden</a>
-        |</div>
-        |
-        |<div data-lapis-widget="event" data-lapis-event-slug="ihre-veranstaltung">
-        |  <a href="$base/veranstaltung/ihre-veranstaltung">Zur Anmeldung</a>
-        |</div>
-        """.trimMargin()
+    val blocks =
+        listOfNotNull(
+            """<script src="$base/embed/v1/lapis-widgets.js" async></script>""",
+            "<div data-lapis-widget=\"login\">\n  <a href=\"$base/app#/login\">Anmelden</a>\n</div>",
+            "<div data-lapis-widget=\"join\">\n  <a href=\"$base/app#/register\">Mitglied werden</a>\n</div>".takeIf { includeJoin },
+            "<div data-lapis-widget=\"donate\" data-lapis-fallback-url=\"\">\n  <a href=\"$base/app#/donate\">Spenden</a>\n</div>",
+            "<div data-lapis-widget=\"event\" data-lapis-event-slug=\"ihre-veranstaltung\">\n" +
+                "  <a href=\"$base/veranstaltung/ihre-veranstaltung\">Zur Anmeldung</a>\n</div>",
+        )
+    return blocks.joinToString("\n\n")
 }

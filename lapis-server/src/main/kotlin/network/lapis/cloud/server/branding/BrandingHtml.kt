@@ -64,12 +64,18 @@ object BrandingHtml {
          * passes the real `keycloakConfig.emergencyAdminLoginEnabled` value.
          */
         emergencyAdminLoginEnabled: Boolean = false,
+        /**
+         * V1.9.315 -- the raw instance switch "Mitglied werden" (the client combines it with [keycloakMode]). Defaults to `true`: today's
+         * behaviour for every caller that does not pass the stored value.
+         */
+        membershipApplicationEnabled: Boolean = true,
     ): String =
         injectPayload(
             html = injectTitle(html = html, title = brand.title),
             brand = brand,
             keycloakMode = keycloakMode,
             emergencyAdminLoginEnabled = emergencyAdminLoginEnabled,
+            membershipApplicationEnabled = membershipApplicationEnabled,
         )
 
     private fun injectTitle(
@@ -95,6 +101,7 @@ object BrandingHtml {
         brand: ResolvedBranding,
         keycloakMode: Boolean,
         emergencyAdminLoginEnabled: Boolean,
+        membershipApplicationEnabled: Boolean,
     ): String {
         val markerIndex = html.indexOf(PAYLOAD_ID_MARKER)
         val tagOpenEnd = if (markerIndex >= 0) html.indexOf('>', markerIndex).let { if (it < 0) -1 else it + 1 } else -1
@@ -112,7 +119,12 @@ object BrandingHtml {
         val before = html.substring(0, tagOpenEnd)
         val after = html.substring(tagClose)
         val payload =
-            renderPayloadJson(brand = brand, keycloakMode = keycloakMode, emergencyAdminLoginEnabled = emergencyAdminLoginEnabled)
+            renderPayloadJson(
+                brand = brand,
+                keycloakMode = keycloakMode,
+                emergencyAdminLoginEnabled = emergencyAdminLoginEnabled,
+                membershipApplicationEnabled = membershipApplicationEnabled,
+            )
         return before + payload + after
     }
 
@@ -120,10 +132,12 @@ object BrandingHtml {
         brand: ResolvedBranding,
         keycloakMode: Boolean,
         emergencyAdminLoginEnabled: Boolean,
+        membershipApplicationEnabled: Boolean,
     ): String {
         val logoUrlLiteral = if (brand.logoAvailable) "\"${escapeJsonString(LOGO_ROUTE_PATH)}\"" else "null"
         return "{\"title\":\"${escapeJsonString(brand.title)}\",\"logoUrl\":$logoUrlLiteral,\"keycloakMode\":$keycloakMode," +
-            "\"emergencyAdminLoginEnabled\":$emergencyAdminLoginEnabled${renderLogosJson(brand)}}"
+            "\"emergencyAdminLoginEnabled\":$emergencyAdminLoginEnabled,\"membershipApplicationEnabled\":$membershipApplicationEnabled" +
+            "${renderLogosJson(brand)}}"
     }
 
     /**

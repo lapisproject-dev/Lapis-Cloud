@@ -233,6 +233,16 @@ class EmbedAssetTest :
             }
         }
 
+        test(
+            "V1.9.315 join widget: pinned endpoint, no credentials, fails open (fallback link stays), hides only on an explicit open:false",
+        ) {
+            val js = widgetsJs.readText()
+            js shouldContain "/api/embed/v1/join"
+            js shouldContain "d.open === false"
+            js shouldContain "host.hidden = true"
+            js shouldContain "function renderJoin(host)"
+        }
+
         test("served bundle body is at most 24576 bytes INCLUDING the origin-allowlist prelude") {
             testApp {
                 val body = client.get("/embed/v1/lapis-widgets.js").bodyAsText()
@@ -391,6 +401,7 @@ class EmbedAssetTest :
             hydrateEventBody shouldContain "credentials: \"omit\""
         }
 
+        // V1.9.315: limit raised 24208 -> 24300 (+~330 bytes for the join visibility check).
         test(
             "V1.9.260: hydrateEvent has no redirect, no payment/confirmed/waitlisted outcome handling; it shows the one neutral accepted " +
                 "sentence; the file did not grow past the V1.9.259 size",
@@ -407,7 +418,7 @@ class EmbedAssetTest :
             text shouldContain "accepted: \"Danke. Wir haben Ihnen eine E-Mail geschickt."
             // the donate widget keeps its redirect
             text shouldContain "window.location.assign(d.redirectUrl)"
-            widgetsJs.readBytes().size.toLong() shouldBeLessThanOrEqualTo 24208L
+            widgetsJs.readBytes().size.toLong() shouldBeLessThanOrEqualTo 24300L
         }
 
         test(

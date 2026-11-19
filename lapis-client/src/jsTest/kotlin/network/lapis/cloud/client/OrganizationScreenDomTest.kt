@@ -138,7 +138,10 @@ class OrganizationScreenDomTest {
                     page.sections().map { it.getAttribute("id") },
                 )
                 assertTrue(page.sections().none { it.hasAttribute("open") }, "all sections start closed")
-                assertEquals("Zeitzone: Europe/Berlin · Mitgliederzahl öffentlich: an", page.summaryOf("allgemein"))
+                assertEquals(
+                    "Zeitzone: Europe/Berlin · Mitgliederzahl öffentlich: an · Online-Mitgliedsantrag: an",
+                    page.summaryOf("allgemein"),
+                )
                 assertEquals("Rauschunterdrückung: an · Overlays: aus", page.summaryOf("videokonferenz"))
                 assertEquals("Pulpit-Aufzeichnung: aus · Veranstaltungen: aus · Standardansicht: Raster", page.summaryOf("aufzeichnung"))
                 assertEquals("Mitglieder-Finder: aus", page.summaryOf("mitglieder-finder"))

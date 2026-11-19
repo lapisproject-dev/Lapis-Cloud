@@ -27322,8 +27322,8 @@ msgstr "on"
 msgid "aus"
 msgstr "off"
 
-msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2"
-msgstr "Time zone: %1 · Member count public: %2"
+msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3"
+msgstr "Time zone: %1 · Member count public: %2 · Online membership application: %3"
 
 msgid "Rauschunterdrückung: %1 · Overlays: %2"
 msgstr "Noise suppression: %1 · Overlays: %2"
@@ -32941,3 +32941,31 @@ msgstr "Withdrawn short hints are reported to partners as withdrawn for up to 14
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolFederationUi.kt:1
 msgid "Partner erhalten beim nächsten Abruf eine Rückzugsmeldung. Bereits übertragene Hinweise können wir dort nicht selbst löschen."
 msgstr "Partners receive a withdrawal notice on their next fetch. We cannot delete hints that were already transferred."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Mitgliedsantrag"
+msgstr "Membership application"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Online-Mitgliedsantrag anbieten („Mitglied werden“)"
+msgstr "Offer the online membership application (“Become a member”)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Wenn ausgeschaltet, verschwinden alle Links „Mitglied werden“ (Anmeldeseite, öffentliche Startseite, Einbettungs-Widget auf fremden Webseiten), und der Server nimmt keine Online-Anträge mehr an. Die Registrierung als Freund oder Gast bleibt möglich. Bereits eingegangene Anträge bleiben unverändert."
+msgstr "When switched off, all “Become a member” links disappear (login page, public start page, embedded widget on other websites) and the server no longer accepts online applications. Registration as a friend or guest remains possible. Applications already received stay unchanged."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Ein Online-Mitgliedsantrag ist auf dieser Plattform nicht möglich. Bitte wenden Sie sich direkt an die Organisation."
+msgstr "An online membership application is not possible on this platform. Please contact the organisation directly."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Der Baustein „Mitglied werden“ ist ausgeblendet, weil der Online-Mitgliedsantrag ausgeschaltet ist."
+msgstr "The “Become a member” block is hidden because the online membership application is switched off."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Der Online-Mitgliedsantrag wird angeboten."
+msgstr "The online membership application is now offered."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Der Online-Mitgliedsantrag wird nicht mehr angeboten."
+msgstr "The online membership application is no longer offered."

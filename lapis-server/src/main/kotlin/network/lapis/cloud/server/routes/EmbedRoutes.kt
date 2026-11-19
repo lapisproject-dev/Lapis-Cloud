@@ -29,7 +29,9 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.server.payment.psp.PspConfigState
+import network.lapis.cloud.server.rpc.MembershipApplicationStore
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
+import network.lapis.cloud.server.rpc.membershipApplicationOpen
 import network.lapis.cloud.server.rpc.paymentGatewayDisclaimerIsCurrentlyAcknowledged
 import network.lapis.cloud.server.security.SESSION_COOKIE_NAME
 import network.lapis.cloud.server.security.SessionStore
@@ -141,6 +143,10 @@ internal fun Route.registerEmbedRoutes(
     profilesFeedRateLimiter: FederationInboxRateLimiter =
         FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000),
     brandTitle: String = BrandConfig.DEFAULT_TITLE,
+    // V1.9.315 -- `GET /api/embed/v1/join` (is "Mitglied werden" offered?). keycloakEnabled = keycloakConfig.enabled; ONE shared limiter instance.
+    keycloakEnabled: Boolean = false,
+    joinRateLimiter: FederationInboxRateLimiter =
+        FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000),
 ) {
     // Registered FIRST, unconditionally -- see this function's own KDoc "A false EmbedConfig.enabled
     // means...". Must work whether or not the block below runs, so it is wired before the early
@@ -149,6 +155,7 @@ internal fun Route.registerEmbedRoutes(
         config = config,
         adminStatusRateLimiter = adminStatusRateLimiter,
         checkoutGateways = checkoutGateways,
+        keycloakEnabled = keycloakEnabled,
     )
 
     if (!config.enabled) return
@@ -197,6 +204,9 @@ internal fun Route.registerEmbedRoutes(
         pageRateLimiter = eventPageRateLimiter,
         noticeMailLimiter = eventNoticeMailLimiter,
     )
+
+    // V1.9.315 -- is the "Mitglied werden" building block offered?
+    registerEmbedJoinRoutes(config = config, keycloakEnabled = keycloakEnabled, rateLimiter = joinRateLimiter)
 
     // Welle V1.4.33 "Veranstaltungsliste als Embed-Widget".
     registerEmbedEventsFeedRoutes(
@@ -409,6 +419,7 @@ private fun Route.registerEmbedAdminStatusRoute(
     config: EmbedConfig,
     adminStatusRateLimiter: FederationInboxRateLimiter,
     checkoutGateways: Map<PaymentProvider, PspCheckoutGateway>,
+    keycloakEnabled: Boolean,
 ) {
     get("/api/embed/v1/admin/status") {
         if (!adminStatusRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
@@ -428,6 +439,11 @@ private fun Route.registerEmbedAdminStatusRoute(
                 allowInsecureOrigins = config.allowInsecureOrigins,
                 donationWidgetAvailable = donationWidgetAvailable,
                 donationWidgetUnavailableReason = donationWidgetUnavailableReason,
+                membershipApplicationOpen =
+                    membershipApplicationOpen(
+                        enabled = MembershipApplicationStore.currentValueForDisplay(),
+                        keycloakEnabled = keycloakEnabled,
+                    ),
             )
         call.response.header(HttpHeaders.CacheControl, "no-store")
         call.respondText(
@@ -492,6 +508,8 @@ internal data class EmbedAdminStatusResponse(
     val donationWidgetAvailable: Boolean,
     /** `null` when [donationWidgetAvailable]; sonst `"STRIPE_NOT_CONFIGURED"` | `"GATEWAY_DISABLED"` | `"EMBED_DISABLED"` | `"AMOUNT_RANGE_EMPTY"`. Stripe-scoped, see `donationWidgetAvailability` KDoc -- the embed donation widget is Stripe-only regardless of the org's selected provider. */
     val donationWidgetUnavailableReason: String?,
+    /** V1.9.315 -- the "Mitglied werden" building block is currently shown (`switch on && not Keycloak mode`). No default: always on the wire. */
+    val membershipApplicationOpen: Boolean,
 )
 
 /**

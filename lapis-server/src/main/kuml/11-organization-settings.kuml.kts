@@ -537,6 +537,13 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "FALSE"
             stereotype("Column") { "columnName" to "video_overlays_offered" }
         }
+        // Welle V1.9.315 (V163__organization_settings_membership_application_enabled.sql). Instance switch of the online membership
+        // application ("Mitglied werden"), NOT NULL, TRUE = today's behaviour. NOT part of the generic updateOrganizationSettings write-set:
+        // settable ONLY through IOrganizationSettingsService.updateMembershipApplicationEnabled (ADMIN, audited on change).
+        attribute(name = "membershipApplicationEnabled", type = "Boolean") {
+            defaultValue = "TRUE"
+            stereotype("Column") { "columnName" to "membership_application_enabled" }
+        }
         // Welle V1.9.143 (V106__pulpit_recording.sql). The instance switch of the optional pulpit recording in the encounter space (NOT NULL,
         // FALSE = off), the version of the operator notice the admin acknowledged when switching it on (NULL until then) and whether the
         // pulpit has to confirm before a recording starts (NOT NULL, TRUE). All three are NOT part of the generic updateOrganizationSettings

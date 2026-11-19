@@ -27367,8 +27367,8 @@ msgstr "aan"
 msgid "aus"
 msgstr "uit"
 
-msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2"
-msgstr "Tijdzone: %1 · Ledenaantal openbaar: %2"
+msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3"
+msgstr "Tijdzone: %1 · Ledenaantal openbaar: %2 · Online lidmaatschapsaanvraag: %3"
 
 msgid "Rauschunterdrückung: %1 · Overlays: %2"
 msgstr "Ruisonderdrukking: %1 · Overlays: %2"
@@ -32986,3 +32986,31 @@ msgstr "Ingetrokken korte meldingen worden tot 14 dagen lang aan partners als in
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolFederationUi.kt:1
 msgid "Partner erhalten beim nächsten Abruf eine Rückzugsmeldung. Bereits übertragene Hinweise können wir dort nicht selbst löschen."
 msgstr "Partners ontvangen bij hun volgende ophaalactie een intrekkingsmelding. Reeds doorgegeven meldingen kunnen wij daar niet zelf verwijderen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Mitgliedsantrag"
+msgstr "Lidmaatschapsaanvraag"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Online-Mitgliedsantrag anbieten („Mitglied werden“)"
+msgstr "Online lidmaatschapsaanvraag aanbieden (“Lid worden”)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Wenn ausgeschaltet, verschwinden alle Links „Mitglied werden“ (Anmeldeseite, öffentliche Startseite, Einbettungs-Widget auf fremden Webseiten), und der Server nimmt keine Online-Anträge mehr an. Die Registrierung als Freund oder Gast bleibt möglich. Bereits eingegangene Anträge bleiben unverändert."
+msgstr "Als dit is uitgeschakeld, verdwijnen alle links “Lid worden” (inlogpagina, openbare startpagina, ingesloten widget op andere websites) en accepteert de server geen online aanvragen meer. Registratie als vriend of gast blijft mogelijk. Reeds ontvangen aanvragen blijven ongewijzigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Ein Online-Mitgliedsantrag ist auf dieser Plattform nicht möglich. Bitte wenden Sie sich direkt an die Organisation."
+msgstr "Een online lidmaatschapsaanvraag is op dit platform niet mogelijk. Neem rechtstreeks contact op met de organisatie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Der Baustein „Mitglied werden“ ist ausgeblendet, weil der Online-Mitgliedsantrag ausgeschaltet ist."
+msgstr "Het blok “Lid worden” is verborgen omdat de online lidmaatschapsaanvraag is uitgeschakeld."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Der Online-Mitgliedsantrag wird angeboten."
+msgstr "De online lidmaatschapsaanvraag wordt nu aangeboden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Der Online-Mitgliedsantrag wird nicht mehr angeboten."
+msgstr "De online lidmaatschapsaanvraag wordt niet meer aangeboden."

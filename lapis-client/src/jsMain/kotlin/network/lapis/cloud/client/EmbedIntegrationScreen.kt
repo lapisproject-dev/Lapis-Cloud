@@ -46,7 +46,7 @@ fun renderEmbedIntegrationScreen(container: SimplePanel) {
         }
         renderStatusBlock(statusPanel, status)
         if (status.enabled) {
-            renderSnippetBlock(root, status.publicBaseUrl)
+            renderSnippetBlock(root, status.publicBaseUrl, status.membershipApplicationOpen)
             renderChecklistBlock(root)
         }
     }
@@ -78,9 +78,15 @@ private fun renderStatusBlock(
 private fun renderSnippetBlock(
     root: SimplePanel,
     publicBaseUrl: String,
+    membershipApplicationOpen: Boolean = true,
 ) {
     root.h2(tr("Einbindungs-Code")) { addCssClass("h5") }
-    val snippet = buildEmbedSnippet(publicBaseUrl)
+    val snippet = buildEmbedSnippet(publicBaseUrl, includeJoin = membershipApplicationOpen)
+    if (!membershipApplicationOpen) {
+        root.p(
+            tr("Der Baustein „Mitglied werden“ ist ausgeblendet, weil der Online-Mitgliedsantrag ausgeschaltet ist."),
+        ) { addCssClasses("text-muted small") }
+    }
     // `readonly` über KVisions typisierte Eigenschaft (sie steht in der Attribut-Map und überlebt Re-Render UND Sprachwechsel);
     // das frühere rohe `getElement()?.setAttribute` ging beim Sprachwechsel verloren (Root wird neu aufgebaut).
     root.textArea(value = snippet, rows = 12) {

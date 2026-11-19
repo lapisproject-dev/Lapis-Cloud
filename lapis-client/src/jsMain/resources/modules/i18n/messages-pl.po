@@ -27263,8 +27263,8 @@ msgstr "włączone"
 msgid "aus"
 msgstr "wyłączone"
 
-msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2"
-msgstr "Strefa czasowa: %1 · Liczba członków jawna: %2"
+msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3"
+msgstr "Strefa czasowa: %1 · Liczba członków jawna: %2 · Wniosek o członkostwo online: %3"
 
 msgid "Rauschunterdrückung: %1 · Overlays: %2"
 msgstr "Tłumienie szumów: %1 · Nakładki: %2"
@@ -32888,3 +32888,31 @@ msgstr "Wycofane krótkie powiadomienia są zgłaszane partnerom jako wycofane d
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolFederationUi.kt:1
 msgid "Partner erhalten beim nächsten Abruf eine Rückzugsmeldung. Bereits übertragene Hinweise können wir dort nicht selbst löschen."
 msgstr "Partnerzy otrzymają powiadomienie o wycofaniu przy następnym pobraniu. Już przekazanych powiadomień nie możemy sami usunąć."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Mitgliedsantrag"
+msgstr "Wniosek o członkostwo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Online-Mitgliedsantrag anbieten („Mitglied werden“)"
+msgstr "Oferować wniosek o członkostwo online („Zostań członkiem”)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Wenn ausgeschaltet, verschwinden alle Links „Mitglied werden“ (Anmeldeseite, öffentliche Startseite, Einbettungs-Widget auf fremden Webseiten), und der Server nimmt keine Online-Anträge mehr an. Die Registrierung als Freund oder Gast bleibt möglich. Bereits eingegangene Anträge bleiben unverändert."
+msgstr "Po wyłączeniu znikają wszystkie linki „Zostań członkiem” (strona logowania, publiczna strona główna, osadzony widżet na innych stronach), a serwer nie przyjmuje już wniosków online. Rejestracja jako znajomy lub gość pozostaje możliwa. Wnioski już otrzymane pozostają bez zmian."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Ein Online-Mitgliedsantrag ist auf dieser Plattform nicht möglich. Bitte wenden Sie sich direkt an die Organisation."
+msgstr "Wniosek o członkostwo online nie jest możliwy na tej platformie. Prosimy o bezpośredni kontakt z organizacją."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Der Baustein „Mitglied werden“ ist ausgeblendet, weil der Online-Mitgliedsantrag ausgeschaltet ist."
+msgstr "Blok „Zostań członkiem” jest ukryty, ponieważ wniosek o członkostwo online jest wyłączony."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Der Online-Mitgliedsantrag wird angeboten."
+msgstr "Wniosek o członkostwo online jest teraz oferowany."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MembershipApplicationSettings.kt:1
+msgid "Der Online-Mitgliedsantrag wird nicht mehr angeboten."
+msgstr "Wniosek o członkostwo online nie jest już oferowany."

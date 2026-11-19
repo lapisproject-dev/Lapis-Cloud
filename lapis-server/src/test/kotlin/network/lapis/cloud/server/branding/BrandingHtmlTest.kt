@@ -38,14 +38,14 @@ class BrandingHtmlTest :
         test("default branding -> payload has logoUrl null, keycloakMode false and emergencyAdminLoginEnabled false (the defaults)") {
             val result = BrandingHtml.inject(html = FIXTURE_HTML, brand = DEFAULT_BRANDING)
             result shouldContain
-                """id="lapis-brand">{"title":"Lapis Cloud","logoUrl":null,"keycloakMode":false,"emergencyAdminLoginEnabled":false}</script>"""
+                """id="lapis-brand">{"title":"Lapis Cloud","logoUrl":null,"keycloakMode":false,"emergencyAdminLoginEnabled":false,"membershipApplicationEnabled":true}</script>"""
         }
 
         // V1.7.2 sub-wave 2a -- the pre-login carrier for keycloakConfig.enabled, see BrandingHtml.inject KDoc "keycloakMode".
         test("keycloakMode=true -> payload carries it, title/logoUrl injection stays unaffected") {
             val result = BrandingHtml.inject(html = FIXTURE_HTML, brand = DEFAULT_BRANDING, keycloakMode = true)
             result shouldContain
-                """id="lapis-brand">{"title":"Lapis Cloud","logoUrl":null,"keycloakMode":true,"emergencyAdminLoginEnabled":false}</script>"""
+                """id="lapis-brand">{"title":"Lapis Cloud","logoUrl":null,"keycloakMode":true,"emergencyAdminLoginEnabled":false,"membershipApplicationEnabled":true}</script>"""
         }
 
         // Review fix (MINOR 3) -- the pre-login carrier for keycloakConfig.emergencyAdminLoginEnabled.
@@ -53,7 +53,14 @@ class BrandingHtmlTest :
             val result =
                 BrandingHtml.inject(html = FIXTURE_HTML, brand = DEFAULT_BRANDING, keycloakMode = true, emergencyAdminLoginEnabled = true)
             result shouldContain
-                """id="lapis-brand">{"title":"Lapis Cloud","logoUrl":null,"keycloakMode":true,"emergencyAdminLoginEnabled":true}</script>"""
+                """id="lapis-brand">{"title":"Lapis Cloud","logoUrl":null,"keycloakMode":true,"emergencyAdminLoginEnabled":true,"membershipApplicationEnabled":true}</script>"""
+        }
+
+        // V1.9.315 -- the raw switch "Mitglied werden" (the client combines it with keycloakMode).
+        test("membershipApplicationEnabled=false -> payload carries it") {
+            val result = BrandingHtml.inject(html = FIXTURE_HTML, brand = DEFAULT_BRANDING, membershipApplicationEnabled = false)
+            result shouldContain
+                """"emergencyAdminLoginEnabled":false,"membershipApplicationEnabled":false}</script>"""
         }
 
         test("custom title -> injected into both <title> and the JSON payload") {
@@ -120,11 +127,11 @@ class BrandingHtmlTest :
 
             test("no variants -> the payload is byte-identical to the pre-variants string (legacy logo or none)") {
                 BrandingHtml.inject(html = FIXTURE_HTML, brand = DEFAULT_BRANDING) shouldContain
-                    """{"title":"Lapis Cloud","logoUrl":null,"keycloakMode":false,"emergencyAdminLoginEnabled":false}</script>"""
+                    """{"title":"Lapis Cloud","logoUrl":null,"keycloakMode":false,"emergencyAdminLoginEnabled":false,"membershipApplicationEnabled":true}</script>"""
                 val legacy = ResolvedBranding(title = "ELB", logoAvailable = true, logoPath = "/app/branding/logo.svg")
                 val out = BrandingHtml.inject(html = FIXTURE_HTML, brand = legacy)
                 out shouldContain
-                    """{"title":"ELB","logoUrl":"/api/branding/logo","keycloakMode":false,"emergencyAdminLoginEnabled":false}</script>"""
+                    """{"title":"ELB","logoUrl":"/api/branding/logo","keycloakMode":false,"emergencyAdminLoginEnabled":false,"membershipApplicationEnabled":true}</script>"""
                 out shouldNotContain "\"logos\""
             }
 
@@ -137,7 +144,8 @@ class BrandingHtmlTest :
                         variants = LogoVariant.entries.associateWith(::file),
                     )
                 BrandingHtml.inject(html = FIXTURE_HTML, brand = brand) shouldContain
-                    """"emergencyAdminLoginEnabled":false,"logos":{"signet":{"light":"/api/branding/logo/signet-light",""" +
+                    """"emergencyAdminLoginEnabled":false,"membershipApplicationEnabled":true,""" +
+                    """"logos":{"signet":{"light":"/api/branding/logo/signet-light",""" +
                     """"dark":"/api/branding/logo/signet-dark"},"wordmark":{"light":"/api/branding/logo/wordmark-light",""" +
                     """"dark":"/api/branding/logo/wordmark-dark"},"wordmarkCarriesName":{"navbar":true,"lockup":true}}}</script>"""
             }

@@ -98,4 +98,12 @@ interface IOrganizationSettingsService {
      * count. Running recordings keep the view frozen at their start; applies from the next recording / stream start.
      */
     suspend fun applyBroadcastViewDefaultToExistingRooms(): Int
+
+    /**
+     * V1.9.315. Role: ADMIN only. Switches the online membership application ("Mitglied werden") on or off. When off, the server refuses
+     * every self-service path that creates an application ([network.lapis.cloud.shared.rpc.MembershipApplicationClosedException]); friend
+     * and guest registration and the admin/board paths are untouched, applications already received stay unchanged. A change writes one
+     * audit entry; setting the value it already has writes nothing.
+     */
+    suspend fun updateMembershipApplicationEnabled(enabled: Boolean): OrganizationSettingsDto
 }
