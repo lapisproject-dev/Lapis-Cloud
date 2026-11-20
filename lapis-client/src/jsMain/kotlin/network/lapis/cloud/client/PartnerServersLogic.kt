@@ -3,7 +3,9 @@ package network.lapis.cloud.client
 import io.kvision.i18n.gettext
 import network.lapis.cloud.shared.domain.CarpoolFederationLimits
 import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
+import network.lapis.cloud.shared.domain.CarpoolPullState
 import network.lapis.cloud.shared.domain.CarpoolPullStatus
+import network.lapis.cloud.shared.domain.CarpoolReceivedRejectReason
 import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerFetchStatus
 import network.lapis.cloud.shared.domain.PartnerRecursionSettingsDto
@@ -165,8 +167,49 @@ internal object PartnerServersLogic {
         }
         val received = partner.carpoolReceivedHints
         if (received > 0) lines += gettext("Empfangene Kurzhinweise von diesem Partner: %1", received)
+        // V1.9.318 (wave 6): the operation of the pull. Times and counts only; the error text above stays the code text, never a raw message.
+        partner.carpoolPullOkAt?.let { lines += gettext("Letzter Erfolg: %1", formatSystemDateTime(it)) }
+        partner.carpoolPullNextAt?.let { lines += gettext("Nächster Versuch: %1", formatSystemDateTime(it)) }
+        if (partner.carpoolReceivedBlocks > 0) lines += gettext("Sperren aktiv: %1", partner.carpoolReceivedBlocks)
         return lines
     }
+
+    /** V1.9.318: the word of the pull state (the badge ALWAYS carries the word; the colour only adds to it). */
+    fun pullStateLabel(state: CarpoolPullState): String =
+        when (state) {
+            CarpoolPullState.READY -> gettext("Bereit")
+            CarpoolPullState.BACKING_OFF -> gettext("Wartet (Back-off)")
+            CarpoolPullState.PAUSED -> gettext("Pausiert")
+        }
+
+    /** The Bootstrap badge classes of a state. */
+    fun pullStateBadgeClass(state: CarpoolPullState): String =
+        when (state) {
+            CarpoolPullState.READY -> "bg-success"
+            CarpoolPullState.BACKING_OFF -> "bg-warning text-dark"
+            CarpoolPullState.PAUSED -> "bg-secondary"
+        }
+
+    /** The state badge of a partner row; `null` unless the exchange is on, the partner shares and the server reports a state. */
+    fun pullStateOf(
+        partner: PartnerServerDto,
+        exchangeOn: Boolean,
+    ): CarpoolPullState? = if (partnerSharingVisible(exchangeOn) && partner.carpoolSharing) partner.carpoolPullState else null
+
+    /** V1.9.318: the sorted cause lines ("Ablehnungsgründe"), in the FIXED order of [CarpoolReceivedRejectReason]; an unknown key is ignored. */
+    fun rejectReasonLines(settings: CarpoolFederationSettingsDto): List<String> =
+        CarpoolReceivedRejectReason.entries.map { reason ->
+            val count = settings.carpoolReceivedRejectedByReason[reason.name] ?: 0L
+            when (reason) {
+                CarpoolReceivedRejectReason.SIGNATURE -> gettext("Signatur ungültig oder fehlt: %1", count)
+                CarpoolReceivedRejectReason.UNKNOWN_ORIGIN_KEY -> gettext("Schlüssel des Ursprungs unbekannt: %1", count)
+                CarpoolReceivedRejectReason.FORMAT -> gettext("Format ungültig: %1", count)
+                CarpoolReceivedRejectReason.HOP_LIMIT -> gettext("Weitergabegrenze überschritten: %1", count)
+                CarpoolReceivedRejectReason.EXPIRED -> gettext("Abgelaufen: %1", count)
+                CarpoolReceivedRejectReason.BLOCKED -> gettext("Gesperrt: %1", count)
+                CarpoolReceivedRejectReason.CAPACITY -> gettext("Kapazität erreicht: %1", count)
+            }
+        }
 
     /** V1.9.312: the notes under the carpool switch: the missing key, and how many requests were refused / limited since the server started. */
     fun carpoolFeedSettingsLines(settings: CarpoolFederationSettingsDto): List<String> {
@@ -189,6 +232,42 @@ internal object PartnerServersLogic {
                 gettext(
                     "Kurzhinweise ohne bekannten Schlüssel des Ursprungs seit dem Start: %1",
                     settings.carpoolReceivedUnknownOriginKeySinceStart,
+                )
+        }
+        // V1.9.318 (wave 6): the operation. Everything counts from the start of the server process (in memory, 0 after a restart).
+        settings.serverStartedAt?.let { started ->
+            lines +=
+                gettext(
+                    "Seit dem Serverstart am %1: %2 ausgeliefert, %3 unverändert, %4 gedrosselt, %5 abgewiesen",
+                    formatSystemDateTime(started),
+                    settings.feedServedSinceStart,
+                    settings.feedNotModifiedSinceStart,
+                    settings.feedRateLimitedSinceStart,
+                    settings.feedRefusedSinceStart,
+                )
+        }
+        if (settings.carpoolReceivedStoredRows > 0) {
+            lines +=
+                gettext(
+                    "Gespeichert: %1 (davon abgelaufen, noch nicht gelöscht: %2)",
+                    settings.carpoolReceivedStoredRows,
+                    (settings.carpoolReceivedStoredRows - settings.carpoolReceivedHintsTotal).coerceAtLeast(0),
+                )
+        }
+        if (settings.carpoolReceivedAcceptedSinceStart > 0) {
+            lines += gettext("Übernommen seit dem Start: %1", settings.carpoolReceivedAcceptedSinceStart)
+        }
+        if (settings.carpoolReceivedExpiredDeletedSinceStart > 0) {
+            lines += gettext("Gelöscht nach Ablauf seit dem Start: %1", settings.carpoolReceivedExpiredDeletedSinceStart)
+        }
+        if (settings.carpoolPullBudgetDeferredSinceStart > 0) {
+            lines += gettext("Aufgeschoben (Abrufbudget) seit dem Start: %1", settings.carpoolPullBudgetDeferredSinceStart)
+        }
+        if (settings.carpoolRelayTombstonesSkippedSinceStart > 0) {
+            lines +=
+                gettext(
+                    "Nicht geschriebene Weitergabe-Rückzüge seit dem Start: %1",
+                    settings.carpoolRelayTombstonesSkippedSinceStart,
                 )
         }
         return lines

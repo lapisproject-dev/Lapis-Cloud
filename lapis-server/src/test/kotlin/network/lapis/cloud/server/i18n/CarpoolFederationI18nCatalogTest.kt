@@ -79,6 +79,27 @@ class CarpoolFederationI18nCatalogTest :
                 "Er geht an direkte Partner und kann über deren Partner noch eine Stufe weiter weitergegeben werden.",
                 "Partnerorganisationen anzeigen",
                 "Empfänger konnten nicht geladen werden.",
+                // V1.9.318 (wave 6)
+                "Bereit",
+                "Wartet (Back-off)",
+                "Pausiert",
+                "Letzter Erfolg: %1",
+                "Nächster Versuch: %1",
+                "Sperren aktiv: %1",
+                "Ablehnungsgründe",
+                "Signatur ungültig oder fehlt: %1",
+                "Schlüssel des Ursprungs unbekannt: %1",
+                "Format ungültig: %1",
+                "Weitergabegrenze überschritten: %1",
+                "Abgelaufen: %1",
+                "Gesperrt: %1",
+                "Kapazität erreicht: %1",
+                "Seit dem Serverstart am %1: %2 ausgeliefert, %3 unverändert, %4 gedrosselt, %5 abgewiesen",
+                "Gespeichert: %1 (davon abgelaufen, noch nicht gelöscht: %2)",
+                "Übernommen seit dem Start: %1",
+                "Gelöscht nach Ablauf seit dem Start: %1",
+                "Aufgeschoben (Abrufbudget) seit dem Start: %1",
+                "Nicht geschriebene Weitergabe-Rückzüge seit dem Start: %1",
             )
         val used by lazy {
             val constants = clientStringConstants()

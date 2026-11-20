@@ -481,6 +481,121 @@ upper bounds (each receiving server may restrict further): the limit 1 means dir
 * No schema change: the table holds at most 5000 rows, so a scan is enough.
 * No legal review (Art. 26 GDPR open); never run against a real partner server; no real member has seen the display.
 
+== Wave 6: operations (no schema change)
+
+Wave 6 (V1.9.318) adds no table and no column: the pull state, the counters and the caps are derived from what V162 already stores. It adds one environment variable,
+three caps and the numbers an administrator needs to run the exchange. Nothing here is tuned against a real partner; every value is a default that can be
+changed later.
+
+=== The pull state of a partner
+
+The state is derived from the failure counter alone (`CarpoolPullStates.of`, shared with the client) and is shown only while the exchange is on, the partner is active and
+carpool sharing is on for it.
+
+[source,kuml,name="carpool-pull-state"]
+----
+stateDiagram(name = "Carpool pull state of one partner") {
+    val start = initialState()
+    val ready = state(name = "READY")
+    val backingOff = state(name = "BACKING_OFF")
+    val paused = state(name = "PAUSED")
+
+    transition(source = start, target = ready) { trigger = "sharing switched on (counter 0, next pull due at once)" }
+    transition(source = ready, target = backingOff) { trigger = "a pull fails (failures 1 to 7: wait 15 min, doubling)" }
+    transition(source = backingOff, target = backingOff) { trigger = "the next pull fails" }
+    transition(source = backingOff, target = paused) { trigger = "the 8th failure in a row: the wait sits at the 24 h cap" }
+    transition(source = paused, target = paused) { trigger = "the daily trial pull fails" }
+    transition(source = backingOff, target = ready) { trigger = "a pull succeeds (counter back to 0)" }
+    transition(source = paused, target = ready) { trigger = "the daily trial pull succeeds, or sharing is switched off and on again" }
+}
+----
+
+"Paused" is not a stop: the poller keeps trying once a day (the half-open step of a circuit breaker). There is deliberately no "try again now" button: switching
+sharing off and on again resets the counter, the next-pull time and the ETag (the side effect of switching off is that the copies of this partner are deleted and
+withdrawals are reported, see below). The `Retry-After` header of a `429` is not evaluated; the pull waits at least an hour after a rate limit.
+
+=== Values
+
+[cols="2,3,2",options="header"]
+|===
+|Value |Meaning |Where
+
+|`TICK_ITEM_BUDGET` = 5000 |Items plus withdrawals one tick may take over, summed over all partners. A pull that would start after the budget is spent waits for the next tick: nothing
+is written, no failure is counted, the partner stays the oldest due one and is first in line. A pull that has started is always finished.
+|`CarpoolPullPoller`
+
+|`EXPIRED_SWEEP_LIMIT` = 2000 |Expired rows deleted per tick and table (received hints, received blocks, pass-on tombstones). The sweep runs in the pull tick **before** any pull and
+also while the instance switch is off.
+|`CarpoolPullPoller`
+
+|`MIN_PER_SOURCE` = 200, `MAX_PER_SOURCE` = 1000, `MAX_TOTAL` = 5000 |The fair share of one source is `min(1000, max(200, 5000 / partners with sharing on))`.
+|`CarpoolReceivedStore`
+
+|`MAX_BLOCKS_PER_SOURCE` = 5000, `MAX_BLOCKS_TOTAL` = 20000 |Local blocks (written when a partner reports a withdrawal). The oldest blocks of the SAME source make room;
+beyond the total only the block is skipped, the copy is always deleted.
+|`CarpoolReceivedStore`
+
+|`MAX_RELAY_TOMBSTONES_TOTAL` = 20000 |Pass-on tombstones in `carpool_teaser_tombstone`. Our own withdrawals are never capped. The cap is global because the row does not say which source caused it (open question below).
+|`CarpoolFederationStore.withdrawRelayed`
+
+|`MAX_CONCURRENT_BUILDS` = 4 |Feed snapshots built at the same time. The fifth gets the same `429` as a rate limit, and only an approved partner can reach it.
+|`CarpoolTeaserFeedLimits`
+
+|`LAPIS_CARPOOL_RETENTION_INTERVAL_HOURS` |How often the retention poller runs; 1 to 24, default and maximum 24. Anything else falls back to 24 with a warning (the value is not echoed).
+|`CarpoolRetentionConfig`
+
+|Feed limits |30 per IP and minute, 12 per partner and hour, 600 globally per hour, 1 MiB per answer: unchanged and untuned.
+|`CarpoolTeaserFeedLimits`
+|===
+
+=== Taking in hints: order, "reject, never displace"
+
+The items of an answer are taken in the order (day, origin host, hint id): total and deterministic, so two applies that run in parallel take the same rows in the same
+order (no deadlock between them) and a full table is filled with the nearest departures first. When a source has reached its share, or the table is full, the new item is
+**rejected** (counted as `CAPACITY`); no row of another source is ever deleted to make room. If the fair share shrinks because more partners switch sharing on, nothing is removed
+retroactively: new items of that source are turned away, updates of rows it already holds stay allowed.
+
+Every rejected hint is counted under exactly one cause. The reader checks first, in this fixed order: `FORMAT` (undecodable, bad syntax, wrong path or source),
+`SIGNATURE` (missing), `BLOCKED` (own host, blocked origin or relay), `HOP_LIMIT`, `EXPIRED`. The store then checks `BLOCKED` (a local block that forbids the re-import),
+`UNKNOWN_ORIGIN_KEY` (no key of the origin is known), `SIGNATURE` (wrong), `EXPIRED` and `CAPACITY`. The counters hold numbers only: no host, no id, no content, and the
+map keys are the enum names.
+
+=== What the administrator sees (ADMIN only, no new RPC)
+
+`CarpoolFederationSettingsDto` and `PartnerServerDto` got fields at the END, all with defaults. The counters are in memory and count from the start of the server process
+(`serverStartedAt`); every deployment resets them to 0.
+
+[cols="2,3",options="header"]
+|===
+|Field |Meaning
+
+|`carpoolReceivedHintsTotal` (existing) |Hints that are live now (`expires_at > now`). This IS the "active" count.
+|`carpoolReceivedStoredRows` |All stored rows, including expired ones that the sweep has not deleted yet. Stored minus live stays near 0; a lasting difference means the retention lags.
+|`carpoolReceivedBlocksActive`, per partner `carpoolReceivedBlocks` |Live local blocks, in total and per reporting partner.
+|`carpoolReceivedAcceptedSinceStart`, `carpoolReceivedExpiredDeletedSinceStart` |Taken in and deleted after expiry since the start.
+|`carpoolReceivedRejectedByReason`, `carpoolReceivedRejectedSinceStart` |The rejections by cause and their sum.
+|`carpoolPullBudgetDeferredSinceStart` |Pulls postponed because the tick budget was spent.
+|`carpoolRelayTombstonesSkippedSinceStart` |Pass-on withdrawals not written because of the cap. If our feed is complete, the receiver removes an unlisted copy anyway; the skipped tombstone only matters for incomplete lists.
+|`feedServedSinceStart`, `feedNotModifiedSinceStart` |Answers of our feed (`200` and `304`).
+|Per partner: `carpoolPullOkAt`, `carpoolPullNextAt`, `carpoolPullState` |Last success, next planned pull and the state above.
+|===
+
+=== Operations
+
+What to watch:
+
+* A partner in `PAUSED` for more than a day: the partner is down, the pin is wrong or it blocks us. Look at the error code next to it.
+* `CAPACITY` or `SIGNATURE` rising: a partner sends more than its share, or keys do not match.
+* `rateLimited` (feed) rising: a partner pulls too often, or the global budget of 600 per hour is too small for the number of partners.
+* Stored rows minus live rows above 0 for a long time: the retention does not keep up.
+* `carpoolPullBudgetDeferredSinceStart` rising: the tick budget is too small for the number of partners.
+
+Emergency stop: the instance switch off. It stops pull and feed at once, **deletes the received copies at once** (the forwardable ones are reported as withdrawn) and
+empties the member view. What stays: the own trips, the consents and the own tombstones (at most 14 days).
+
+A hostile partner: switch carpool sharing off for it (its copies go at once), then block it by pattern or remove it. Deactivating a partner also deletes its copies at once
+and forgets its ETag. To try a failing partner again: switch sharing off and on.
+
 == What wave 3 deliberately does not do
 
 * **No pull client**, no display, no pass-on: a partner with its own client can read `withdrawn`, a Lapis server does not yet. The hop count is still 0.
@@ -527,7 +642,7 @@ a trip or of a member (GDPR erasure) is passed on along the same path. Origin fr
 envelope; a hop-2 server checks it against the key of the origin host. Without it an origin statement that was passed on could be forged.
 |5 (V1.9.317, **built**, no schema change) |Display: the hints appear in the carpool page of active members, labelled with the origin, as data and never as markup (the same `untrusted*`
 rule as partner events). The owner sees which direct partners and which reach apply, next to the consent box (see the section below).
-|6 |Operations: back-off and limits like the event feed, summary counters for the administrator, retention (a hint disappears at the latest with its day).
+|6 (V1.9.318, **built**, no schema change) |Operations: the pull state per partner, caps and a per-tick budget, summary counters for the administrator, retention made timely (the sweep runs before every pull; see the section above).
 |7 |Hardening and release: audit by an independent reviewer (SSRF, amplification, consent bypass), staging test with two real servers, documentation.
 |===
 
@@ -554,3 +669,7 @@ rule as partner events). The owner sees which direct partners and which reach ap
 * Replay protection is per JVM; a multi-instance deployment would need a shared store.
 * Resolved in wave 5: the owner is told which organisations can fetch the hint (labels of the direct partners that can really pull) and the reach in words. Open: a signature chain per hop, and joint controllership (Art. 26 GDPR).
 * Whether the board, not only the administrator, may switch the exchange (it would change the whole partner administration, a separate decision).
+* Wave 6, open: the counters are in memory and restart at 0 with every deployment; a persisted window (for example 7 days) would need a table and is not part of the wave.
+* Wave 6, open: the `Retry-After` header of a `429` is not evaluated.
+* Wave 6, open: `carpool_teaser_tombstone` does not record which source caused a pass-on tombstone, so its cap is global. A cap per source needs a nullable column (a schema wave).
+* Wave 6, open: there is no "try again now" button; switching sharing off and on does it, with the side effect of deleting the copies of that partner.

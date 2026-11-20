@@ -5,6 +5,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.builtins.ListSerializer
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
+import network.lapis.cloud.shared.domain.CarpoolPullState
 import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PartnerBlockDto
@@ -369,6 +370,41 @@ class PartnerServersScreenDomTest {
                     page.allOf(".partner-carpool-feed").size,
                     "one line for the served partner, two for the one without a key, none for the third",
                 )
+            }
+        }
+
+    @Test
+    fun thePullStateIsShownAsAWordInABadge_andTheRejectReasonsAreFoldedAway_withoutAnyOriginHost(): Promise<Unit> =
+        test {
+            val on =
+                CarpoolFederationSettingsDto(
+                    enabled = true,
+                    hopLimit = 2,
+                    feedKeyAvailable = true,
+                    carpoolReceivedRejectedSinceStart = 9,
+                    carpoolReceivedRejectedByReason = mapOf("CAPACITY" to 9L),
+                )
+            val paused =
+                partner(id = "a", host = "a.beispiel.de").copy(
+                    carpoolSharing = true,
+                    carpoolKeyPinned = true,
+                    carpoolPullFailures = 9,
+                    carpoolPullState = CarpoolPullState.PAUSED,
+                )
+            val off = partner(id = "c", host = "c.beispiel.de").copy(carpoolPullState = CarpoolPullState.READY)
+            scenario(PartnerServerOverviewDto(listOf(paused, off), emptyList(), false), carpool = on) { page ->
+                val badges = page.allOf(".partner-pull-state")
+                assertEquals(1, badges.size, "only the partner with sharing on has a state")
+                assertTrue(
+                    badges
+                        .single()
+                        .textContent
+                        .orEmpty()
+                        .contains("Pausiert"),
+                )
+                assertEquals(1, page.allOf("details.carpool-reject-reasons").size)
+                assertEquals(1, page.allOf("details.carpool-reject-reasons > summary").size)
+                assertTrue(page.textContent.orEmpty().contains("Kapazität erreicht: 9"))
             }
         }
 }

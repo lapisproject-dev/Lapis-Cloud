@@ -8,8 +8,10 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.crypto.SecretBox
+import network.lapis.cloud.server.db.generated.FederationActorKeyTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.federation.FederationKeyPairGenerator
 import network.lapis.cloud.server.federation.FederationReplayGuard
@@ -19,6 +21,8 @@ import network.lapis.cloud.server.partner.PartnerInsertResult
 import network.lapis.cloud.server.partner.PartnerParseResult
 import network.lapis.cloud.server.partner.PartnerServerStore
 import network.lapis.cloud.server.partner.PinnedSigningKey
+import org.jetbrains.exposed.v1.core.neq
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Clock
@@ -118,6 +122,9 @@ internal fun signedGet(
 
 /** The own signing key the feed signs its items with (idempotent; the production boot does the same). */
 internal fun provisionOwnSigningKey(actorUri: String = "https://$OWN_HOST/federation/actor") {
+    // The database is shared by the whole test JVM: a key that another spec provisioned for ITS actor URI (FederationServiceTest uses the configured
+    // one) would be kept by ensureProvisioned and sign for the wrong host, so it is replaced first. Which spec runs first depends on the class order.
+    transaction { FederationActorKeyTable.deleteWhere { FederationActorKeyTable.actorUri neq actorUri } }
     network.lapis.cloud.server.federation.FederationActorKeyProvisioner
         .ensureProvisioned(actorUri)
 }
@@ -160,6 +167,7 @@ internal fun feedApplication(
     limits: FeedLimits = FeedLimits(),
     ids: CarpoolTeaserIds? = TEST_IDS,
     ownHost: String? = OWN_HOST,
+    buildPermits: Semaphore = CarpoolTeaserFeedLimits.newBuildPermits(),
     block: suspend ApplicationTestBuilder.(CarpoolTeaserFeedCounters) -> Unit,
 ) {
     val counters = CarpoolTeaserFeedCounters()
@@ -174,6 +182,7 @@ internal fun feedApplication(
                     teaserIds = ids,
                     counters = counters,
                     ownHost = ownHost,
+                    buildPermits = buildPermits,
                 )
             }
         }

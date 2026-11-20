@@ -3,7 +3,9 @@ package network.lapis.cloud.client
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
 import network.lapis.cloud.shared.domain.CarpoolPullErrorCode
+import network.lapis.cloud.shared.domain.CarpoolPullState
 import network.lapis.cloud.shared.domain.CarpoolPullStatus
+import network.lapis.cloud.shared.domain.CarpoolReceivedRejectReason
 import network.lapis.cloud.shared.domain.PartnerAddressRejectionCode
 import network.lapis.cloud.shared.domain.PartnerFetchErrorCode
 import network.lapis.cloud.shared.domain.PartnerFetchStatus
@@ -273,5 +275,71 @@ class PartnerServersLogicTest {
     @Test
     fun everyPullErrorCodeHasAWordingThatNamesNoAddress() {
         CarpoolPullErrorCode.entries.forEach { assertTrue(PartnerServersTexts.carpoolPullError(it).isNotBlank()) }
+    }
+
+    @Test
+    fun thePullStateHasAWordForEveryStateAndTheBadgeShowsOnlyWithSharingOn() {
+        val words = CarpoolPullState.entries.map { PartnerServersLogic.pullStateLabel(it) }
+        assertEquals(3, words.toSet().size)
+        assertTrue(words.all { it.isNotBlank() })
+        val shared = partner().copy(carpoolSharing = true, carpoolPullState = CarpoolPullState.PAUSED)
+        assertEquals(CarpoolPullState.PAUSED, PartnerServersLogic.pullStateOf(partner = shared, exchangeOn = true))
+        assertEquals(null, PartnerServersLogic.pullStateOf(partner = shared, exchangeOn = false))
+        assertEquals(null, PartnerServersLogic.pullStateOf(partner = shared.copy(carpoolSharing = false), exchangeOn = true))
+        assertEquals(null, PartnerServersLogic.pullStateOf(partner = shared.copy(carpoolPullState = null), exchangeOn = true))
+    }
+
+    @Test
+    fun theOperationLinesNameLastSuccessNextTryAndTheBlocks() {
+        val shared = partner().copy(carpoolSharing = true, carpoolKeyPinned = true)
+        val base = PartnerServersLogic.carpoolFeedLines(partner = shared, exchangeOn = true).size
+        val lines =
+            PartnerServersLogic.carpoolFeedLines(
+                partner =
+                    shared.copy(
+                        carpoolPullOkAt = LocalDateTime(2026, 11, 19, 10, 0),
+                        carpoolPullNextAt = LocalDateTime(2026, 11, 19, 12, 0),
+                        carpoolReceivedBlocks = 3,
+                    ),
+                exchangeOn = true,
+            )
+        assertEquals(base + 3, lines.size)
+        assertTrue(lines.any { it.contains("Letzter Erfolg") })
+        assertTrue(lines.any { it.contains("Nächster Versuch") })
+        assertTrue(lines.any { it.contains("Sperren aktiv: 3") })
+    }
+
+    @Test
+    fun theRejectReasonLinesFollowTheFixedOrder_andAnUnknownKeyIsIgnored() {
+        val on =
+            CarpoolFederationSettingsDto(
+                enabled = true,
+                hopLimit = 2,
+                carpoolReceivedRejectedByReason =
+                    mapOf("CAPACITY" to 7L, "SIGNATURE" to 2L, "SOMETHING_NEW" to 99L),
+            )
+        val lines = PartnerServersLogic.rejectReasonLines(on)
+        assertEquals(CarpoolReceivedRejectReason.entries.size, lines.size)
+        assertTrue(lines.first().endsWith("2"), "the signature line comes first")
+        assertTrue(lines.last().endsWith("7"), "the capacity line comes last")
+        assertFalse(lines.any { it.contains("99") })
+    }
+
+    @Test
+    fun theOperationSettingsLinesNameTheStartTheStoredRowsAndTheLagOfTheSweep() {
+        val on = CarpoolFederationSettingsDto(enabled = true, hopLimit = 2, feedKeyAvailable = true)
+        val lines =
+            PartnerServersLogic.carpoolFeedSettingsLines(
+                on.copy(
+                    serverStartedAt = LocalDateTime(2026, 11, 19, 8, 0),
+                    feedServedSinceStart = 5,
+                    carpoolReceivedHintsTotal = 10,
+                    carpoolReceivedStoredRows = 14,
+                    carpoolPullBudgetDeferredSinceStart = 2,
+                ),
+            )
+        assertTrue(lines.any { it.contains("Seit dem Serverstart") && it.contains("5 ausgeliefert") })
+        assertTrue(lines.any { it.contains("Gespeichert: 14") && it.contains("noch nicht gelöscht: 4") })
+        assertTrue(lines.any { it.contains("Aufgeschoben") && it.contains("2") })
     }
 }

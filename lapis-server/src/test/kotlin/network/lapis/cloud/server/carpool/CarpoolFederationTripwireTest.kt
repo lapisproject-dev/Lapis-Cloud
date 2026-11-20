@@ -327,4 +327,42 @@ class CarpoolFederationTripwireTest :
                 .filter { Regex("""CarpoolWithdrawalKey\s*\.\s*configure\s*\(""").containsMatchIn(SourceScan.blank(it.readText())) }
                 .map { it.name } shouldBe listOf("Application.kt")
         }
+
+        test("(s) the pull tick deletes expired rows BEFORE it starts any pull") {
+            val body = SourceScan.blank(main.single { it.name == "CarpoolPullPoller.kt" }.readText())
+            val tick = body.substring(body.indexOf("suspend fun tick()"))
+            val sweep = tick.indexOf("deleteExpired(")
+            val tombstones = tick.indexOf("deleteExpiredTombstones(")
+            val firstPull = listOf(tick.indexOf("pullOneSafely("), tick.indexOf("client.fetch(")).filter { it >= 0 }.min()
+            (sweep in 0 until firstPull) shouldBe true
+            (tombstones in 0 until firstPull) shouldBe true
+            // and before the early return of a switched-off instance
+            (sweep < tick.indexOf("!state.enabled")) shouldBe true
+        }
+
+        test("(t) apply never deletes the rows of another source: reject, never displace") {
+            val src = SourceScan.blank(main.single { it.name == "CarpoolReceivedStore.kt" }.readText())
+            val apply = src.substring(src.indexOf("fun apply("), src.indexOf("private class ReceivedTombstone"))
+            Regex("""CarpoolReceivedHintTable\s*\.\s*deleteWhere[^\n]*sourcePartnerId\s*neq""").containsMatchIn(apply) shouldBe false
+            // the one deletion of hints in apply is bound to the id of a row of THIS source or to the rows the withdrawal removes
+            Regex("""sourcePartnerId\s*neq""").containsMatchIn(apply) shouldBe false
+            apply.contains("CAPACITY") shouldBe true
+        }
+
+        test("(u) the number of concurrent feed builds is defined once, in CarpoolTeaserFeedLimits") {
+            main
+                .filter { it.name != "CarpoolTeaserFeedLimits.kt" }
+                .filter { Regex("""\bMAX_CONCURRENT_BUILDS\b""").containsMatchIn(SourceScan.blank(it.readText())) }
+                .map { it.name }
+                .shouldBeEmpty()
+            Regex("""const val MAX_CONCURRENT_BUILDS\s*=\s*4\b""").containsMatchIn(
+                main.single { it.name == "CarpoolTeaserFeedLimits.kt" }.readText(),
+            ) shouldBe true
+        }
+
+        test("(v) the counters hold numbers only: no host, id or text is ever stored in CarpoolPullCounters") {
+            val src = SourceScan.blank(main.single { it.name == "CarpoolReceivedStore.kt" }.readText())
+            val counters = src.substring(src.indexOf("object CarpoolPullCounters"), src.indexOf("internal object CarpoolReceivedStore"))
+            Regex("""\bString\b|MutableMap<String|HashMap<String|ConcurrentHashMap""").containsMatchIn(counters) shouldBe false
+        }
     })

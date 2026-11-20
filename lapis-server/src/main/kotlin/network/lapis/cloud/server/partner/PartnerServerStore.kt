@@ -505,6 +505,21 @@ internal object PartnerServerStore {
         }
     }
 
+    /**
+     * V1.9.318: "try again now": the failure counter goes back to 0, the next pull is due right away and the ETag is forgotten (the next pull is
+     * unconditional). Status, last error and the last success stay as history. The caller holds the lock of the partner row.
+     */
+    fun resetCarpoolPull(
+        id: Uuid,
+        now: LocalDateTime,
+    ) {
+        PartnerServerTable.update({ PartnerServerTable.id eq id }) {
+            it[carpoolPullFailures] = 0
+            it[carpoolPullNextAt] = now
+            it[carpoolPullEtag] = null
+        }
+    }
+
     /** Forgets the ETag of one partner (or of every partner when [id] is `null`): the next pull is unconditional. */
     fun clearCarpoolPullEtag(id: Uuid?) {
         if (id == null) {
@@ -570,7 +585,8 @@ internal object PartnerServerStore {
         active: Boolean,
         now: LocalDateTime,
     ): PartnerRow? {
-        val row = findPartner(id) ?: return null
+        // Locked (partner row first): the caller may delete the copies of this source right after, and that follows the lock order of an apply.
+        val row = lockPartner(id) ?: return null
         PartnerServerTable.update({ PartnerServerTable.id eq id }) {
             it[PartnerServerTable.active] = active
             // Switching on makes the partner due right away (the next tick), switching off keeps the cache until it expires.

@@ -33416,3 +33416,75 @@ msgid "Abrufen kann ihn %1 Partnerorganisation."
 msgid_plural "Abrufen können ihn %1 Partnerorganisationen."
 msgstr[0] "%1 partnerorganisatie kan hem ophalen."
 msgstr[1] "%1 partnerorganisaties kunnen hem ophalen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Letzter Erfolg: %1"
+msgstr "Laatste succes: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Nächster Versuch: %1"
+msgstr "Volgende poging: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Sperren aktiv: %1"
+msgstr "Actieve blokkades: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Wartet (Back-off)"
+msgstr "Wacht (back-off)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Signatur ungültig oder fehlt: %1"
+msgstr "Handtekening ongeldig of ontbreekt: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Schlüssel des Ursprungs unbekannt: %1"
+msgstr "Sleutel van de herkomst onbekend: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Format ungültig: %1"
+msgstr "Ongeldig formaat: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Weitergabegrenze überschritten: %1"
+msgstr "Doorgiftlimiet overschreden: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abgelaufen: %1"
+msgstr "Verlopen: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Gesperrt: %1"
+msgstr "Geblokkeerd: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kapazität erreicht: %1"
+msgstr "Capaciteit bereikt: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Seit dem Serverstart am %1: %2 ausgeliefert, %3 unverändert, %4 gedrosselt, %5 abgewiesen"
+msgstr "Sinds de serverstart op %1: %2 geleverd, %3 ongewijzigd, %4 afgeremd, %5 geweigerd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Gespeichert: %1 (davon abgelaufen, noch nicht gelöscht: %2)"
+msgstr "Opgeslagen: %1 (waarvan verlopen, nog niet verwijderd: %2)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Übernommen seit dem Start: %1"
+msgstr "Overgenomen sinds de start: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Gelöscht nach Ablauf seit dem Start: %1"
+msgstr "Verwijderd na verlopen sinds de start: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Aufgeschoben (Abrufbudget) seit dem Start: %1"
+msgstr "Uitgesteld (ophaalbudget) sinds de start: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Nicht geschriebene Weitergabe-Rückzüge seit dem Start: %1"
+msgstr "Niet geschreven doorgegeven intrekkingen sinds de start: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Ablehnungsgründe"
+msgstr "Redenen van afwijzing"

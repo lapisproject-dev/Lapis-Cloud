@@ -6,6 +6,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.CarpoolPullErrorCode
+import network.lapis.cloud.shared.domain.CarpoolReceivedRejectReason
 
 /** V1.9.314 W4 -- the reader of a foreign teaser feed: pure, every item on its own, strict, bounded. */
 class CarpoolTeaserFeedReaderTest :
@@ -173,5 +174,62 @@ class CarpoolTeaserFeedReaderTest :
         test("markup and control characters in any field never pass: nothing is kept as text") {
             val evil = a.item(seed = "e").let { it.copy(originHost = "a.beispiel.de<script>") }
             feedOf(evil).items shouldHaveSize 0
+        }
+
+        test("V1.9.318: every rejected item is counted under ONE cause, in the fixed order of the checks; the causes add up to the total") {
+            val own = OriginServer(host = PULL_OWN_HOST)
+            val yesterday = LocalDate(2026, 11, 18)
+            val feed =
+                feedOf(
+                    a.item(seed = "ok"),
+                    // FORMAT: a signature that is no base64, and a path of the wrong length
+                    a.item(seed = "f1", signature = "not base64!!"),
+                    o.item(seed = "f2", hops = 1, via = emptyList()),
+                    // SIGNATURE: missing
+                    a.item(seed = "s1", signature = " "),
+                    // BLOCKED: this server as origin
+                    own.item(seed = "b1", hops = 1, via = listOf("a.beispiel.de")),
+                    // HOP_LIMIT: above the maximum, and no room left
+                    a.item(seed = "h1", maxHops = 4, signature = "AAAA"),
+                    o.item(seed = "h2", maxHops = 1, hops = 1, via = listOf("a.beispiel.de")),
+                    // EXPIRED
+                    a.item(seed = "e1", date = yesterday),
+                    // several faults: the first check wins (FORMAT before SIGNATURE before BLOCKED before HOP_LIMIT before EXPIRED)
+                    a.item(seed = "m1", date = yesterday, maxHops = 4, signature = "not base64!!"),
+                    a.item(seed = "m2", date = yesterday, signature = " "),
+                    own.item(seed = "m3", date = yesterday, hops = 1, via = listOf("a.beispiel.de")),
+                    a.item(seed = "m4", date = yesterday, maxHops = 4, signature = "AAAA"),
+                )
+            feed.items shouldHaveSize 1
+            feed.rejected shouldBe 11
+            feed.rejectedByReason[CarpoolReceivedRejectReason.FORMAT] shouldBe 3
+            feed.rejectedByReason[CarpoolReceivedRejectReason.SIGNATURE] shouldBe 2
+            feed.rejectedByReason[CarpoolReceivedRejectReason.BLOCKED] shouldBe 2
+            feed.rejectedByReason[CarpoolReceivedRejectReason.HOP_LIMIT] shouldBe 3
+            feed.rejectedByReason[CarpoolReceivedRejectReason.EXPIRED] shouldBe 1
+            feed.rejectedByReason.values.sum() shouldBe feed.rejected
+            feed.rejectedUnsigned shouldBe 2
+        }
+
+        test("V1.9.318: a blocked origin or a blocked relay is BLOCKED, an item that cannot be decoded is FORMAT") {
+            val blocked =
+                parseOk(
+                    bytes =
+                        feedBytes(
+                            items =
+                                listOf(
+                                    o.item(seed = "1", hops = 1, via = listOf("a.beispiel.de")),
+                                    a.item(seed = "2"),
+                                ),
+                        ),
+                    sourceHost = "a.beispiel.de",
+                    blocked = listOf("o.beispiel.de", "a.beispiel.de"),
+                )
+            blocked.rejectedByReason[CarpoolReceivedRejectReason.BLOCKED] shouldBe 2
+            val text =
+                """{"schemaVersion":1,"kind":"lapis-carpool-teaser-feed","complete":true,"items":[{"nonsense":1}],"withdrawn":[]}"""
+            val undecodable = ok(parse(text))
+            undecodable.rejected shouldBe 1
+            undecodable.rejectedByReason[CarpoolReceivedRejectReason.FORMAT] shouldBe 1
         }
     })

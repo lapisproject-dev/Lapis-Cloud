@@ -23,6 +23,7 @@ import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
+import network.lapis.cloud.server.db.generated.FederationActorKeyTable
 import network.lapis.cloud.server.db.generated.FederationRelationshipEventTable
 import network.lapis.cloud.server.db.generated.FederationRelationshipTable
 import network.lapis.cloud.server.federation.FederationActorKeyProvisioner
@@ -38,6 +39,7 @@ import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -76,6 +78,11 @@ class FederationServiceTest :
         beforeSpec {
             DatabaseConfig.connect()
             DevSeedData.seedIfEmpty(force = true)
+            // The carpool specs share this database and provision the actor key for THEIR host (origin.beispiel.de) without removing it; whether this
+            // spec runs before or after them depends on the class order, so a key for another actor URI is replaced here instead of being trusted.
+            transaction {
+                FederationActorKeyTable.deleteWhere { FederationActorKeyTable.actorUri neq FederationConfig.actorUri }
+            }
             FederationActorKeyProvisioner.ensureProvisioned(FederationConfig.actorUri)
         }
 

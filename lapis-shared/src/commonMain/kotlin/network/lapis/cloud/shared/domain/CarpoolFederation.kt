@@ -2,6 +2,7 @@ package network.lapis.cloud.shared.domain
 
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.plus
 import kotlinx.serialization.Serializable
 
@@ -146,7 +147,58 @@ data class CarpoolFederationSettingsDto(
     val carpoolReceivedRejectedSinceStart: Long = 0,
     /** V1.9.314: received hints dropped because no key of their origin is known (hop 2 and further need the partner recursion). */
     val carpoolReceivedUnknownOriginKeySinceStart: Long = 0,
+    /** V1.9.318 (wave 6): when this server process started (the counters below count from then; they are in memory and start at 0 after every restart). */
+    val serverStartedAt: LocalDateTime? = null,
+    val feedServedSinceStart: Long = 0,
+    val feedNotModifiedSinceStart: Long = 0,
+    /** Stored received rows INCLUDING expired ones that the retention sweep has not deleted yet (makes a lagging retention visible). */
+    val carpoolReceivedStoredRows: Int = 0,
+    /** Live local blocks set by a partner's withdrawal report. */
+    val carpoolReceivedBlocksActive: Int = 0,
+    val carpoolReceivedAcceptedSinceStart: Long = 0,
+    val carpoolReceivedExpiredDeletedSinceStart: Long = 0,
+    /** Rejected received hints by cause; the keys are [CarpoolReceivedRejectReason] names, nothing else. */
+    val carpoolReceivedRejectedByReason: Map<String, Long> = emptyMap(),
+    /** Pulls that were postponed to the next tick because the per-tick item budget was used up. */
+    val carpoolPullBudgetDeferredSinceStart: Long = 0,
+    /** Pass-on withdrawals that were not written because the relay tombstone cap was reached. */
+    val carpoolRelayTombstonesSkippedSinceStart: Long = 0,
 )
+
+/**
+ * V1.9.318 (wave 6): the state of the pull of one partner, derived from the failure counter alone. READY = no failure; BACKING_OFF = failing, the
+ * retry interval grows; PAUSED = from [CarpoolPullStates.PAUSE_AFTER_FAILURES] failures on, the interval sits at its 24-hour cap (one trial a day).
+ */
+@Serializable
+enum class CarpoolPullState {
+    READY,
+    BACKING_OFF,
+    PAUSED,
+}
+
+object CarpoolPullStates {
+    /** The retry interval doubles from 15 minutes; after 8 failures it reaches the 24-hour cap. */
+    const val PAUSE_AFTER_FAILURES = 8
+
+    fun of(failures: Int): CarpoolPullState =
+        when {
+            failures <= 0 -> CarpoolPullState.READY
+            failures < PAUSE_AFTER_FAILURES -> CarpoolPullState.BACKING_OFF
+            else -> CarpoolPullState.PAUSED
+        }
+}
+
+/** V1.9.318 (wave 6): why a received hint was not taken. Names only ever leave the server as counts. */
+@Serializable
+enum class CarpoolReceivedRejectReason {
+    SIGNATURE,
+    UNKNOWN_ORIGIN_KEY,
+    FORMAT,
+    HOP_LIMIT,
+    EXPIRED,
+    BLOCKED,
+    CAPACITY,
+}
 
 /** V1.9.314 (wave 4): why the last pull of the carpool teaser feed of a partner failed. Codes only; never a body, never an address. */
 @Serializable

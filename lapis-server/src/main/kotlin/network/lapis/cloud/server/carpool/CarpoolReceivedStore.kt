@@ -16,16 +16,20 @@ import network.lapis.cloud.server.partner.PartnerHost
 import network.lapis.cloud.server.partner.PartnerRow
 import network.lapis.cloud.server.partner.PartnerServerStore
 import network.lapis.cloud.shared.domain.CarpoolFederationLimits
+import network.lapis.cloud.shared.domain.CarpoolReceivedRejectReason
 import network.lapis.cloud.shared.domain.CarpoolTeaser
 import network.lapis.cloud.shared.domain.PartnerCarpoolHintLimits
+import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.or
@@ -35,6 +39,7 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import java.security.MessageDigest
+import java.util.EnumMap
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.hours
 import kotlin.uuid.Uuid
@@ -56,6 +61,8 @@ internal class ParsedTeaserFeed(
     val withdrawnIds: List<String>,
     val rejected: Int,
     val rejectedUnsigned: Int,
+    /** V1.9.318: [rejected] by cause, counted by the reader (format, missing signature, blocked, hop limit, expired). */
+    val rejectedByReason: Map<CarpoolReceivedRejectReason, Int> = emptyMap(),
 )
 
 internal class CarpoolPullApplyResult(
@@ -91,14 +98,57 @@ internal class MemberHintPage(
     val hasMore: Boolean,
 )
 
-/** In-memory counters since the start, for the administrator only. */
+/**
+ * In-memory counters since the start, for the administrator only. Numbers only: no host, no id, no content. Every restart begins at 0 (a persisted
+ * window is an open question, see the architecture document).
+ */
 internal object CarpoolPullCounters {
+    @Volatile
+    var startedAt: LocalDateTime? = null
+        private set
+
+    /** All rejected hints (the sum of every cause). */
     val rejected = AtomicLong(0)
     val unknownOriginKey = AtomicLong(0)
+    val accepted = AtomicLong(0)
+    val expiredDeleted = AtomicLong(0)
+    val budgetDeferred = AtomicLong(0)
+    val relayTombstonesSkipped = AtomicLong(0)
+    private val byReason = EnumMap<CarpoolReceivedRejectReason, AtomicLong>(CarpoolReceivedRejectReason::class.java)
+
+    init {
+        CarpoolReceivedRejectReason.entries.forEach { byReason[it] = AtomicLong(0) }
+    }
+
+    /** Idempotent: the first call wins. */
+    fun markStarted(now: LocalDateTime) {
+        if (startedAt == null) startedAt = now
+    }
+
+    fun reject(
+        reason: CarpoolReceivedRejectReason,
+        n: Int = 1,
+    ) {
+        if (n <= 0) return
+        requireNotNull(byReason[reason]).addAndGet(n.toLong())
+        rejected.addAndGet(n.toLong())
+        if (reason == CarpoolReceivedRejectReason.UNKNOWN_ORIGIN_KEY) unknownOriginKey.addAndGet(n.toLong())
+    }
+
+    fun rejectedByReason(): Map<CarpoolReceivedRejectReason, Long> =
+        CarpoolReceivedRejectReason.entries.associateWith {
+            requireNotNull(byReason[it]).get()
+        }
 
     internal fun resetForTest() {
+        startedAt = null
         rejected.set(0)
         unknownOriginKey.set(0)
+        accepted.set(0)
+        expiredDeleted.set(0)
+        budgetDeferred.set(0)
+        relayTombstonesSkipped.set(0)
+        byReason.values.forEach { it.set(0) }
     }
 }
 
@@ -114,6 +164,27 @@ internal object CarpoolPullCounters {
 internal object CarpoolReceivedStore {
     const val MAX_PER_SOURCE = 1000
     const val MAX_TOTAL = 5000
+
+    /** V1.9.318: a source always gets at least this many rows, however many partners share (the fair share is `MAX_TOTAL / partners`). */
+    const val MIN_PER_SOURCE = 200
+
+    /** V1.9.318: caps of the local blocks (tombstones of withdrawals reported by partners): per reporting source and in total. */
+    const val MAX_BLOCKS_PER_SOURCE = 5000
+    const val MAX_BLOCKS_TOTAL = 20_000
+
+    /** V1.9.318: cap of the pass-on tombstones (relayed withdrawals) in `carpool_teaser_tombstone`; our own withdrawals are never capped. */
+    const val MAX_RELAY_TOMBSTONES_TOTAL = 20_000
+
+    /** The fair share of ONE source when [sharingPartners] partners share: never below [MIN_PER_SOURCE], never above [MAX_PER_SOURCE]. */
+    fun effectivePerSourceCap(sharingPartners: Int): Int =
+        minOf(
+            MAX_PER_SOURCE,
+            maxOf(
+                MIN_PER_SOURCE,
+                MAX_TOTAL / sharingPartners.coerceAtLeast(1),
+            ),
+        )
+
     private const val MAX_HOST_LENGTH = 253
 
     /** A copy of a source that has not been pulled successfully for this long is dropped (the pass-on of withdrawals must stay timely). */
@@ -210,24 +281,41 @@ internal object CarpoolReceivedStore {
         }
 
         // (2) withdrawals: only on copies that came from this source or whose origin IS this source.
-        var withdrawn = 0
+        val hits = ArrayList<HintRow>()
         feed.withdrawnIds.distinct().chunked(CHUNK).forEach { chunk ->
-            val hit =
+            hits +=
                 lockedRows(
                     (CarpoolReceivedHintTable.teaserId inList chunk) and
                         ((CarpoolReceivedHintTable.sourcePartnerId eq row.id) or (CarpoolReceivedHintTable.originHost eq row.host)),
                 )
-            hit.forEach { h ->
-                removeAsWithdrawn(h = h, reporter = row.id, now = now)
-                withdrawn++
-            }
+        }
+        var blocksTotal = if (hits.isEmpty()) 0 else countBlocksActive(now)
+        if (hits.isNotEmpty()) {
+            // The blocks this source has set stay bounded: the oldest ones of THIS source make room (never those of another source).
+            val ofSource = countBlocksOfReporter(reporter = row.id, now = now)
+            val needed = ofSource + hits.size - MAX_BLOCKS_PER_SOURCE
+            if (needed > 0) blocksTotal -= deleteOldestBlocks(reporter = row.id, count = needed, now = now)
+        }
+        val withdrawn = hits.size
+        hits.forEach { h ->
+            val writeBlock = blocksTotal < MAX_BLOCKS_TOTAL
+            if (writeBlock) blocksTotal++
+            removeAsWithdrawn(h = h, reporter = row.id, now = now, writeBlock = writeBlock)
         }
 
         // (3) items
         var accepted = 0
         var rejected = feed.rejected
         var unknownKey = 0
-        val ordered = feed.items.sortedWith(compareBy({ it.originHost }, { it.teaser.teaserId }))
+        val reasons = EnumMap<CarpoolReceivedRejectReason, Int>(CarpoolReceivedRejectReason::class.java)
+
+        fun reject(reason: CarpoolReceivedRejectReason) {
+            rejected++
+            reasons.merge(reason, 1, Int::plus)
+        }
+        // A total, deterministic order (day, origin, id): two applies that run in parallel take the same rows in the same order, and a full table is
+        // filled with the nearest departures first.
+        val ordered = feed.items.sortedWith(compareBy({ it.teaser.departureDate }, { it.originHost }, { it.teaser.teaserId }))
         val ids = ordered.map { it.teaser.teaserId }.distinct()
         val existing = HashMap<Pair<String, String>, HintRow>()
         val tombs = HashMap<Pair<String, String>, ReceivedTombstone>()
@@ -241,6 +329,13 @@ internal object CarpoolReceivedStore {
                         ReceivedTombstone(reportedBy = it[CarpoolReceivedTombstoneTable.reportedByPartnerId])
                 }
         }
+        val sharingPartners =
+            PartnerServerTable
+                .selectAll()
+                .where { (PartnerServerTable.active eq true) and (PartnerServerTable.carpoolSharing eq true) }
+                .count()
+                .toInt()
+        val cap = effectivePerSourceCap(sharingPartners)
         var perSource =
             CarpoolReceivedHintTable
                 .selectAll()
@@ -258,14 +353,14 @@ internal object CarpoolReceivedStore {
                 // E7: only the source that reported the withdrawal, or the origin itself (hop 0), may bring it back (a renewed consent).
                 val allowed = tomb.reportedBy == row.id || (item.wireHops == 0 && row.host == item.originHost)
                 if (!allowed) {
-                    rejected++
+                    reject(CarpoolReceivedRejectReason.BLOCKED)
                     return@forEach
                 }
             }
             val pem = keyMemo.getOrPut(item.originHost) { CarpoolOriginKeys.resolve(item.originHost) }
             if (pem == null) {
                 unknownKey++
-                rejected++
+                reject(CarpoolReceivedRejectReason.UNKNOWN_ORIGIN_KEY)
                 return@forEach
             }
             if (!CarpoolOriginSignatures.verify(
@@ -276,19 +371,20 @@ internal object CarpoolReceivedStore {
                     publicKeyPem = pem,
                 )
             ) {
-                rejected++
+                reject(CarpoolReceivedRejectReason.SIGNATURE)
                 return@forEach
             }
             val storedHops = item.wireHops + 1
             val expires = expiresAtOf(item.teaser.departureDate)
             if (expires <= now) {
-                rejected++
+                reject(CarpoolReceivedRejectReason.EXPIRED)
                 return@forEach
             }
             val current = existing[key]
             if (current == null) {
-                if (perSource >= MAX_PER_SOURCE || total >= MAX_TOTAL) {
-                    rejected++
+                // Reject, never displace: a full table or a full share turns THIS item away; no row of another source is ever deleted for it.
+                if (perSource >= cap || total >= MAX_TOTAL) {
+                    reject(CarpoolReceivedRejectReason.CAPACITY)
                     return@forEach
                 }
                 if (tomb != null) clearTombstone(originHost = item.originHost, teaserId = item.teaser.teaserId)
@@ -318,7 +414,9 @@ internal object CarpoolReceivedStore {
                 val sameSource = current.sourcePartnerId == row.id
                 val shorter = storedHops < current.hops
                 if (tomb != null) clearTombstone(originHost = item.originHost, teaserId = item.teaser.teaserId)
-                if ((sameSource || shorter) && (sameSource || perSource < MAX_PER_SOURCE)) {
+                if (!sameSource && shorter && perSource >= cap) {
+                    reject(CarpoolReceivedRejectReason.CAPACITY)
+                } else if (sameSource || shorter) {
                     CarpoolReceivedHintTable.update({ CarpoolReceivedHintTable.id eq current.id }) {
                         it[hops] = storedHops.toShort()
                         it[maxHops] = item.maxHops.toShort()
@@ -361,8 +459,9 @@ internal object CarpoolReceivedStore {
             next = next,
             now = now,
         )
-        if (rejected > 0) CarpoolPullCounters.rejected.addAndGet(rejected.toLong())
-        if (unknownKey > 0) CarpoolPullCounters.unknownOriginKey.addAndGet(unknownKey.toLong())
+        feed.rejectedByReason.forEach { (reason, n) -> CarpoolPullCounters.reject(reason = reason, n = n) }
+        reasons.forEach { (reason, n) -> CarpoolPullCounters.reject(reason = reason, n = n) }
+        if (accepted > 0) CarpoolPullCounters.accepted.addAndGet(accepted.toLong())
         return CarpoolPullApplyResult(
             applied = true,
             accepted = accepted,
@@ -398,10 +497,11 @@ internal object CarpoolReceivedStore {
         h: HintRow,
         reporter: Uuid,
         now: LocalDateTime,
+        writeBlock: Boolean,
     ) {
         CarpoolReceivedHintTable.deleteWhere { CarpoolReceivedHintTable.id eq h.id }
         val expires = CarpoolTeaserTombstonePolicy.expiresAt(createdAt = now, departure = h.departureDate)
-        if (expires > now) {
+        if (expires > now && writeBlock) {
             val tid = derivedId(purpose = "carpool-received-block/v1", originHost = h.originHost, teaserId = h.teaserId)
             CarpoolReceivedTombstoneTable.deleteWhere {
                 (CarpoolReceivedTombstoneTable.id eq tid) and
@@ -430,6 +530,7 @@ internal object CarpoolReceivedStore {
                 partnerId = null,
                 now = now,
                 requireServedSince = it.receivedAt,
+                maxRelayRows = MAX_RELAY_TOMBSTONES_TOTAL,
             )
         }
     }
@@ -655,9 +756,99 @@ internal object CarpoolReceivedStore {
         return dropped
     }
 
-    /** Idempotent: expired copies and expired blocks. @return the number of rows deleted. */
-    fun deleteExpired(now: LocalDateTime): Int =
-        CarpoolReceivedHintTable.deleteWhere { expiresAt lessEq now } + CarpoolReceivedTombstoneTable.deleteWhere { expiresAt lessEq now }
+    /**
+     * Idempotent: expired copies and expired blocks. At most [limit] rows of EACH table per call (ids ascending, so two callers never lock in opposite
+     * order); a caller that must empty the backlog calls again while a table returns a full batch.
+     * @return the number of rows deleted.
+     */
+    fun deleteExpired(
+        now: LocalDateTime,
+        limit: Int = Int.MAX_VALUE,
+    ): Int =
+        deleteExpiredFrom(
+            table = CarpoolReceivedHintTable,
+            idColumn = CarpoolReceivedHintTable.id,
+            expiresColumn = CarpoolReceivedHintTable.expiresAt,
+            now = now,
+            limit = limit,
+        ) +
+            deleteExpiredFrom(
+                table = CarpoolReceivedTombstoneTable,
+                idColumn = CarpoolReceivedTombstoneTable.id,
+                expiresColumn = CarpoolReceivedTombstoneTable.expiresAt,
+                now = now,
+                limit = limit,
+            )
+
+    private fun <T : Table> deleteExpiredFrom(
+        table: T,
+        idColumn: Column<Uuid>,
+        expiresColumn: Column<LocalDateTime>,
+        now: LocalDateTime,
+        limit: Int,
+    ): Int {
+        require(limit > 0) { "limit must be positive" }
+        val ids =
+            table
+                .select(idColumn)
+                .where { expiresColumn lessEq now }
+                .orderBy(idColumn to SortOrder.ASC)
+                .limit(limit)
+                .map { it[idColumn] }
+        ids.chunked(CHUNK).forEach { chunk -> table.deleteWhere { idColumn inList chunk } }
+        return ids.size
+    }
+
+    /** Every row, expired or not (the lag of the retention sweep is visible as the difference to [countTotal]). */
+    fun countStoredRows(): Int = CarpoolReceivedHintTable.selectAll().count().toInt()
+
+    /** Live local blocks (set because a partner reported a withdrawal). */
+    fun countBlocksActive(now: LocalDateTime): Int =
+        CarpoolReceivedTombstoneTable
+            .selectAll()
+            .where { CarpoolReceivedTombstoneTable.expiresAt greater now }
+            .count()
+            .toInt()
+
+    private fun countBlocksOfReporter(
+        reporter: Uuid,
+        now: LocalDateTime,
+    ): Int =
+        CarpoolReceivedTombstoneTable
+            .selectAll()
+            .where {
+                (CarpoolReceivedTombstoneTable.reportedByPartnerId eq reporter) and
+                    (CarpoolReceivedTombstoneTable.expiresAt greater now)
+            }.count()
+            .toInt()
+
+    /** Live blocks per reporting partner (one query). A count only. */
+    fun countBlocksByReporter(now: LocalDateTime): Map<Uuid, Int> =
+        CarpoolReceivedTombstoneTable
+            .selectAll()
+            .where {
+                (CarpoolReceivedTombstoneTable.expiresAt greater now) and CarpoolReceivedTombstoneTable.reportedByPartnerId.isNotNull()
+            }.groupingBy { requireNotNull(it[CarpoolReceivedTombstoneTable.reportedByPartnerId]) }
+            .eachCount()
+
+    /** Deletes the [count] oldest live blocks of [reporter]. @return how many were deleted. */
+    private fun deleteOldestBlocks(
+        reporter: Uuid,
+        count: Int,
+        now: LocalDateTime,
+    ): Int {
+        val ids =
+            CarpoolReceivedTombstoneTable
+                .select(CarpoolReceivedTombstoneTable.id)
+                .where {
+                    (CarpoolReceivedTombstoneTable.reportedByPartnerId eq reporter) and
+                        (CarpoolReceivedTombstoneTable.expiresAt greater now)
+                }.orderBy(CarpoolReceivedTombstoneTable.createdAt to SortOrder.ASC, CarpoolReceivedTombstoneTable.id to SortOrder.ASC)
+                .limit(count)
+                .map { it[CarpoolReceivedTombstoneTable.id] }
+        ids.chunked(CHUNK).forEach { chunk -> CarpoolReceivedTombstoneTable.deleteWhere { CarpoolReceivedTombstoneTable.id inList chunk } }
+        return ids.size
+    }
 
     fun countBySource(): Map<Uuid, Int> =
         CarpoolReceivedHintTable

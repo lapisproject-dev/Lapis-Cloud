@@ -11,6 +11,7 @@ import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
@@ -610,5 +611,44 @@ abstract class CarpoolTeaserFeedScenarios(
             val once = signedGet(partner = partner)
             (auth(once) != null) shouldBe true
             auth(once) shouldBe null
+        }
+
+        test(
+            "V1.9.318: at most four snapshots are built at once; the next approved request gets the byte-identical 429, an unapproved one still the refusal",
+        ) {
+            val author = data.member(label = "feed-builds")
+            offer(author)
+            val partner = newFeedPartner()
+            val unapproved = newFeedPartner(sharing = false)
+            var limited = ""
+            feedApplication(limits = FeedLimits(partner = 1)) { _ ->
+                client.feedGet(signed = signedGet(partner = partner)).status shouldBe HttpStatusCode.OK
+                limited = fingerprint(client.feedGet(signed = signedGet(partner = partner)))
+            }
+            limited.startsWith("429|") shouldBe true
+            val permits = Semaphore(CarpoolTeaserFeedLimits.MAX_CONCURRENT_BUILDS)
+            feedApplication(buildPermits = permits) { counters ->
+                // four builds are "in flight"
+                repeat(CarpoolTeaserFeedLimits.MAX_CONCURRENT_BUILDS) { permits.tryAcquire() shouldBe true }
+                fingerprint(client.feedGet(signed = signedGet(partner = partner))) shouldBe limited
+                counters.snapshot().rateLimited shouldBe 1L
+                // a partner that is not approved learns nothing from the budget
+                client.feedGet(signed = signedGet(partner = unapproved)).status shouldBe HttpStatusCode.NotFound
+                counters.snapshot().rateLimited shouldBe 1L
+                // one build finished: the request goes through and gives its permit back
+                permits.release()
+                client.feedGet(signed = signedGet(partner = partner)).status shouldBe HttpStatusCode.OK
+                permits.availablePermits shouldBe 1
+            }
+        }
+
+        test("V1.9.318: a refused request (instance switch off) never holds a build permit") {
+            val partner = newFeedPartner()
+            transaction { CarpoolFederationStore.setSettings(enabled = false, hopLimit = 2) }
+            val permits = Semaphore(CarpoolTeaserFeedLimits.MAX_CONCURRENT_BUILDS)
+            feedApplication(buildPermits = permits) { _ ->
+                repeat(3) { client.feedGet(signed = signedGet(partner = partner)).status shouldBe HttpStatusCode.NotFound }
+                permits.availablePermits shouldBe CarpoolTeaserFeedLimits.MAX_CONCURRENT_BUILDS
+            }
         }
     })

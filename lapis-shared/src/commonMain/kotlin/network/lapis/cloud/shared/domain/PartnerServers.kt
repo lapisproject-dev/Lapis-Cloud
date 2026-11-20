@@ -84,6 +84,12 @@ data class PartnerServerDto(
     val carpoolReceivedHints: Int = 0,
     val carpoolPullLastRejected: Int? = null,
     val carpoolPullLastAccepted: Int? = null,
+    /** V1.9.318 (wave 6): the last successful pull and the next planned one; the state is `null` when sharing is off or the partner is inactive. */
+    val carpoolPullOkAt: LocalDateTime? = null,
+    val carpoolPullNextAt: LocalDateTime? = null,
+    val carpoolPullState: CarpoolPullState? = null,
+    /** Live local blocks that THIS partner reported (a count only). */
+    val carpoolReceivedBlocks: Int = 0,
 )
 
 @Serializable

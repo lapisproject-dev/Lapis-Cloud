@@ -20,6 +20,7 @@ import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
 import network.lapis.cloud.server.carpool.CarpoolOwnKeys
 import network.lapis.cloud.server.carpool.CarpoolOwnSigningKey
+import network.lapis.cloud.server.carpool.CarpoolPullCounters
 import network.lapis.cloud.server.carpool.CarpoolReceivedStore
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.partner.PartnerHost
@@ -29,6 +30,7 @@ import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.CarpoolPullErrorCode
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.random.Random
 import kotlin.time.Duration
@@ -53,6 +55,8 @@ internal class CarpoolPullPoller(
     private val tickInterval: Duration = 60.seconds,
     private val clock: () -> LocalDateTime = { ServerClock.now() },
     private val random: Random = Random.Default,
+    /** Only a test lowers it (to 1: strictly one pull at a time makes the per-tick budget deterministic). */
+    private val maxParallel: Int = MAX_PARALLEL,
 ) {
     companion object {
         const val MAX_PARALLEL = 2
@@ -64,7 +68,17 @@ internal class CarpoolPullPoller(
         val RATE_LIMITED_MIN = 1.hours
         private const val MAX_BACKOFF_EXPONENT = 7
 
-        /** 15 min, 30 min, 1 h ... capped at 24 h; a rate limit waits at least an hour. [jitter] is added on top. */
+        /** V1.9.318: items + withdrawals that ONE tick may take over, summed over all partners; a pull that would start after it is spent waits. */
+        const val TICK_ITEM_BUDGET = 5000
+
+        /** V1.9.318: expired rows deleted per tick and table. */
+        const val EXPIRED_SWEEP_LIMIT = 2000
+
+        /**
+         * 15 min, 30 min, 1 h ... capped at 24 h; a rate limit waits at least an hour. [jitter] is added on top. From [failures] = 8 on the interval
+         * sits at the 24-hour cap: that is "paused" in the admin view (`CarpoolPullStates`). The "half-open" step is the daily trial pull; a success
+         * sets the counter back to 0. The `Retry-After` header of a 429 is not evaluated (open question in the architecture document).
+         */
         fun failureDelay(
             failures: Int,
             error: CarpoolPullErrorCode,
@@ -107,6 +121,13 @@ internal class CarpoolPullPoller(
     suspend fun tick() {
         try {
             val now = clock()
+            // Housekeeping first, one transaction each, and BEFORE any pull of this tick: so it can never collide with an apply of our own. It runs
+            // whatever the instance switch says (an expired row must not outlive its day because the exchange is off).
+            runCatching { transaction { CarpoolReceivedStore.deleteExpired(now = now, limit = EXPIRED_SWEEP_LIMIT) } }
+                .onSuccess { if (it > 0) CarpoolPullCounters.expiredDeleted.addAndGet(it.toLong()) }
+                .onFailure { logger.warn { "CarpoolPullPoller: expired sweep failed (${it::class.simpleName})" } }
+            runCatching { transaction { CarpoolFederationStore.deleteExpiredTombstones(now = now, limit = EXPIRED_SWEEP_LIMIT) } }
+                .onFailure { logger.warn { "CarpoolPullPoller: tombstone sweep failed (${it::class.simpleName})" } }
             runCatching { transaction { CarpoolReceivedStore.dropStale(now) } }
                 .onFailure { logger.warn { "CarpoolPullPoller: stale sweep failed (${it::class.simpleName})" } }
             val state =
@@ -134,12 +155,13 @@ internal class CarpoolPullPoller(
                 }
                 return
             }
-            val permits = Semaphore(MAX_PARALLEL)
+            val permits = Semaphore(maxParallel)
+            val budget = AtomicInteger(TICK_ITEM_BUDGET)
             coroutineScope {
                 state.due
                     .map { row ->
                         async(Dispatchers.IO) {
-                            permits.withPermit { pullOneSafely(row = row, key = state.key, ownHost = ownHost, now = now) }
+                            permits.withPermit { pullOneSafely(row = row, key = state.key, ownHost = ownHost, now = now, budget = budget) }
                         }
                     }.awaitAll()
             }
@@ -156,8 +178,14 @@ internal class CarpoolPullPoller(
         key: CarpoolOwnSigningKey,
         ownHost: String,
         now: LocalDateTime,
+        budget: AtomicInteger,
     ) {
         try {
+            if (budget.get() <= 0) {
+                // Spent: nothing is written (no failure, `next` stays the oldest), so this partner is first in line at the next tick.
+                CarpoolPullCounters.budgetDeferred.incrementAndGet()
+                return
+            }
             when (val outcome = client.fetch(host = row.host, etag = row.carpoolPullEtag, key = key)) {
                 is CarpoolPullOutcome.Failed -> fail(row = row, error = outcome.error, now = now)
                 is CarpoolPullOutcome.NotModified ->
@@ -189,7 +217,8 @@ internal class CarpoolPullPoller(
                             )
                     ) {
                         is TeaserFeedParse.Invalid -> fail(row = row, error = parsed.code, now = now)
-                        is TeaserFeedParse.Ok ->
+                        is TeaserFeedParse.Ok -> {
+                            budget.addAndGet(-(parsed.feed.items.size + parsed.feed.withdrawnIds.size))
                             transaction {
                                 CarpoolReceivedStore.apply(
                                     source = row,
@@ -199,6 +228,7 @@ internal class CarpoolPullPoller(
                                     now = now,
                                 )
                             }
+                        }
                     }
                 }
             }

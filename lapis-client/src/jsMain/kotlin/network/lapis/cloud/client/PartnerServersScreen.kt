@@ -157,6 +157,15 @@ private fun renderCarpoolExchange(
     box.div(tr(CARPOOL_EXCHANGE_PULL_NOTE), className = "text-muted small") { setAttribute("role", "status") }
     box.div(tr(CARPOOL_EXCHANGE_WITHDRAWAL_NOTE), className = "text-muted small")
     PartnerServersLogic.carpoolFeedSettingsLines(settings).forEach { box.div(it, className = "text-muted small") }
+    // V1.9.318: the rejection causes, folded away (counts only, since the server started).
+    if (settings.enabled) {
+        val details = Tag(TAG.DETAILS, className = "small text-muted carpool-reject-reasons")
+        details.add(Tag(TAG.SUMMARY, className = "text-muted").apply { add(Span(tr("Ablehnungsgründe"))) })
+        val list = SimplePanel().apply { setAttribute("role", "list") }
+        PartnerServersLogic.rejectReasonLines(settings).forEach { list.div(it) { setAttribute("role", "listitem") } }
+        details.add(list)
+        box.add(details)
+    }
 }
 
 private fun renderAddForm(
@@ -223,6 +232,12 @@ private fun renderPartnerRow(
     info.div(className = "partner-status small") {
         span(symbol, className = "me-1") { setAttribute("aria-hidden", "true") }
         span(PartnerServersLogic.statusText(partner))
+    }
+    PartnerServersLogic.pullStateOf(partner = partner, exchangeOn = carpoolExchangeOn)?.let { state ->
+        // The word is the information; the colour is only an addition.
+        info.div(className = "small partner-pull-state") {
+            span(PartnerServersLogic.pullStateLabel(state), className = "badge ${PartnerServersLogic.pullStateBadgeClass(state)}")
+        }
     }
     if (partner.blocked) {
         info.div(PartnerServersLogic.blockedNote(), className = "text-muted small")

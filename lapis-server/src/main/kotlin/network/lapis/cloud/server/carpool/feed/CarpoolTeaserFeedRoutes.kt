@@ -16,6 +16,7 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
@@ -74,6 +75,7 @@ internal fun Route.registerCarpoolTeaserFeedRoutes(
     counters: CarpoolTeaserFeedCounters,
     ownHost: String? = PartnerHost.ownHostOf(FederationConfig.publicBaseUrl),
     clock: () -> Instant = { ServerClock.nowInstant() },
+    buildPermits: Semaphore = CarpoolTeaserFeedLimits.newBuildPermits(),
 ) {
     val gate = ownHost?.let { CarpoolTeaserFeedGate(replayGuard = replayGuard, ownHost = it, clock = clock) }
     // Warm the dummy key now, so the first unknown key id costs no more than a known one.
@@ -85,7 +87,7 @@ internal fun Route.registerCarpoolTeaserFeedRoutes(
                 gate = gate,
                 ownHost = ownHost,
                 teaserIds = teaserIds,
-                limiters = Limiters(ip = ipRateLimiter, partner = partnerRateLimiter, global = globalRateLimiter),
+                limiters = Limiters(ip = ipRateLimiter, partner = partnerRateLimiter, global = globalRateLimiter, builds = buildPermits),
                 counters = counters,
             )
         } catch (e: CancellationException) {
@@ -102,6 +104,8 @@ private class Limiters(
     val ip: FederationInboxRateLimiter,
     val partner: FederationInboxRateLimiter,
     val global: FederationInboxRateLimiter,
+    /** V1.9.318: how many snapshots may be BUILT at the same time (each holds a database transaction and builds a body of up to 1 MiB). */
+    val builds: Semaphore,
 )
 
 private suspend fun handle(
@@ -155,58 +159,69 @@ private suspend fun handle(
         call.respondRateLimited()
         return
     }
+    // V1.9.318: only an approved partner gets here (after the checks above), so this 429 is as invisible to everybody else as the others. The answer
+    // is byte-identical to the rate limit. The permit is released right after the transaction, BEFORE the body is written to a slow client.
+    if (!limiters.builds.tryAcquire()) {
+        counters.rateLimited()
+        call.respondRateLimited()
+        return
+    }
     val ifNoneMatch = call.request.header(HttpHeaders.IfNoneMatch)
     val outcome: FeedOutcome =
-        transaction {
-            val settings = CarpoolFederationStore.settings()
-            // The pin or the consent may have changed since the check above: decide again in THIS transaction.
-            val now = DbClock.nowLocalDateTime()
-            val full = gate.approve(verified = verified, settings = settings)
-            // Wave 3: an approved partner gets the full snapshot; a partner that was served before but is no longer shared with gets ONLY the
-            // withdrawals that are still live for it (never an item); everybody else gets the one refusal.
-            val row = full ?: gate.approveTrailing(verified = verified, now = now) ?: return@transaction FeedOutcome.Refused
-            val built =
-                if (full != null) {
-                    CarpoolTeaserFeedBuilder.build(
-                        partner = row,
-                        settings = settings,
-                        ids = teaserIds,
-                        originHost = ownHost,
-                        today = OrganizationTimeZone.today(),
-                        now = now,
-                        ownKey = CarpoolOwnKeys.load(),
-                    )
+        try {
+            transaction {
+                val settings = CarpoolFederationStore.settings()
+                // The pin or the consent may have changed since the check above: decide again in THIS transaction.
+                val now = DbClock.nowLocalDateTime()
+                val full = gate.approve(verified = verified, settings = settings)
+                // Wave 3: an approved partner gets the full snapshot; a partner that was served before but is no longer shared with gets ONLY the
+                // withdrawals that are still live for it (never an item); everybody else gets the one refusal.
+                val row = full ?: gate.approveTrailing(verified = verified, now = now) ?: return@transaction FeedOutcome.Refused
+                val built =
+                    if (full != null) {
+                        CarpoolTeaserFeedBuilder.build(
+                            partner = row,
+                            settings = settings,
+                            ids = teaserIds,
+                            originHost = ownHost,
+                            today = OrganizationTimeZone.today(),
+                            now = now,
+                            ownKey = CarpoolOwnKeys.load(),
+                        )
+                    } else {
+                        CarpoolTeaserFeedBuilder.buildWithdrawalsOnly(partner = row, ids = teaserIds, now = now)
+                    }
+                val etag = "\"" + sha256Hex(built.body) + "\""
+                // Taken AFTER the build on purpose: the served-at moment must not be earlier than anything the answer contains (a consent that was
+                // committed before the read has an opt-in moment that is not later than this), or the "served since the consent" filter of the
+                // withdrawal could miss a hint that was handed out.
+                val servedAt = DbClock.nowLocalDateTime()
+                if (ifNoneMatchHits(headerValue = ifNoneMatch, etag = etag)) {
+                    PartnerServerStore.recordCarpoolFeedServed(id = row.id, itemCount = null, now = servedAt)
+                    FeedOutcome.NotModified(etag)
                 } else {
-                    CarpoolTeaserFeedBuilder.buildWithdrawalsOnly(partner = row, ids = teaserIds, now = now)
-                }
-            val etag = "\"" + sha256Hex(built.body) + "\""
-            // Taken AFTER the build on purpose: the served-at moment must not be earlier than anything the answer contains (a consent that was
-            // committed before the read has an opt-in moment that is not later than this), or the "served since the consent" filter of the
-            // withdrawal could miss a hint that was handed out.
-            val servedAt = DbClock.nowLocalDateTime()
-            if (ifNoneMatchHits(headerValue = ifNoneMatch, etag = etag)) {
-                PartnerServerStore.recordCarpoolFeedServed(id = row.id, itemCount = null, now = servedAt)
-                FeedOutcome.NotModified(etag)
-            } else {
-                PartnerServerStore.recordCarpoolFeedServed(id = row.id, itemCount = built.itemCount, now = servedAt)
-                AuditLogRecorder.record(
-                    actorMemberId = null,
-                    actorRole = null,
-                    entityType = AuditEntityType.CARPOOL_FEDERATION_FEED,
-                    entityId = row.id,
-                    action = AuditAction.CREATE,
-                    after =
-                        Json.encodeToString(
-                            CarpoolFederationFeedAuditSnapshot.serializer(),
-                            CarpoolFederationFeedAuditSnapshot(
-                                itemCount = built.itemCount,
-                                complete = built.complete,
-                                withdrawnCount = built.withdrawnCount,
+                    PartnerServerStore.recordCarpoolFeedServed(id = row.id, itemCount = built.itemCount, now = servedAt)
+                    AuditLogRecorder.record(
+                        actorMemberId = null,
+                        actorRole = null,
+                        entityType = AuditEntityType.CARPOOL_FEDERATION_FEED,
+                        entityId = row.id,
+                        action = AuditAction.CREATE,
+                        after =
+                            Json.encodeToString(
+                                CarpoolFederationFeedAuditSnapshot.serializer(),
+                                CarpoolFederationFeedAuditSnapshot(
+                                    itemCount = built.itemCount,
+                                    complete = built.complete,
+                                    withdrawnCount = built.withdrawnCount,
+                                ),
                             ),
-                        ),
-                )
-                FeedOutcome.Ok(body = built.body, etag = etag)
+                    )
+                    FeedOutcome.Ok(body = built.body, etag = etag)
+                }
             }
+        } finally {
+            limiters.builds.release()
         }
     when (outcome) {
         FeedOutcome.Refused -> {

@@ -532,8 +532,8 @@ abstract class CarpoolWithdrawalScenarios(
                     insertExpired(teaserId = "e".repeat(64), now = now)
                 }
                 allTombstones() shouldHaveSize 2
-                transaction { CarpoolFederationStore.deleteExpiredTombstones(now) } shouldBe 1
-                transaction { CarpoolFederationStore.deleteExpiredTombstones(now) } shouldBe 0
+                transaction { CarpoolFederationStore.deleteExpiredTombstones(now = now) } shouldBe 1
+                transaction { CarpoolFederationStore.deleteExpiredTombstones(now = now) } shouldBe 0
                 allTombstones() shouldHaveSize 1
                 transaction { insertExpired(teaserId = "f".repeat(64), now = now) }
                 val gone = data.member(label = "wd-clean-gone")

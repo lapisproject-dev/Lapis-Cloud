@@ -21,9 +21,11 @@ import network.lapis.cloud.server.partner.PartnerFeedParser
 import network.lapis.cloud.server.partner.PartnerHost
 import network.lapis.cloud.shared.domain.CarpoolFederationLimits
 import network.lapis.cloud.shared.domain.CarpoolPullErrorCode
+import network.lapis.cloud.shared.domain.CarpoolReceivedRejectReason
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
+import java.util.EnumMap
 
 private val logger = KotlinLogging.logger {}
 
@@ -92,6 +94,7 @@ internal object CarpoolTeaserFeedReader {
 
         var rejected = 0
         var unsigned = 0
+        val byReason = EnumMap<CarpoolReceivedRejectReason, Int>(CarpoolReceivedRejectReason::class.java)
         val seen = HashSet<Pair<String, String>>()
         val items = ArrayList<ParsedRelayItem>()
         val maxDate = today.plus(CarpoolFederationLimits.MAX_DAYS_AHEAD, DateTimeUnit.DAY)
@@ -99,36 +102,26 @@ internal object CarpoolTeaserFeedReader {
             val item = runCatching { JSON.decodeFromJsonElement(CarpoolTeaserFeedItem.serializer(), el) }.getOrNull()
             if (item == null) {
                 rejected++
+                byReason.merge(CarpoolReceivedRejectReason.FORMAT, 1, Int::plus)
                 continue
             }
-            val signature = item.originSignature
-            if (signature.isNullOrBlank()) {
-                unsigned++
+            val reason =
+                rejectReason(
+                    item = item,
+                    sourceHost = sourceHost,
+                    ownHost = ownHost,
+                    today = today,
+                    maxDate = maxDate,
+                    blockPatterns = blockPatterns,
+                )
+            if (reason != null) {
                 rejected++
+                if (reason == CarpoolReceivedRejectReason.SIGNATURE) unsigned++
+                byReason.merge(reason, 1, Int::plus)
                 continue
             }
             val teaser = item.teaser
-            val ok =
-                ID.matches(teaser.teaserId) &&
-                    isCanonicalHost(item.originHost) &&
-                    item.originHost != ownHost &&
-                    !PartnerBlocklistPattern.isBlocked(host = item.originHost, patterns = blockPatterns) &&
-                    item.hops in 0..2 &&
-                    item.maxHops in 1..CarpoolFederationLimits.MAX_HOPS &&
-                    item.hops + 1 <= item.maxHops &&
-                    item.via.size == item.hops &&
-                    item.via.all { isCanonicalHost(it) && it != item.originHost && it != ownHost } &&
-                    item.via.toSet().size == item.via.size &&
-                    item.via.none { PartnerBlocklistPattern.isBlocked(host = it, patterns = blockPatterns) } &&
-                    (if (item.hops == 0) item.originHost == sourceHost else item.via.last() == sourceHost) &&
-                    teaser.departureDate >= today &&
-                    teaser.departureDate <= maxDate &&
-                    signature.length <= CarpoolOriginSignatures.MAX_SIGNATURE_LENGTH &&
-                    BASE64.matches(signature)
-            if (!ok) {
-                rejected++
-                continue
-            }
+            val signature = requireNotNull(item.originSignature)
             if (!seen.add(item.originHost to teaser.teaserId)) continue
             items +=
                 ParsedRelayItem(
@@ -153,8 +146,51 @@ internal object CarpoolTeaserFeedReader {
                 withdrawnIds = withdrawn,
                 rejected = rejected,
                 rejectedUnsigned = unsigned,
+                rejectedByReason = byReason,
             ),
         )
+    }
+
+    /**
+     * The first failing check of an item, in a FIXED order: format, then signature present, then blocked, then hop limit, then expired. `null` = fine.
+     * The order decides which cause is counted when an item has several faults, so it is pinned by a test.
+     */
+    @Suppress("CyclomaticComplexMethod", "ReturnCount")
+    private fun rejectReason(
+        item: CarpoolTeaserFeedItem,
+        sourceHost: String,
+        ownHost: String,
+        today: LocalDate,
+        maxDate: LocalDate,
+        blockPatterns: List<String>,
+    ): CarpoolReceivedRejectReason? {
+        val signature = item.originSignature
+        val teaser = item.teaser
+        val format =
+            ID.matches(teaser.teaserId) &&
+                isCanonicalHost(item.originHost) &&
+                item.via.size == item.hops &&
+                item.via.all { isCanonicalHost(it) && it != item.originHost && it != ownHost } &&
+                item.via.toSet().size == item.via.size &&
+                (
+                    signature.isNullOrBlank() ||
+                        (signature.length <= CarpoolOriginSignatures.MAX_SIGNATURE_LENGTH && BASE64.matches(signature))
+                ) &&
+                teaser.departureDate <= maxDate &&
+                (item.hops !in 0..2 || (if (item.hops == 0) item.originHost == sourceHost else item.via.lastOrNull() == sourceHost))
+        if (!format) return CarpoolReceivedRejectReason.FORMAT
+        if (signature.isNullOrBlank()) return CarpoolReceivedRejectReason.SIGNATURE
+        if (item.originHost == ownHost ||
+            PartnerBlocklistPattern.isBlocked(host = item.originHost, patterns = blockPatterns) ||
+            item.via.any { PartnerBlocklistPattern.isBlocked(host = it, patterns = blockPatterns) }
+        ) {
+            return CarpoolReceivedRejectReason.BLOCKED
+        }
+        if (item.hops !in 0..2 || item.maxHops !in 1..CarpoolFederationLimits.MAX_HOPS || item.hops + 1 > item.maxHops) {
+            return CarpoolReceivedRejectReason.HOP_LIMIT
+        }
+        if (teaser.departureDate < today) return CarpoolReceivedRejectReason.EXPIRED
+        return null
     }
 
     private fun isCanonicalHost(host: String): Boolean = PartnerHost.normalizeHostOnly(host) == host

@@ -35,6 +35,7 @@ import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CarpoolFederationLimits
 import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
 import network.lapis.cloud.shared.domain.CarpoolPullErrorCode
+import network.lapis.cloud.shared.domain.CarpoolPullStates
 import network.lapis.cloud.shared.domain.CarpoolPullStatus
 import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerAuditKind
@@ -186,6 +187,14 @@ internal class PartnerServerService(
         val now = clock()
         transaction {
             val row = PartnerServerStore.setActive(id = uuid, active = active, now = now) ?: throw NotFoundException("Partner not found")
+            if (row.active && !active) {
+                // V1.9.318: a deactivated partner is no source any more: its copies go NOW (reported as withdrawn when they could have been handed
+                // on), not at the next stale sweep, and its ETag is forgotten.
+                CarpoolReceivedStore.dropFromSource(sourceId = uuid, now = now)
+                PartnerServerStore.clearCarpoolPullEtag(uuid)
+            } else if (!row.active && active && row.carpoolSharing) {
+                PartnerServerStore.resetCarpoolPull(id = uuid, now = now)
+            }
             if (row.active != active) {
                 val kind = if (active) PartnerAuditKind.ACTIVATED else PartnerAuditKind.DEACTIVATED
                 audit(
@@ -392,6 +401,17 @@ internal class PartnerServerService(
                 carpoolReceivedHintsTotal = CarpoolReceivedStore.countTotal(clock()),
                 carpoolReceivedRejectedSinceStart = CarpoolPullCounters.rejected.get(),
                 carpoolReceivedUnknownOriginKeySinceStart = CarpoolPullCounters.unknownOriginKey.get(),
+                serverStartedAt = CarpoolPullCounters.startedAt,
+                feedServedSinceStart = c?.served ?: 0,
+                feedNotModifiedSinceStart = c?.notModified ?: 0,
+                carpoolReceivedStoredRows = CarpoolReceivedStore.countStoredRows(),
+                carpoolReceivedBlocksActive = CarpoolReceivedStore.countBlocksActive(clock()),
+                carpoolReceivedAcceptedSinceStart = CarpoolPullCounters.accepted.get(),
+                carpoolReceivedExpiredDeletedSinceStart = CarpoolPullCounters.expiredDeleted.get(),
+                // Keys are the enum names, values are plain counts: no host, no id, no content.
+                carpoolReceivedRejectedByReason = CarpoolPullCounters.rejectedByReason().mapKeys { it.key.name },
+                carpoolPullBudgetDeferredSinceStart = CarpoolPullCounters.budgetDeferred.get(),
+                carpoolRelayTombstonesSkippedSinceStart = CarpoolPullCounters.relayTombstonesSkipped.get(),
             )
         }
     }
@@ -482,11 +502,14 @@ internal class PartnerServerService(
                     partnerId = uuid,
                     now = now,
                     requireServedSince = null,
+                    maxRelayRows = CarpoolReceivedStore.MAX_RELAY_TOMBSTONES_TOTAL,
                 )
                 CarpoolReceivedStore.dropFromSource(sourceId = uuid, now = now)
                 PartnerServerStore.clearCarpoolPullEtag(uuid)
             } else if (!row.carpoolSharing && enabled) {
                 CarpoolFederationStore.forgetPartnerTombstones(uuid)
+                // V1.9.318: the way to "try again now": sharing off and on again starts with a clean slate (no back-off, no ETag).
+                PartnerServerStore.resetCarpoolPull(id = uuid, now = now)
             }
             if (row.carpoolSharing != enabled) {
                 val kind = if (enabled) PartnerAuditKind.PARTNER_CARPOOL_SHARING_ON else PartnerAuditKind.PARTNER_CARPOOL_SHARING_OFF
@@ -509,6 +532,7 @@ internal class PartnerServerService(
         val counts = PartnerDiscoveryStore.countsByRoot()
         val withdrawals = CarpoolFederationStore.countLiveWithdrawalsByPartner(clock())
         val received = CarpoolReceivedStore.countBySource()
+        val blocksByReporter = CarpoolReceivedStore.countBlocksByReporter(clock())
         return PartnerServerOverviewDto(
             partners =
                 PartnerServerStore.listPartners().map {
@@ -520,6 +544,7 @@ internal class PartnerServerService(
                             discoveredEventCount = events,
                             carpoolWithdrawalsScoped = withdrawals[it.id] ?: 0,
                             carpoolReceivedHints = received[it.id] ?: 0,
+                            carpoolReceivedBlocks = blocksByReporter[it.id] ?: 0,
                         )
                 },
             blocklist = blocks.map { it.toDto() },
@@ -581,4 +606,7 @@ private fun PartnerRow.toDto(blocked: Boolean) =
         carpoolPullFailures = carpoolPullFailures,
         carpoolPullLastRejected = carpoolPullLastRejected,
         carpoolPullLastAccepted = carpoolPullLastAccepted,
+        carpoolPullOkAt = carpoolPullOkAt,
+        carpoolPullNextAt = if (carpoolSharing && active) carpoolPullNextAt else null,
+        carpoolPullState = if (carpoolSharing && active) CarpoolPullStates.of(carpoolPullFailures) else null,
     )

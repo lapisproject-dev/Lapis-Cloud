@@ -29,6 +29,7 @@ import org.jetbrains.exposed.v1.core.vendors.currentDialect
 import org.jetbrains.exposed.v1.jdbc.Query
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import java.security.MessageDigest
@@ -276,6 +277,7 @@ internal object CarpoolFederationStore {
         partnerId: Uuid?,
         now: LocalDateTime,
         requireServedSince: LocalDateTime?,
+        maxRelayRows: Int? = null,
     ): Int {
         if (targets.isEmpty()) return 0
         if (requireServedSince != null) {
@@ -283,8 +285,17 @@ internal object CarpoolFederationStore {
             if (lastServed == null || lastServed < requireServedSince) return 0
         }
         var written = 0
+        // V1.9.318: a global cap on the table (the rows do not record which source caused them). Our OWN withdrawals ([withdraw]) are never capped.
+        var rows = if (maxRelayRows != null) countTombstoneRows() else 0
         targets.sortedBy { it.teaserId }.forEach { t ->
-            if (insertTombstone(teaserId = t.teaserId, departure = t.departureDate, partnerId = partnerId, now = now)) written++
+            if (maxRelayRows != null && rows >= maxRelayRows) {
+                CarpoolPullCounters.relayTombstonesSkipped.incrementAndGet()
+                return@forEach
+            }
+            if (insertTombstone(teaserId = t.teaserId, departure = t.departureDate, partnerId = partnerId, now = now)) {
+                written++
+                rows++
+            }
         }
         return written
     }
@@ -380,8 +391,28 @@ internal object CarpoolFederationStore {
             .groupingBy { requireNotNull(it[CarpoolTeaserTombstoneTable.partnerId]) }
             .eachCount()
 
-    /** Idempotent. @return the number of rows deleted. */
-    fun deleteExpiredTombstones(now: LocalDateTime): Int = CarpoolTeaserTombstoneTable.deleteWhere { expiresAt lessEq now }
+    /**
+     * Idempotent. At most [limit] rows per call (ids ascending); a caller that must empty the backlog calls again while a full batch comes back.
+     * @return the number of rows deleted.
+     */
+    fun deleteExpiredTombstones(
+        now: LocalDateTime,
+        limit: Int = Int.MAX_VALUE,
+    ): Int {
+        require(limit > 0) { "limit must be positive" }
+        val ids =
+            CarpoolTeaserTombstoneTable
+                .select(CarpoolTeaserTombstoneTable.id)
+                .where { CarpoolTeaserTombstoneTable.expiresAt lessEq now }
+                .orderBy(CarpoolTeaserTombstoneTable.id to SortOrder.ASC)
+                .limit(limit)
+                .map { it[CarpoolTeaserTombstoneTable.id] }
+        ids.chunked(CHUNK).forEach { chunk -> CarpoolTeaserTombstoneTable.deleteWhere { CarpoolTeaserTombstoneTable.id inList chunk } }
+        return ids.size
+    }
+
+    /** Every tombstone row, live or expired. */
+    fun countTombstoneRows(): Int = CarpoolTeaserTombstoneTable.selectAll().count().toInt()
 
     /** Opted-in trips whose author is no longer an active member -- the same author rule as [teaserCandidates]. At most [limit]. */
     fun optedInWithInactiveAuthor(limit: Int): List<CarpoolWithdrawalTarget> =

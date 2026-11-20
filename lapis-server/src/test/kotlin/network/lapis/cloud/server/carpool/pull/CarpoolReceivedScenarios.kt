@@ -7,13 +7,16 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.plus
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
 import network.lapis.cloud.server.carpool.CarpoolOriginSignatures
 import network.lapis.cloud.server.carpool.CarpoolOwnKeys
 import network.lapis.cloud.server.carpool.CarpoolPullCounters
 import network.lapis.cloud.server.carpool.CarpoolReceivedStore
+import network.lapis.cloud.server.carpool.CarpoolRelayedTarget
 import network.lapis.cloud.server.carpool.allTombstones
 import network.lapis.cloud.server.carpool.clearTombstones
 import network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedBuilder
@@ -32,6 +35,7 @@ import network.lapis.cloud.server.db.generated.PartnerDiscoveredServerTable
 import network.lapis.cloud.server.db.generated.PartnerEventTable
 import network.lapis.cloud.server.db.generated.PartnerServerTable
 import network.lapis.cloud.server.federation.FederationKeyPair
+import network.lapis.cloud.server.federation.FederationKeyPairGenerator
 import network.lapis.cloud.server.partner.DiscoveredWriteResult
 import network.lapis.cloud.server.partner.PartnerDiscoveryStore
 import network.lapis.cloud.server.partner.PartnerParseResult
@@ -43,7 +47,9 @@ import network.lapis.cloud.server.rpc.CarpoolTestData
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
 import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.shared.domain.CarpoolReceivedRejectReason
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteAll
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -550,8 +556,8 @@ abstract class CarpoolReceivedScenarios(
             val pa = direct(a)
             applyFeed(sourceId = pa.id, bytes = feedBytes(items = listOf(a.item(seed = "1"), a.item(seed = "2"))))
             applyFeed(sourceId = pa.id, bytes = feedBytes(items = emptyList(), withdrawn = listOf(hexId("2")), complete = false))
-            transaction { CarpoolReceivedStore.deleteExpired(LocalDateTime(2026, 11, 24, 12, 0, 0)) } shouldBe 0
-            transaction { CarpoolReceivedStore.deleteExpired(LocalDateTime(2026, 11, 26, 0, 0, 0)) } shouldBe 2
+            transaction { CarpoolReceivedStore.deleteExpired(now = LocalDateTime(2026, 11, 24, 12, 0, 0)) } shouldBe 0
+            transaction { CarpoolReceivedStore.deleteExpired(now = LocalDateTime(2026, 11, 26, 0, 0, 0)) } shouldBe 2
             rows().shouldBeEmpty()
             receivedBlocks().shouldBeEmpty()
         }
@@ -927,5 +933,212 @@ abstract class CarpoolReceivedScenarios(
             hand().shouldBeEmpty()
             transaction { PartnerServerStore.setActive(id = pa.id, active = true, now = PULL_NOW) }
             hand() shouldContainExactly listOf(hexId("d1"))
+        }
+
+        // ───────────────────────── V1.9.318 (wave 6): operations ─────────────────────────
+
+        /** [n] more partners that share (rows only; they never deliver): they shrink the fair share of every source. */
+        fun sharingCrowd(n: Int) {
+            val kp = FederationKeyPairGenerator.generate()
+            repeat(n) { newFeedPartner(keyPair = kp) }
+        }
+
+        fun blocksOf(reporter: Uuid) =
+            transaction {
+                CarpoolReceivedTombstoneTable
+                    .selectAll()
+                    .where { CarpoolReceivedTombstoneTable.reportedByPartnerId eq reporter }
+                    .map { it[CarpoolReceivedTombstoneTable.teaserId] }
+            }
+
+        fun preloadBlocks(
+            reporter: Uuid,
+            count: Int,
+            tag: String,
+        ) = transaction {
+            CarpoolReceivedTombstoneTable.batchInsert((1..count).toList(), shouldReturnGeneratedValues = false) { n ->
+                this[CarpoolReceivedTombstoneTable.id] = Uuid.random()
+                this[CarpoolReceivedTombstoneTable.teaserId] = hexId("$tag-$n")
+                this[CarpoolReceivedTombstoneTable.originHost] = "pre.beispiel.de"
+                this[CarpoolReceivedTombstoneTable.reportedByPartnerId] = reporter
+                this[CarpoolReceivedTombstoneTable.createdAt] = LocalDateTime(2026, 11, 18, 10, 0, n % 59)
+                this[CarpoolReceivedTombstoneTable.expiresAt] = LocalDateTime(2026, 12, 1, 0, 0, 0)
+            }
+        }
+
+        test("the fair share of one source: 1000 for one to five partners, then 5000 / partners, never below 200") {
+            listOf(1, 2, 5, 6, 10, 25, 30, 500).map { CarpoolReceivedStore.effectivePerSourceCap(it) } shouldBe
+                listOf(1000, 1000, 1000, 833, 500, 200, 200, 200)
+            CarpoolReceivedStore.effectivePerSourceCap(0) shouldBe 1000
+        }
+
+        test("with 30 partners that share, a source keeps its 200 nearest departures; the rest is rejected as CAPACITY") {
+            val a = OriginServer(host = "a.beispiel.de")
+            val pa = direct(a)
+            sharingCrowd(29)
+            val near = (1..100).map { a.item(seed = "near$it", date = PULL_DEPARTURE) }
+            val far = (1..150).map { a.item(seed = "far$it", date = PULL_DEPARTURE.plus(DatePeriod(days = 20))) }
+            // the feed lists the far ones first: the ORDER of taking is by day, not by position in the list
+            val r = applyFeed(sourceId = pa.id, bytes = feedBytes(items = far + near, complete = false))
+            r.accepted shouldBe 200
+            r.rejected shouldBe 50
+            val stored = ids()
+            stored.containsAll((1..100).map { hexId("near$it") }) shouldBe true
+            CarpoolPullCounters.rejectedByReason().getValue(CarpoolReceivedRejectReason.CAPACITY) shouldBe 50L
+            CarpoolPullCounters.rejected.get() shouldBe 50L
+            CarpoolPullCounters.accepted.get() shouldBe 200L
+        }
+
+        test(
+            "a hostile partner with many fresh items displaces no row of another source; five hostile partners each stay within their share",
+        ) {
+            val honest = OriginServer(host = "h.beispiel.de")
+            val ph = direct(honest)
+            applyFeed(sourceId = ph.id, bytes = feedBytes(items = (1..40).map { honest.item(seed = "honest$it") }, complete = false))
+            sharingCrowd(24)
+            val hostile = (1..5).map { OriginServer(host = "x$it.beispiel.de") }
+            val rowsOfHostile =
+                hostile.map { o ->
+                    val p = direct(o)
+                    applyFeed(sourceId = p.id, bytes = feedBytes(items = (1..300).map { o.item(seed = "${o.host}-$it") }, complete = false))
+                    p.id
+                }
+            val cap = CarpoolReceivedStore.effectivePerSourceCap(1 + 24 + 5)
+            rows().count { it.source == ph.id } shouldBe 40
+            rowsOfHostile.forEach { id -> (rows().count { it.source == id } <= cap) shouldBe true }
+            (rows().size <= CarpoolReceivedStore.MAX_TOTAL) shouldBe true
+            CarpoolPullCounters.rejectedByReason().getValue(CarpoolReceivedRejectReason.CAPACITY) shouldBe (5 * (300 - cap)).toLong()
+        }
+
+        test("a shrinking share removes nothing: new items of that source are turned away, its updates stay allowed") {
+            val a = OriginServer(host = "a.beispiel.de")
+            val pa = direct(a)
+            val items = (1..300).map { a.item(seed = "s$it") }
+            applyFeed(sourceId = pa.id, bytes = feedBytes(items = items, complete = false)).accepted shouldBe 300
+            sharingCrowd(29)
+            val again = applyFeed(sourceId = pa.id, bytes = feedBytes(items = items + a.item(seed = "new"), complete = false))
+            again.accepted shouldBe 300
+            again.rejected shouldBe 1
+            rows() shouldHaveSize 300
+        }
+
+        test("rejections are counted by cause and their sum is the total: signature, unknown key of the origin, expired, capacity") {
+            val a = OriginServer(host = "a.beispiel.de")
+            val stranger = OriginServer(host = "stranger.beispiel.de")
+            val pa = direct(a)
+            val forged = a.item(seed = "f1", signature = "AAAA")
+            val unknownKey = stranger.item(seed = "u1", hops = 1, via = listOf("a.beispiel.de"))
+            applyFeed(sourceId = pa.id, bytes = feedBytes(items = listOf(forged, unknownKey), complete = false))
+            val expiring = a.item(seed = "e1", date = PULL_TODAY)
+            // the reader still sees the day as today, the store (later "now") sees it as over
+            applyFeed(
+                sourceId = pa.id,
+                bytes = feedBytes(items = listOf(expiring), complete = false),
+                now = LocalDateTime(2026, 11, 21, 10, 0, 0),
+            )
+            val by = CarpoolPullCounters.rejectedByReason()
+            by.getValue(CarpoolReceivedRejectReason.SIGNATURE) shouldBe 1L
+            by.getValue(CarpoolReceivedRejectReason.UNKNOWN_ORIGIN_KEY) shouldBe 1L
+            by.getValue(CarpoolReceivedRejectReason.EXPIRED) shouldBe 1L
+            CarpoolPullCounters.rejected.get() shouldBe by.values.sum()
+            CarpoolPullCounters.unknownOriginKey.get() shouldBe 1L
+            CarpoolReceivedRejectReason.entries.all { by.containsKey(it) } shouldBe true
+        }
+
+        test("local blocks of one source stay at 5000: the oldest of THAT source make room, another source keeps all of its blocks") {
+            val a = OriginServer(host = "a.beispiel.de")
+            val pa = direct(a)
+            val other = direct(OriginServer(host = "o9.beispiel.de"))
+            preloadBlocks(reporter = other.id, count = 50, tag = "other")
+            preloadBlocks(reporter = pa.id, count = CarpoolReceivedStore.MAX_BLOCKS_PER_SOURCE - 10, tag = "old")
+            applyFeed(sourceId = pa.id, bytes = feedBytes(items = (1..20).map { a.item(seed = "w$it") }, complete = false))
+            applyFeed(
+                sourceId = pa.id,
+                bytes = feedBytes(items = emptyList(), withdrawn = (1..20).map { hexId("w$it") }, complete = false),
+            ).withdrawn shouldBe 20
+            // 4990 + 20 = 5010 -> the ten oldest of this source went; the 20 new ones are in
+            blocksOf(pa.id) shouldHaveSize CarpoolReceivedStore.MAX_BLOCKS_PER_SOURCE
+            blocksOf(pa.id).containsAll((1..20).map { hexId("w$it") }) shouldBe true
+            blocksOf(other.id) shouldHaveSize 50
+            rows().shouldBeEmpty()
+        }
+
+        test("at 20000 live blocks in total a withdrawal still deletes the copy but writes no block") {
+            val a = OriginServer(host = "a.beispiel.de")
+            val pa = direct(a)
+            val q = direct(OriginServer(host = "q9.beispiel.de"))
+            preloadBlocks(reporter = q.id, count = CarpoolReceivedStore.MAX_BLOCKS_TOTAL - 3, tag = "q")
+            applyFeed(sourceId = pa.id, bytes = feedBytes(items = (1..10).map { a.item(seed = "t$it") }, complete = false))
+            applyFeed(
+                sourceId = pa.id,
+                bytes = feedBytes(items = emptyList(), withdrawn = (1..10).map { hexId("t$it") }, complete = false),
+            ).withdrawn shouldBe 10
+            rows().shouldBeEmpty()
+            blocksOf(pa.id) shouldHaveSize 3
+            transaction { CarpoolReceivedStore.countBlocksActive(PULL_NOW) } shouldBe CarpoolReceivedStore.MAX_BLOCKS_TOTAL
+        }
+
+        test("the pass-on tombstones of relayed withdrawals stop at their cap and are counted; without a cap everything is written") {
+            val targets = (1..4).map { CarpoolRelayedTarget(teaserId = hexId("rl$it"), departureDate = PULL_DEPARTURE) }
+            val written =
+                transaction {
+                    CarpoolFederationStore.withdrawRelayed(
+                        targets = targets,
+                        partnerId = null,
+                        now = PULL_NOW,
+                        requireServedSince = null,
+                        maxRelayRows = 2,
+                    )
+                }
+            written shouldBe 2
+            CarpoolPullCounters.relayTombstonesSkipped.get() shouldBe 2L
+            transaction {
+                CarpoolFederationStore.withdrawRelayed(targets = targets, partnerId = null, now = PULL_NOW, requireServedSince = null)
+            }
+            allTombstones() shouldHaveSize 4
+            CarpoolPullCounters.relayTombstonesSkipped.get() shouldBe 2L
+        }
+
+        test("deleteExpired with a limit deletes in batches, is idempotent and never touches a live row; the count helpers see the lag") {
+            val a = OriginServer(host = "a.beispiel.de")
+            val pa = direct(a)
+            applyFeed(sourceId = pa.id, bytes = feedBytes(items = (1..7).map { a.item(seed = "x$it") }, complete = false))
+            val later = LocalDateTime(2026, 12, 1, 0, 0, 0)
+            transaction { CarpoolReceivedStore.deleteExpired(now = PULL_NOW, limit = 3) } shouldBe 0
+            transaction { CarpoolReceivedStore.countStoredRows() } shouldBe 7
+            transaction { CarpoolReceivedStore.countTotal(later) } shouldBe 0
+            transaction { CarpoolReceivedStore.deleteExpired(now = later, limit = 3) } shouldBe 3
+            transaction { CarpoolReceivedStore.deleteExpired(now = later, limit = 3) } shouldBe 3
+            transaction { CarpoolReceivedStore.deleteExpired(now = later, limit = 3) } shouldBe 1
+            transaction { CarpoolReceivedStore.deleteExpired(now = later, limit = 3) } shouldBe 0
+            rows().shouldBeEmpty()
+            shouldThrow<IllegalArgumentException> { transaction { CarpoolReceivedStore.deleteExpired(now = later, limit = 0) } }
+        }
+
+        test("expired pass-on tombstones are deleted in batches too") {
+            transaction {
+                CarpoolFederationStore.withdrawRelayed(
+                    targets = (1..5).map { CarpoolRelayedTarget(teaserId = hexId("dt$it"), departureDate = PULL_DEPARTURE) },
+                    partnerId = null,
+                    now = PULL_NOW,
+                    requireServedSince = null,
+                )
+            }
+            val later = LocalDateTime(2026, 12, 20, 0, 0, 0)
+            transaction { CarpoolFederationStore.deleteExpiredTombstones(now = PULL_NOW, limit = 2) } shouldBe 0
+            transaction { CarpoolFederationStore.deleteExpiredTombstones(now = later, limit = 2) } shouldBe 2
+            transaction { CarpoolFederationStore.deleteExpiredTombstones(now = later, limit = 2) } shouldBe 2
+            transaction { CarpoolFederationStore.deleteExpiredTombstones(now = later, limit = 2) } shouldBe 1
+            transaction { CarpoolFederationStore.deleteExpiredTombstones(now = later, limit = 2) } shouldBe 0
+            transaction { CarpoolFederationStore.countTombstoneRows() } shouldBe 0
+        }
+
+        test("blocks per reporter: only live ones count") {
+            val a = direct(OriginServer(host = "a.beispiel.de"))
+            val b = direct(OriginServer(host = "b3.beispiel.de"))
+            preloadBlocks(reporter = a.id, count = 3, tag = "ca")
+            preloadBlocks(reporter = b.id, count = 2, tag = "cb")
+            transaction { CarpoolReceivedStore.countBlocksByReporter(PULL_NOW) } shouldBe mapOf(a.id to 3, b.id to 2)
+            transaction { CarpoolReceivedStore.countBlocksByReporter(LocalDateTime(2026, 12, 2, 0, 0, 0)) } shouldBe emptyMap()
         }
     })

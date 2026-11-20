@@ -33342,3 +33342,75 @@ msgid "Abrufen kann ihn %1 Partnerorganisation."
 msgid_plural "Abrufen können ihn %1 Partnerorganisationen."
 msgstr[0] "Può recuperarlo %1 organizzazione partner."
 msgstr[1] "Possono recuperarlo %1 organizzazioni partner."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Letzter Erfolg: %1"
+msgstr "Ultimo successo: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Nächster Versuch: %1"
+msgstr "Prossimo tentativo: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Sperren aktiv: %1"
+msgstr "Blocchi attivi: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Wartet (Back-off)"
+msgstr "In attesa (back-off)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Signatur ungültig oder fehlt: %1"
+msgstr "Firma non valida o mancante: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Schlüssel des Ursprungs unbekannt: %1"
+msgstr "Chiave dell'origine sconosciuta: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Format ungültig: %1"
+msgstr "Formato non valido: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Weitergabegrenze überschritten: %1"
+msgstr "Limite di inoltro superato: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abgelaufen: %1"
+msgstr "Scaduto: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Gesperrt: %1"
+msgstr "Bloccato: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kapazität erreicht: %1"
+msgstr "Capacità raggiunta: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Seit dem Serverstart am %1: %2 ausgeliefert, %3 unverändert, %4 gedrosselt, %5 abgewiesen"
+msgstr "Dal avvio del server il %1: %2 consegnati, %3 invariati, %4 limitati, %5 rifiutati"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Gespeichert: %1 (davon abgelaufen, noch nicht gelöscht: %2)"
+msgstr "Memorizzati: %1 (di cui scaduti, non ancora eliminati: %2)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Übernommen seit dem Start: %1"
+msgstr "Accettati dall'avvio: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Gelöscht nach Ablauf seit dem Start: %1"
+msgstr "Eliminati dopo la scadenza dall'avvio: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Aufgeschoben (Abrufbudget) seit dem Start: %1"
+msgstr "Rinviati (budget di recupero) dall'avvio: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Nicht geschriebene Weitergabe-Rückzüge seit dem Start: %1"
+msgstr "Ritiri inoltrati non scritti dall'avvio: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Ablehnungsgründe"
+msgstr "Motivi del rifiuto"

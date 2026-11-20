@@ -33319,3 +33319,75 @@ msgid_plural "Abrufen können ihn %1 Partnerorganisationen."
 msgstr[0] "Może go pobrać %1 organizacja partnerska."
 msgstr[1] "Mogą go pobrać %1 organizacje partnerskie."
 msgstr[2] "Może go pobrać %1 organizacji partnerskich."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Letzter Erfolg: %1"
+msgstr "Ostatni sukces: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Nächster Versuch: %1"
+msgstr "Następna próba: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Sperren aktiv: %1"
+msgstr "Aktywne blokady: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Wartet (Back-off)"
+msgstr "Oczekuje (back-off)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Signatur ungültig oder fehlt: %1"
+msgstr "Podpis nieprawidłowy lub brak: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Schlüssel des Ursprungs unbekannt: %1"
+msgstr "Klucz źródła nieznany: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Format ungültig: %1"
+msgstr "Nieprawidłowy format: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Weitergabegrenze überschritten: %1"
+msgstr "Przekroczono limit przekazywania: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abgelaufen: %1"
+msgstr "Wygasłe: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Gesperrt: %1"
+msgstr "Zablokowane: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kapazität erreicht: %1"
+msgstr "Osiągnięto pojemność: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Seit dem Serverstart am %1: %2 ausgeliefert, %3 unverändert, %4 gedrosselt, %5 abgewiesen"
+msgstr "Od uruchomienia serwera dnia %1: %2 dostarczonych, %3 bez zmian, %4 ograniczonych, %5 odrzuconych"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Gespeichert: %1 (davon abgelaufen, noch nicht gelöscht: %2)"
+msgstr "Zapisane: %1 (w tym wygasłe, jeszcze nieusunięte: %2)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Übernommen seit dem Start: %1"
+msgstr "Przyjęte od uruchomienia: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Gelöscht nach Ablauf seit dem Start: %1"
+msgstr "Usunięte po wygaśnięciu od uruchomienia: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Aufgeschoben (Abrufbudget) seit dem Start: %1"
+msgstr "Odroczone (budżet pobierania) od uruchomienia: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Nicht geschriebene Weitergabe-Rückzüge seit dem Start: %1"
+msgstr "Niezapisane przekazane wycofania od uruchomienia: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Ablehnungsgründe"
+msgstr "Powody odrzucenia"

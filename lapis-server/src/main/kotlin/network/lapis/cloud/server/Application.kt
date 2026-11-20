@@ -65,6 +65,8 @@ import network.lapis.cloud.server.bulletin.NoticeBoardRateLimiter
 import network.lapis.cloud.server.bulletin.NoticeRetentionPoller
 import network.lapis.cloud.server.carpool.CarpoolDeps
 import network.lapis.cloud.server.carpool.CarpoolNotifier
+import network.lapis.cloud.server.carpool.CarpoolPullCounters
+import network.lapis.cloud.server.carpool.CarpoolRetentionConfig
 import network.lapis.cloud.server.carpool.CarpoolRetentionPoller
 import network.lapis.cloud.server.carpool.CarpoolWithdrawalKey
 import network.lapis.cloud.server.carpool.SmtpCarpoolNoticeMailer
@@ -446,6 +448,7 @@ import network.lapis.cloud.server.theme.ThemeConfig
 import network.lapis.cloud.server.theme.ThemeStartupCheck
 import network.lapis.cloud.server.theme.WOFF2_CONTENT_TYPE
 import network.lapis.cloud.server.theme.registerThemeRoutes
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.server.videooverlays.VideoOverlayInstanceLogo
 import network.lapis.cloud.server.videooverlays.VideoOverlayStorage
 import network.lapis.cloud.server.webhook.WebhookConfig
@@ -1684,7 +1687,7 @@ internal fun Application.module(
     // Welle V1.9.12 "Mitfahrzentrale" -- immer aktiv, gleiches Muster wie postDraftRetentionPoller:
     // ein Feed-Eintrag verschwindet schon vorher aus CarpoolService.listPostings, dieser Poller
     // räumt erst CarpoolRetention.RETENTION_DAYS_AFTER_DEPARTURE Tage später endgültig auf.
-    val carpoolRetentionPoller = CarpoolRetentionPoller()
+    val carpoolRetentionPoller = CarpoolRetentionPoller(intervalHours = CarpoolRetentionConfig.load())
     carpoolRetentionPoller.start()
     monitor.subscribe(ApplicationStopping) { carpoolRetentionPoller.stop() }
     // V1.9.297 bulletin board: marks passed notices EXPIRED and deletes closed ones 30 days after they closed (pictures after the commit).
@@ -1908,6 +1911,7 @@ internal fun Application.module(
     partnerFeedPoller.start()
     monitor.subscribe(ApplicationStopping) { partnerFeedPoller.stop() }
     // V1.9.314 W4: pulls the carpool teaser feed of the direct partners that share with this server (instance switch off = housekeeping only).
+    CarpoolPullCounters.markStarted(ServerClock.now())
     val carpoolPullPoller = CarpoolPullPoller()
     carpoolPullPoller.start()
     monitor.subscribe(ApplicationStopping) { carpoolPullPoller.stop() }

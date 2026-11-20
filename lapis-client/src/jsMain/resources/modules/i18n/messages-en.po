@@ -33371,3 +33371,75 @@ msgid "Abrufen kann ihn %1 Partnerorganisation."
 msgid_plural "Abrufen können ihn %1 Partnerorganisationen."
 msgstr[0] "It can be fetched by %1 partner organisation."
 msgstr[1] "It can be fetched by %1 partner organisations."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Letzter Erfolg: %1"
+msgstr "Last success: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Nächster Versuch: %1"
+msgstr "Next attempt: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Sperren aktiv: %1"
+msgstr "Active blocks: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Wartet (Back-off)"
+msgstr "Waiting (back-off)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Signatur ungültig oder fehlt: %1"
+msgstr "Signature invalid or missing: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Schlüssel des Ursprungs unbekannt: %1"
+msgstr "Key of the origin unknown: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Format ungültig: %1"
+msgstr "Invalid format: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Weitergabegrenze überschritten: %1"
+msgstr "Forwarding limit exceeded: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abgelaufen: %1"
+msgstr "Expired: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Gesperrt: %1"
+msgstr "Blocked: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kapazität erreicht: %1"
+msgstr "Capacity reached: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Seit dem Serverstart am %1: %2 ausgeliefert, %3 unverändert, %4 gedrosselt, %5 abgewiesen"
+msgstr "Since the server started on %1: %2 served, %3 unchanged, %4 throttled, %5 refused"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Gespeichert: %1 (davon abgelaufen, noch nicht gelöscht: %2)"
+msgstr "Stored: %1 (of which expired, not yet deleted: %2)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Übernommen seit dem Start: %1"
+msgstr "Accepted since the start: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Gelöscht nach Ablauf seit dem Start: %1"
+msgstr "Deleted after expiry since the start: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Aufgeschoben (Abrufbudget) seit dem Start: %1"
+msgstr "Postponed (fetch budget) since the start: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Nicht geschriebene Weitergabe-Rückzüge seit dem Start: %1"
+msgstr "Forwarded withdrawals not written since the start: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Ablehnungsgründe"
+msgstr "Reasons for rejection"

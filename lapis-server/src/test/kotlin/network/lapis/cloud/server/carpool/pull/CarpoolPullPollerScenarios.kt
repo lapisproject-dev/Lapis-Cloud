@@ -8,6 +8,9 @@ import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -15,6 +18,8 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
+import network.lapis.cloud.server.carpool.CarpoolPullCounters
+import network.lapis.cloud.server.carpool.CarpoolRelayedTarget
 import network.lapis.cloud.server.carpool.feed.newFeedPartner
 import network.lapis.cloud.server.carpool.feed.provisionOwnSigningKey
 import network.lapis.cloud.server.db.DevSeedData
@@ -25,6 +30,7 @@ import network.lapis.cloud.server.db.generated.PartnerBlocklistTable
 import network.lapis.cloud.server.db.generated.PartnerDiscoveredServerTable
 import network.lapis.cloud.server.db.generated.PartnerEventTable
 import network.lapis.cloud.server.db.generated.PartnerServerTable
+import network.lapis.cloud.server.federation.FederationKeyPairGenerator
 import network.lapis.cloud.server.partner.FakeNetwork
 import network.lapis.cloud.server.partner.PartnerServerStore
 import network.lapis.cloud.server.partner.fakeFetcherClientFactory
@@ -38,6 +44,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.random.Random
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
@@ -65,7 +72,10 @@ abstract class CarpoolPullPollerScenarios(
                 PartnerBlocklistTable.deleteAll()
                 CarpoolFederationStore.setSettings(enabled = true, hopLimit = 2)
             }
-        beforeTest { clean() }
+        beforeTest {
+            clean()
+            CarpoolPullCounters.resetForTest()
+        }
         afterSpec {
             try {
                 clean()
@@ -80,6 +90,7 @@ abstract class CarpoolPullPollerScenarios(
 
         fun poller(
             net: FakeNetwork,
+            maxParallel: Int = CarpoolPullPoller.MAX_PARALLEL,
             handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
         ) = CarpoolPullPoller(
             client =
@@ -89,6 +100,7 @@ abstract class CarpoolPullPollerScenarios(
                 ),
             clock = { nowRef },
             random = random,
+            maxParallel = maxParallel,
         )
 
         fun plus(
@@ -262,5 +274,72 @@ abstract class CarpoolPullPollerScenarios(
             poller.tick()
             partnerRow(p.id).carpoolPullError shouldBe "SCHEMA"
             copies() shouldBe 0L
+        }
+
+        // ───────────────────────── V1.9.318 (wave 6) ─────────────────────────
+
+        test(
+            "the budget of a tick: five partners with 1000 items each use it up, the sixth waits untouched and is first in line next tick",
+        ) {
+            nowRef = PULL_NOW
+            val kp = FederationKeyPairGenerator.generate()
+            val partners = (1..6).map { newFeedPartner(host = "bp$it.beispiel.de", keyPair = kp) }
+            val body = feedBytes(items = emptyList(), withdrawn = (1..1000).map { hexId("bw$it") }, complete = false)
+            val net = FakeNetwork()
+            val poller = poller(net, maxParallel = 1) { json(body = body, etag = "\"b\"") }
+            poller.tick()
+            net.requests.get() shouldBe 5
+            CarpoolPullCounters.budgetDeferred.get() shouldBe 1L
+            val rows = partners.map { partnerRow(it.id) }
+            // the deferred one is the sixth by host; it was neither pulled nor counted as a failure and is still due
+            val deferred = rows.single { it.carpoolPullAt == null }
+            deferred.carpoolPullFailures shouldBe 0
+            deferred.carpoolPullNextAt shouldBe null
+            rows.filter { it.carpoolPullAt != null }.all { it.carpoolPullStatus == "OK" } shouldBe true
+            // the next tick (the others are not due yet) pulls exactly the deferred one
+            nowRef = plus(PULL_NOW, 1.minutes)
+            poller.tick()
+            net.requests.get() shouldBe 6
+            partnerRow(deferred.id).carpoolPullStatus shouldBe "OK"
+        }
+
+        test("with the instance switch off nothing is requested, but expired rows and expired pass-on tombstones are still deleted") {
+            nowRef = PULL_NOW
+            val o = OriginServer(host = "a.beispiel.de")
+            val p = newFeedPartner(host = o.host, keyPair = o.keyPair)
+            transaction { PartnerServerStore.resetCarpoolPull(id = p.id, now = PULL_NOW) }
+            val net = FakeNetwork()
+            val poller = poller(net) { json(body = feedBytes(items = listOf(o.item(seed = "1", date = departure))), etag = "\"v1\"") }
+            poller.tick()
+            copies() shouldBe 1L
+            transaction {
+                CarpoolFederationStore.withdrawRelayed(
+                    targets = listOf(CarpoolRelayedTarget(teaserId = hexId("sw"), departureDate = departure)),
+                    partnerId = null,
+                    now = PULL_NOW,
+                    requireServedSince = null,
+                )
+                CarpoolFederationStore.setSettings(enabled = false, hopLimit = 2)
+            }
+            nowRef = plus(PULL_NOW, 30.days)
+            poller.tick()
+            net.requests.get() shouldBe 1
+            copies() shouldBe 0L
+            transaction { CarpoolFederationStore.countTombstoneRows() } shouldBe 0
+            (CarpoolPullCounters.expiredDeleted.get() >= 1L) shouldBe true
+        }
+
+        test("two ticks at the same time (one partner) never fail an apply and store each hint once") {
+            nowRef = PULL_NOW
+            val o = OriginServer(host = "a.beispiel.de")
+            val p = newFeedPartner(host = o.host, keyPair = o.keyPair)
+            val body = feedBytes(items = (1..20).map { o.item(seed = "par$it", date = departure) }, complete = true)
+            val poller = poller(FakeNetwork()) { json(body = body, etag = "\"v1\"") }
+            coroutineScope {
+                launch(Dispatchers.IO) { poller.tick() }
+                launch(Dispatchers.IO) { poller.tick() }
+            }
+            copies() shouldBe 20L
+            partnerRow(p.id).carpoolPullFailures shouldBe 0
         }
     })

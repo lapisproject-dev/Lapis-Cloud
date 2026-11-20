@@ -6,6 +6,21 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+Wave V1.9.318 "Mitfahrzentrale-Foederation" W6 (operations), **no schema change**. Not released yet: no version bump.
+
+**Behaviour first:**
+
+1. Expired received hints, local blocks and pass-on tombstones are deleted in every pull tick, **before** any pull and also while the instance switch is off (at most 2000 rows per table and tick; the daily retention poller empties a backlog). A received hint is therefore gone within about a minute of its day ending, not up to a day later. `LAPIS_CARPOOL_RETENTION_INTERVAL_HOURS` (1 to 24, default 24) sets the retention poller.
+2. One tick takes over at most 5000 items plus withdrawals over all partners; a pull that would start after that waits for the next tick (nothing is written, no failure is counted).
+3. Limits against flooding: the share of one partner is `min(1000, max(200, 5000 / partners with sharing on))`; items are taken in the order day, origin, id; **a full share or table rejects the new item, it never deletes a row of another source**. Local blocks: 5000 per reporting partner (its oldest make room) and 20000 in total; pass-on tombstones 20000 in total (our own withdrawals are never capped).
+4. The feed builds at most four snapshots at the same time; the fifth approved request gets the same `429` as a rate limit.
+5. Administrators see, per partner, the pull state (ready, waiting after failures, paused after eight failures in a row), the last success, the next attempt and the number of live blocks that partner reported; and on the page: start of the server process, answers served and not modified, stored rows (including expired ones not yet deleted), accepted and expired-deleted hints, rejections by cause, postponed pulls and skipped pass-on tombstones. Numbers only, ADMIN only.
+6. Deactivating a partner now deletes its received copies at once (before they stayed up to 24 hours, only hidden). Switching carpool sharing off and on again for a partner resets its back-off, next pull time and ETag: this is the way to try a failing partner again.
+
+**Technique:** no migration, no new RPC (DTO fields appended with defaults). `CarpoolPullStates` and `CarpoolReceivedRejectReason` in `lapis-shared`; `CarpoolPullCounters` extended; `PartnerServerStore.setActive` locks the partner row; tripwires s, t, u. Documentation: `docs/architecture/carpool-federation.adoc` (wave 6), `docs/architecture/dsgvo.adoc` (retention promise).
+
+**Not verified:** no lawyer review (Art. 26 GDPR open); never run against a real partner; the limits are untuned defaults; the counters live in memory and start at 0 after every restart.
+
 Wave V1.9.317 "Mitfahrzentrale-Foederation" W5 (display and reach), **no schema change**. Not released yet: no version bump.
 
 **Behaviour first:**
