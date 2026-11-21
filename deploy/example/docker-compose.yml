@@ -57,7 +57,7 @@ services:
     # V1.9.93: the server pulls the image CI published for a release tag instead of compiling the sources itself.
     # LAPIS_IMAGE_TAG is an exact version without the leading `v` (never `latest`); rollback = set the old value.
     # To build from source instead, add the override file: see docker-compose.build.yml.
-    image: ghcr.io/lapisproject-dev/lapis-cloud:${LAPIS_IMAGE_TAG:?LAPIS_IMAGE_TAG must be set in .env (e.g. 0.55.0)}
+    image: ghcr.io/lapisproject-dev/lapis-cloud:${LAPIS_IMAGE_TAG:?LAPIS_IMAGE_TAG must be set in .env (e.g. 0.56.0)}
     container_name: lapis-cloud-server
     depends_on:
       postgres:
@@ -239,6 +239,8 @@ services:
       LAPIS_WEBHOOKS_ENABLED: ${LAPIS_WEBHOOKS_ENABLED:-}
       LAPIS_WEBHOOK_POLL_INTERVAL_SECONDS: ${LAPIS_WEBHOOK_POLL_INTERVAL_SECONDS:-}
       LAPIS_WEBHOOK_RETENTION_DAYS: ${LAPIS_WEBHOOK_RETENTION_DAYS:-}
+      # Mitfahrzentrale-Austausch (V1.9.318): how often the retention poller runs, 1 to 24 hours, empty = 24.
+      LAPIS_CARPOOL_RETENTION_INTERVAL_HOURS: ${LAPIS_CARPOOL_RETENTION_INTERVAL_HOURS:-}
       # Oeffentliche Website-Integration (V1.4.1a) -- OPTIONAL, default aus.
       # LAPIS_EMBED_ALLOW_INSECURE bewusst weggelassen, nicht auf "" gesetzt (WebhookConfig "O4").
       LAPIS_EMBED_ENABLED: ${LAPIS_EMBED_ENABLED:-}

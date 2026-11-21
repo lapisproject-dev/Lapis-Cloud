@@ -6,7 +6,15 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
-Wave V1.9.319 "Mitfahr-Foederation" W7 (hardening and documentation), **schema V164 -> V165**. Not released yet: no version bump, no tag. A backup taken before V165 cannot be restored on V165 (schema checksum), as after every schema change.
+## [0.56.0] — 2026-11-21
+
+Feature release on `[0.55.0]` (waves V1.9.308 to V1.9.319; the database schema goes from `V156` to `V165`, nine additive migrations). **For operators:** backups made before `V165` cannot be restored (schema checksum); one new optional environment variable `LAPIS_CARPOOL_RETENTION_INTERVAL_HOURS` (1 to 24, default 24; an invalid value logs a warning and uses 24), which reaches the container only if the compose file passes it through; no new switch is on except *Mitglied werden* (on, today's behaviour); the carpool exchange and the LTR recognition are off, but three things are available at once without a switch: tender payout (TREASURER, BOARD, ADMIN; it issues new LTR and changes the public figure "Insgesamt ausgegebene LTR"), auditor invitations (board) and the full-screen button in the guest call. A restore switches the carpool exchange off and clears every consent.
+
+Contents: tender payout (V1.9.308); full screen in the guest call (V1.9.309); auditor read access (V1.9.310); the carpool exchange between partner servers, waves 1 to 7 (V1.9.311 to V1.9.314, V1.9.317 to V1.9.319); the switch *Mitglied werden* (V1.9.315); LTR recognition for meeting attendance (V1.9.316).
+
+**Not verified:** the carpool exchange never ran against a real partner or on two real servers (the staging checklist `docs/architecture/carpool-federation-staging-test.adoc` was not executed); no legal review (joint controllership between the servers, Art. 26 GDPR, open); the tax classification of the LTR recognition is unchecked; tender payout and auditor access never tried on a real instance, auditor access not reviewed by a lawyer or a real auditor, guest full screen not tried on iOS; **the decision that a tender payout issues new LTR (instead of a debit from the tendering side) is not confirmed by the person responsible**; the switch *Mitglied werden* was not tried on the real Apolda instance; translations are model-written. Details per wave follow.
+
+Wave V1.9.319 "Mitfahr-Foederation" W7 (hardening and documentation), **schema V164 -> V165**. A backup taken before V165 cannot be restored on V165 (schema checksum), as after every schema change.
 
 **Behaviour first:**
 
@@ -28,7 +36,7 @@ Wave V1.9.319 "Mitfahr-Foederation" W7 (hardening and documentation), **schema V
 * The limits and caps were chosen by reasoning, not measured. UI seen only in DOM tests. Translations (en, es, fr, it, nl, pl, ru) are written by a model and not reviewed by a native speaker.
 
 
-Wave V1.9.318 "Mitfahrzentrale-Foederation" W6 (operations), **no schema change**. Not released yet: no version bump.
+Wave V1.9.318 "Mitfahrzentrale-Foederation" W6 (operations), **no schema change**.
 
 **Behaviour first:**
 
@@ -43,7 +51,7 @@ Wave V1.9.318 "Mitfahrzentrale-Foederation" W6 (operations), **no schema change*
 
 **Not verified:** no lawyer review (Art. 26 GDPR open); never run against a real partner; the limits are untuned defaults; the counters live in memory and start at 0 after every restart.
 
-Wave V1.9.317 "Mitfahrzentrale-Foederation" W5 (display and reach), **no schema change**. Not released yet: no version bump.
+Wave V1.9.317 "Mitfahrzentrale-Foederation" W5 (display and reach), **no schema change**.
 
 **Behaviour first:**
 
@@ -56,7 +64,7 @@ Wave V1.9.317 "Mitfahrzentrale-Foederation" W5 (display and reach), **no schema 
 
 **Not verified:** no legal review (Art. 26 GDPR open); never run against a real partner server; no real member has seen the display. A hint can show the host of a partner of a partner (documented).
 
-Wave V1.9.316 "LTR-Anerkennung fuer Sitzungsteilnahme" (LTR recognition for attending a meeting), schema `V163` -> `V164` (one additive migration). Not released yet: no version bump.
+Wave V1.9.316 "LTR-Anerkennung fuer Sitzungsteilnahme" (LTR recognition for attending a meeting), schema `V163` -> `V164` (one additive migration).
 
 **Behaviour first:**
 
@@ -80,7 +88,7 @@ Wave V1.9.316 "LTR-Anerkennung fuer Sitzungsteilnahme" (LTR recognition for atte
 * Translations are model-written and not reviewed by a native speaker.
 * Known limits: the function bonus follows committee seats (who actually led a meeting does not count); the general assembly has no seats, so it earns the base amount only; a SUPERSEDED protocol triggers no automatic reversal (a correction is a manual booking); two cooperating real administrators can change the rules and release a settlement (the resolution reference and the audit trail are the protection); renaming a present member after the protocol was confirmed makes the settlement unavailable until a corrected protocol version is confirmed.
 
-Wave V1.9.315 "Admin-Schalter Mitglied werden" (an instance switch for the online membership application), schema `V162` -> `V163` (one additive migration). Not released yet: no version bump.
+Wave V1.9.315 "Admin-Schalter Mitglied werden" (an instance switch for the online membership application), schema `V162` -> `V163` (one additive migration).
 
 **Behaviour first:**
 
@@ -97,7 +105,7 @@ Wave V1.9.315 "Admin-Schalter Mitglied werden" (an instance switch for the onlin
 
 **Not verified:** never run against the real Apolda instance or any other deployed instance; the embed widget was not run in a real browser on a foreign page; translations are model-written and not reviewed by a native speaker.
 
-Wave V1.9.314 "Mitfahrzentrale-Föderation, Pull-Client" (carpool exchange between partner servers, wave 4 of 7: pull client, further hops, pass-on of withdrawals), schema `V161` -> `V162` (one additive migration). Not released yet: no version bump.
+Wave V1.9.314 "Mitfahrzentrale-Föderation, Pull-Client" (carpool exchange between partner servers, wave 4 of 7: pull client, further hops, pass-on of withdrawals), schema `V161` -> `V162` (one additive migration).
 
 **Behaviour first:**
 
@@ -109,7 +117,7 @@ Wave V1.9.314 "Mitfahrzentrale-Föderation, Pull-Client" (carpool exchange betwe
 
 **Not verified / limits:** no lawyer review (Art. 26 GDPR open); never run against a real partner server; members do not see foreign hints yet (wave 5); hop 2 and further need the partner recursion to have reached the origin; `hops` and `via` are not signed; a re-import over another path stays blocked up to 14 days after a withdrawal.
 
-Wave V1.9.313 "Mitfahrzentrale-Föderation, Rückzug (Quellseite)" (carpool exchange between partner servers, wave 3 of 7: the withdrawal on the origin side), schema `V160` -> `V161` (one additive migration). Not released yet: no version bump. **There is no pull client**: no Lapis server reads the withdrawal list yet; a partner with its own client can.
+Wave V1.9.313 "Mitfahrzentrale-Föderation, Rückzug (Quellseite)" (carpool exchange between partner servers, wave 3 of 7: the withdrawal on the origin side), schema `V160` -> `V161` (one additive migration). **There is no pull client**: no Lapis server reads the withdrawal list yet; a partner with its own client can.
 
 **Behaviour first:**
 
@@ -126,7 +134,7 @@ Wave V1.9.313 "Mitfahrzentrale-Föderation, Rückzug (Quellseite)" (carpool exch
 
 **Not verified:** no legal review; **joint controllership between servers (Art. 26 GDPR) is open**; the withdrawal list was never read by a real partner server and there is no pull client; nothing is passed on to further hops (wave 4); this server cannot delete a hint inside a partner's system, and a blocked or removed partner keeps what it cached until the hint's date; B4 and B5 report at most 5000 candidate trips per event (a longer tail is missed and counted); a restore of an older backup brings back consents withdrawn after it (existing property); a global tombstone also reaches a served partner whose own switch is off (a small activity signal); the "served since the consent" filter is not proven against a real fetch timing; translations are model-written and not reviewed by a native speaker.
 
-Wave V1.9.312 "Mitfahrzentrale-Föderation, Kurzhinweis-Feed (Quellseite)" (carpool exchange between partner servers, wave 2 of 7: the origin side of the teaser feed), schema `V159` -> `V160` (one additive migration). Not released yet: no version bump in this wave. **A real transfer is now technically possible, but only for a partner with its own client: no Lapis server fetches the feed yet (a later wave), nothing is displayed and nothing is passed on.** Everything stays off by default.
+Wave V1.9.312 "Mitfahrzentrale-Föderation, Kurzhinweis-Feed (Quellseite)" (carpool exchange between partner servers, wave 2 of 7: the origin side of the teaser feed), schema `V159` -> `V160` (one additive migration). **A real transfer is now technically possible, but only for a partner with its own client: no Lapis server fetches the feed yet (a later wave), nothing is displayed and nothing is passed on.** Everything stays off by default.
 
 **Behaviour first:**
 
@@ -144,7 +152,7 @@ Wave V1.9.312 "Mitfahrzentrale-Föderation, Kurzhinweis-Feed (Quellseite)" (carp
 
 **Not verified:** no legal review; **joint controllership between servers (Art. 26 GDPR) is open** and there is no agreement template. The feed was never fetched by a real partner server and there is no signature interoperability test beyond `HttpSignatures` against itself; no staging test with two servers. Replay protection is per JVM (single-instance deployments); a multi-instance deployment is not covered. The pin is trust on first use over the TLS fetch of the partner poll. Translations are model-written; the new lines on the partner page were not tried on a phone or with a screen reader.
 
-Wave V1.9.311 "Mitfahrzentrale-Föderation, Fundament" (carpool exchange between partner servers, wave 1 of 7: switches only), schema `V158` -> `V159` (one additive migration). Not released yet: no version bump in this wave. **Nothing is transferred to another server; this wave stores switches and a consent.**
+Wave V1.9.311 "Mitfahrzentrale-Föderation, Fundament" (carpool exchange between partner servers, wave 1 of 7: switches only), schema `V158` -> `V159` (one additive migration). **Nothing is transferred to another server; this wave stores switches and a consent.**
 
 **Behaviour first:**
 
@@ -159,7 +167,7 @@ Wave V1.9.311 "Mitfahrzentrale-Föderation, Fundament" (carpool exchange between
 
 **Not verified:** no legal review; **joint controllership between servers (Art. 26 GDPR) is open** and there is no agreement template; nothing is federated yet (switches only). Translations are model-written; the new UI was not tried on a phone or with a screen reader.
 
-Wave V1.9.310 "Lesezugang für die Prüfung" (R6b: read access for the auditor to kept versions of the party report), schema `V157` -> `V158` (one additive migration). Not released yet: no version bump in this wave.
+Wave V1.9.310 "Lesezugang für die Prüfung" (R6b: read access for the auditor to kept versions of the party report), schema `V157` -> `V158` (one additive migration).
 
 **Behaviour first:**
 
@@ -187,7 +195,7 @@ Wave V1.9.309 "Vollbild im Gastgespräch" (full-screen button in the guest call 
 
 **Not verified:** not tried on a real iOS device or in a mobile in-app WebView; the CSS fallback is covered by DOM tests only.
 
-Wave V1.9.308 "Ausschreibungen, Auszahlung" (tenders, wave 3), schema `V156` -> `V157` (one additive migration). Not released yet: no version bump in this wave.
+Wave V1.9.308 "Ausschreibungen, Auszahlung" (tenders, wave 3), schema `V156` -> `V157` (one additive migration).
 
 **Behaviour changes first:**
 

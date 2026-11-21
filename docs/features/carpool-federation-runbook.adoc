@@ -2,7 +2,7 @@
 :toc:
 :description: Step-by-step operation of the carpool exchange (waves 1 to 7): switches, pins and fingerprints, the first pull, monitoring, emergency stop, a hostile partner, key changes, backup and restore.
 
-NOTE: This runbook describes the code as of V1.9.319 (schema V165, **not released**). The exchange has **never run against a real partner server** and the
+NOTE: This runbook describes the code as of V1.9.319 (schema V165, released with 0.56.0). The exchange has **never run against a real partner server** and the
 checklist in xref:../architecture/carpool-federation-staging-test.adoc[carpool-federation-staging-test.adoc] has **not been executed**. Treat every number below as a default
 chosen by reasoning, not as a measured value. Design and limits: xref:../architecture/carpool-federation.adoc[carpool-federation.adoc]. Personal data:
 xref:../architecture/dsgvo.adoc[dsgvo.adoc].

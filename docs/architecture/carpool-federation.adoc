@@ -9,7 +9,7 @@ schema V160) is the **origin side of the teaser feed**. Wave 3 (V1.9.313, schema
 (V1.9.314, schema V162) adds the **pull client**: this server fetches the feed of its approved direct partners, checks the signature of the origin of every
 hint, stores the hints it accepts (pseudonymous, until the day of departure), hands them on within the reach, and passes withdrawals on. Wave 5 (V1.9.317, **no
 schema change**) **shows** the received hints to active members and shows the owner where a hint goes. Wave 6 (V1.9.318, no schema change) is operations. Wave 7
-(V1.9.319, schema V165, **not released**) is **hardening and documentation**: four defects found by reading the code are fixed (see "Wave 7: hardening"), and the
+(V1.9.319, schema V165, released with 0.56.0) is **hardening and documentation**: four defects found by reading the code are fixed (see "Wave 7: hardening"), and the
 security model with its known limits is written down. The exchange was **never run against a real partner server**, was **never run on two real servers**, and has had **no legal review**.
 
 == Goal
@@ -222,7 +222,7 @@ refused (all causes together), rate limited. Shown to the administrator on the p
   this as "all withdrawn, all new".
 * **`teaserId` is global**, not per partner: wave 4 needs one stable origin id for deduplication and tombstones across several paths. Two partners can see
   that they hold the same hint, which carries the same date and regions anyway.
-* **V160 is a new migration** although V159 is unreleased: V159 is already on `origin/master` and a CI or local database may have run it.
+* **V160 is a new migration** although V159 was not yet released at the time (both released with 0.56.0): V159 is already on `origin/master` and a CI or local database may have run it.
 * **Host binding.** The pin and the verification require that the host of the key id (the partner's `LAPIS_PUBLIC_BASE_URL`) equals `partner_server.host`,
   and that the partner signs exactly this server's own host. Different host names mean "not available". An operator who serves a server under another
   name than its public base URL has to align them.
@@ -598,7 +598,7 @@ empties the member view. What stays: the own trips, the consents and the own tom
 A hostile partner: switch carpool sharing off for it (its copies go at once), then block it by pattern or remove it. Deactivating a partner also deletes its copies at once
 and forgets its ETag. To try a failing partner again: switch sharing off and on.
 
-== Wave 7: hardening (schema V165, not released)
+== Wave 7: hardening (schema V165, released with 0.56.0)
 
 Wave 7 changes no wire format. It fixes four defects that a read of the code of waves 1 to 6 found. Each fix has a test that describes the failure; the
 tests are in `CarpoolHardeningScenarios` (H2 and PostgreSQL) and `PartnerSigningKeyAcceptAdminTest`.
@@ -868,7 +868,7 @@ envelope; a hop-2 server checks it against the key of the origin host. Without i
 |5 (V1.9.317, **built**, no schema change) |Display: the hints appear in the carpool page of active members, labelled with the origin, as data and never as markup (the same `untrusted*`
 rule as partner events). The owner sees which direct partners and which reach apply, next to the consent box (see the section below).
 |6 (V1.9.318, **built**, no schema change) |Operations: the pull state per partner, caps and a per-tick budget, summary counters for the administrator, retention made timely (the sweep runs before every pull; see the section above).
-|7 (V1.9.319, **built**, schema V165, not released) |Hardening and documentation: four defects fixed (key change, own withdrawal erased, replay after 14 days, restore), security model and limits, operator runbook, staging checklist, an end-to-end test. A staging test with two real servers and an outside legal review have **not** happened.
+|7 (V1.9.319, **built**, schema V165, released with 0.56.0) |Hardening and documentation: four defects fixed (key change, own withdrawal erased, replay after 14 days, restore), security model and limits, operator runbook, staging checklist, an end-to-end test. A staging test with two real servers and an outside legal review have **not** happened.
 |===
 
 == What wave 2 deliberately does not do
