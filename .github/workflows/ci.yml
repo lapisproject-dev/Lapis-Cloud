@@ -131,12 +131,18 @@ jobs:
         run: ./gradlew clean :lapis-server:postgresTest :lapis-server:postgresTestPart2
 
       # A SKIPPED lane (missing variable) leaves no XML and the build stays green: fail in that case.
-      # The lane has two parts (about 79 XML files each today); ElectionIntegrityPostgresTest currently falls into part 2.
+      # The lane has two parts (about 90 XML files each today). The split follows the test classes, so which part a class lands in
+      # changes whenever Postgres tests are added: ElectionIntegrityPostgresTest moved from part 2 to part 1 with 0.56.0 and failed
+      # this step although it had run. The required file must therefore exist in ONE of the two parts.
       - name: Assert Postgres lane ran (not SKIPPED)
         run: |
           scripts/ci-assert-lane-ran.sh lapis-server/build/test-results/postgresTest 30
-          scripts/ci-assert-lane-ran.sh lapis-server/build/test-results/postgresTestPart2 30 \
-            TEST-network.lapis.cloud.server.rpc.ElectionIntegrityPostgresTest.xml
+          scripts/ci-assert-lane-ran.sh lapis-server/build/test-results/postgresTestPart2 30
+          required=TEST-network.lapis.cloud.server.rpc.ElectionIntegrityPostgresTest.xml
+          if [ ! -f "lapis-server/build/test-results/postgresTest/$required" ] && [ ! -f "lapis-server/build/test-results/postgresTestPart2/$required" ]; then
+            echo "::error::required result file $required is in neither Postgres lane part" >&2
+            exit 1
+          fi
 
       - name: Upload test results
         if: always()
