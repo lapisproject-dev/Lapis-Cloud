@@ -391,7 +391,10 @@ class TravelExpenseDayGridDomTest {
                     val label = assertNotNull(slots[0].querySelector("label") as? HTMLElement, "label of row $index")
                     val input = assertNotNull(slots[0].querySelector("input") as? HTMLElement, "input of row $index")
                     val text = assertNotNull(slots[1].querySelector(".lapis-te-day-slot-text") as? HTMLElement, "fixed text of row $index")
-                    assertEquals("flex-start", window.getComputedStyle(slots[0]).justifyContent, "slots start at the top (row $index)")
+                    assertTrue(
+                        window.getComputedStyle(slots[0]).justifyContent in setOf("flex-start", "flow-start"),
+                        "slots start at the top (row $index)",
+                    )
                     assertTrue(label.getBoundingClientRect().top < input.getBoundingClientRect().top, "label above the input (row $index)")
                     assertTrue(
                         kotlin.math.abs(label.getBoundingClientRect().left - slots[0].getBoundingClientRect().left) < 2,

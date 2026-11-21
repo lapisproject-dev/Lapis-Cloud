@@ -165,7 +165,8 @@ class PageShellDomTest {
             assertEquals("flex", style(element().q(".lapis-button-row")).display)
             assertEquals("wrap", style(element().q(".lapis-button-row")).flexWrap)
             assertTrue(filters.getElement()!!.classList.contains("lapis-filter-row"))
-            assertEquals("flex-end", style(element().q(".lapis-filter-row")).alignItems)
+            // Chrome 158 reports the logical keyword "flow-end" for flex-end.
+            assertTrue(style(element().q(".lapis-filter-row")).alignItems in setOf("flex-end", "flow-end"))
             assertTrue(element().q(".lapis-filter-toggle").textContent == "switch")
         }
     }
