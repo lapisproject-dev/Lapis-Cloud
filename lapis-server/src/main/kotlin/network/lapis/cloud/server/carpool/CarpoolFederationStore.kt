@@ -2,6 +2,8 @@ package network.lapis.cloud.server.carpool
 
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.carpool.feed.CarpoolTeaserIds
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.CarpoolPostingTable
@@ -9,9 +11,14 @@ import network.lapis.cloud.server.db.generated.CarpoolTeaserTombstoneTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
+import network.lapis.cloud.shared.domain.AuditAction
+import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CarpoolPostingType
 import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.PartnerAuditKind
+import network.lapis.cloud.shared.domain.PartnerAuditSnapshot
 import network.lapis.cloud.shared.domain.clampHopLimit
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -45,6 +52,8 @@ internal data class CarpoolFederationSettings(
 internal data class CarpoolRelayedTarget(
     val teaserId: String,
     val departureDate: LocalDate,
+    /** V1.9.319: the origin server of the relayed hint. It is part of the identity of the pass-on tombstone, so it can never collide with our own. */
+    val originHost: String,
 )
 
 /**
@@ -166,6 +175,57 @@ internal object CarpoolFederationStore {
             this
         }
 
+    /**
+     * V1.9.319 (wave 7): called ONLY by the restore of a backup, after every table is back. A restore brings back consents that were withdrawn after
+     * the backup was taken, and it does not bring back the tombstones (they are local state), so the next feed would hand those trips out again.
+     * The safe direction: the instance switch goes off and EVERY consent is cleared -- the members agree again, after an administrator switched the
+     * exchange on. Writes one audit entry (no actor: a restore is a system event). @return `true` when anything had to be reset.
+     */
+    fun resetAfterRestore(now: LocalDateTime): Boolean {
+        val wasEnabled = settings().enabled
+        val consents =
+            CarpoolPostingTable
+                .selectAll()
+                .where { CarpoolPostingTable.federationOptIn eq true }
+                .count()
+        if (wasEnabled) {
+            OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                it[carpoolFederationEnabled] = false
+            }
+        }
+        if (consents > 0) {
+            CarpoolPostingTable.update({ CarpoolPostingTable.federationOptIn eq true }) {
+                it[federationOptIn] = false
+                it[federationOptInAt] = null
+            }
+        }
+        // The in-feed opt-in moment may survive on a row whose flag is false (never written that way, but a restored row is foreign input).
+        CarpoolPostingTable.update({ CarpoolPostingTable.federationOptInAt.isNotNull() }) { it[federationOptInAt] = null }
+        if (!wasEnabled && consents == 0L) return false
+        auditResetByRestore(consents = consents, now = now)
+        return true
+    }
+
+    /** The audit entry of [resetAfterRestore]; also used by the restore when it neutralized the rows while writing them (nothing left to reset). */
+    fun auditResetByRestore(
+        consents: Long,
+        now: LocalDateTime,
+    ) {
+        AuditLogRecorder.record(
+            actorMemberId = null,
+            actorRole = null,
+            entityType = AuditEntityType.PARTNER_SERVER,
+            entityId = ORGANIZATION_SETTINGS_ID,
+            action = AuditAction.UPDATE,
+            after =
+                Json.encodeToString(
+                    PartnerAuditSnapshot.serializer(),
+                    PartnerAuditSnapshot(kind = PartnerAuditKind.CARPOOL_RESET_BY_RESTORE, subject = consents.toString()),
+                ),
+            occurredAt = now,
+        )
+    }
+
     /** A trip that turns into a REQUEST loses the consent (it can never be shared). */
     fun clearOptIn(postingId: Uuid) = setOptIn(postingId = postingId, value = false)
 
@@ -181,11 +241,16 @@ internal object CarpoolFederationStore {
     internal fun tombstoneId(
         teaserId: String,
         partnerId: Uuid?,
+        relayOriginHost: String? = null,
     ): Uuid {
-        val digest =
-            MessageDigest
-                .getInstance("SHA-256")
-                .digest("carpool-tombstone/v1\u0000$teaserId\u0000${partnerId ?: "*"}".toByteArray(Charsets.UTF_8))
+        // V1.9.319: a pass-on tombstone has its own key space (the origin host is part of it), so it never collides with an own withdrawal.
+        val seed =
+            if (relayOriginHost == null) {
+                "carpool-tombstone/v1\u0000$teaserId\u0000${partnerId ?: "*"}"
+            } else {
+                "carpool-tombstone-relay/v1\u0000$teaserId\u0000$relayOriginHost\u0000${partnerId ?: "*"}"
+            }
+        val digest = MessageDigest.getInstance("SHA-256").digest(seed.toByteArray(Charsets.UTF_8))
         val bytes = digest.copyOf(16)
         bytes[6] = ((bytes[6].toInt() and 0x0f) or 0x40).toByte()
         bytes[8] = ((bytes[8].toInt() and 0x3f) or 0x80).toByte()
@@ -249,10 +314,12 @@ internal object CarpoolFederationStore {
         departure: LocalDate,
         partnerId: Uuid?,
         now: LocalDateTime,
+        relayOrigin: String? = null,
+        relayReporter: Uuid? = null,
     ): Boolean {
         val expires = CarpoolTeaserTombstonePolicy.expiresAt(createdAt = now, departure = departure)
         if (expires <= now) return false
-        val tid = tombstoneId(teaserId = teaserId, partnerId = partnerId)
+        val tid = tombstoneId(teaserId = teaserId, partnerId = partnerId, relayOriginHost = relayOrigin)
         CarpoolTeaserTombstoneTable.deleteWhere {
             (CarpoolTeaserTombstoneTable.id eq tid) and (CarpoolTeaserTombstoneTable.expiresAt lessEq now)
         }
@@ -261,6 +328,8 @@ internal object CarpoolFederationStore {
                 it[id] = tid
                 it[CarpoolTeaserTombstoneTable.teaserId] = teaserId
                 it[CarpoolTeaserTombstoneTable.partnerId] = partnerId
+                it[relayOriginHost] = relayOrigin
+                it[relayReporterPartnerId] = relayReporter
                 it[createdAt] = now
                 it[expiresAt] = expires
             }
@@ -278,6 +347,9 @@ internal object CarpoolFederationStore {
         now: LocalDateTime,
         requireServedSince: LocalDateTime?,
         maxRelayRows: Int? = null,
+        /** V1.9.319: the partner that caused these rows (the source of the copies). With [maxRelayRowsPerReporter] it bounds one reporter's rows. */
+        reporterId: Uuid? = null,
+        maxRelayRowsPerReporter: Int? = null,
     ): Int {
         if (targets.isEmpty()) return 0
         if (requireServedSince != null) {
@@ -287,14 +359,27 @@ internal object CarpoolFederationStore {
         var written = 0
         // V1.9.318: a global cap on the table (the rows do not record which source caused them). Our OWN withdrawals ([withdraw]) are never capped.
         var rows = if (maxRelayRows != null) countTombstoneRows() else 0
+        // V1.9.319: one reporter cannot use up the whole table (a hostile partner would otherwise starve the pass-on tombstones of every other source).
+        var ofReporter = if (reporterId != null && maxRelayRowsPerReporter != null) countRelayRowsOfReporter(reporterId) else 0
         targets.sortedBy { it.teaserId }.forEach { t ->
-            if (maxRelayRows != null && rows >= maxRelayRows) {
+            if ((maxRelayRows != null && rows >= maxRelayRows) ||
+                (reporterId != null && maxRelayRowsPerReporter != null && ofReporter >= maxRelayRowsPerReporter)
+            ) {
                 CarpoolPullCounters.relayTombstonesSkipped.incrementAndGet()
                 return@forEach
             }
-            if (insertTombstone(teaserId = t.teaserId, departure = t.departureDate, partnerId = partnerId, now = now)) {
+            if (insertTombstone(
+                    teaserId = t.teaserId,
+                    departure = t.departureDate,
+                    partnerId = partnerId,
+                    now = now,
+                    relayOrigin = t.originHost,
+                    relayReporter = reporterId,
+                )
+            ) {
                 written++
                 rows++
+                ofReporter++
             }
         }
         return written
@@ -314,10 +399,32 @@ internal object CarpoolFederationStore {
         network.lapis.cloud.server.partner.PartnerServerStore
             .latestCarpoolFeedServedAt()
 
-    /** The consent is given again: the global tombstone of this hint is moot (and "item wins" in the feed would hide it anyway). */
-    fun forgetGlobalTombstone(teaserId: String) {
+    private fun countRelayRowsOfReporter(reporterId: Uuid): Int =
+        CarpoolTeaserTombstoneTable
+            .selectAll()
+            .where { CarpoolTeaserTombstoneTable.relayReporterPartnerId eq reporterId }
+            .count()
+            .toInt()
+
+    /**
+     * The owner gave the consent again: the global tombstone of THIS server's OWN withdrawal is moot (and "item wins" in the feed would hide it
+     * anyway). Never touches a pass-on row (`relay_origin_host` set): a foreign hint with the same id must not be able to erase our own withdrawal.
+     */
+    fun forgetOwnGlobalTombstone(teaserId: String) {
         CarpoolTeaserTombstoneTable.deleteWhere {
-            (CarpoolTeaserTombstoneTable.teaserId eq teaserId) and (CarpoolTeaserTombstoneTable.partnerId.isNull())
+            (CarpoolTeaserTombstoneTable.teaserId eq teaserId) and (CarpoolTeaserTombstoneTable.partnerId.isNull()) and
+                CarpoolTeaserTombstoneTable.relayOriginHost.isNull()
+        }
+    }
+
+    /** A foreign hint came back (its origin or reporter relisted it): the global pass-on tombstone of exactly that (origin, id) is moot. */
+    fun forgetRelayedTombstone(
+        originHost: String,
+        teaserId: String,
+    ) {
+        CarpoolTeaserTombstoneTable.deleteWhere {
+            (CarpoolTeaserTombstoneTable.teaserId eq teaserId) and (CarpoolTeaserTombstoneTable.partnerId.isNull()) and
+                (CarpoolTeaserTombstoneTable.relayOriginHost eq originHost)
         }
     }
 
@@ -338,30 +445,109 @@ internal object CarpoolFederationStore {
         now: LocalDateTime,
         scanLimit: Int,
     ): CarpoolLiveWithdrawals {
-        val rows =
+        data class Scanned(
+            val teaserId: String,
+            val createdAt: LocalDateTime,
+            val reporter: Uuid?,
+        )
+
+        fun live(): Op<Boolean> =
+            (CarpoolTeaserTombstoneTable.expiresAt greater now) and
+                (CarpoolTeaserTombstoneTable.partnerId.isNull() or (CarpoolTeaserTombstoneTable.partnerId eq partnerId))
+
+        fun scan(
+            where: Op<Boolean>,
+            limit: Int,
+        ): List<Scanned> =
             CarpoolTeaserTombstoneTable
                 .selectAll()
-                .where {
-                    (CarpoolTeaserTombstoneTable.expiresAt greater now) and
-                        (CarpoolTeaserTombstoneTable.partnerId.isNull() or (CarpoolTeaserTombstoneTable.partnerId eq partnerId))
-                }.orderBy(CarpoolTeaserTombstoneTable.createdAt to SortOrder.ASC, CarpoolTeaserTombstoneTable.id to SortOrder.ASC)
-                .limit(scanLimit + 1)
-                .map { it[CarpoolTeaserTombstoneTable.teaserId] to it[CarpoolTeaserTombstoneTable.createdAt] }
-        val capped = rows.size > scanLimit
-        val earliest = LinkedHashMap<String, LocalDate>()
-        rows.take(scanLimit).forEach { (teaserId, createdAt) ->
-            val day = createdAt.date
-            val known = earliest[teaserId]
-            if (known == null || day < known) earliest[teaserId] = day
+                .where { live() and where }
+                .orderBy(CarpoolTeaserTombstoneTable.createdAt to SortOrder.ASC, CarpoolTeaserTombstoneTable.id to SortOrder.ASC)
+                .limit(limit + 1)
+                .map {
+                    Scanned(
+                        teaserId = it[CarpoolTeaserTombstoneTable.teaserId],
+                        createdAt = it[CarpoolTeaserTombstoneTable.createdAt],
+                        reporter = it[CarpoolTeaserTombstoneTable.relayReporterPartnerId],
+                    )
+                }
+
+        // Own withdrawals (consent withdrawn by a member of THIS server) have their OWN scan budget: pass-on rows from partners can never push them out.
+        val ownRows = scan(where = CarpoolTeaserTombstoneTable.relayOriginHost.isNull(), limit = scanLimit)
+        // Pass-on rows share their budget FAIRLY per reporting partner: one hostile reporter fills at most its own share of the scan window, so the rows
+        // of every other reporter (written later) are still read. Rows without a reporter (legacy) form one group of their own.
+        val relayWhere = CarpoolTeaserTombstoneTable.relayOriginHost.isNotNull()
+        val reporters =
+            CarpoolTeaserTombstoneTable
+                .select(CarpoolTeaserTombstoneTable.relayReporterPartnerId)
+                .withDistinct()
+                .where { live() and relayWhere }
+                .map { it[CarpoolTeaserTombstoneTable.relayReporterPartnerId] }
+        val share = maxOf(MIN_RELAY_SCAN_SHARE, scanLimit / reporters.size.coerceAtLeast(1))
+        var relayCapped = false
+        val relayRows =
+            reporters.flatMap { reporter ->
+                val own =
+                    if (reporter ==
+                        null
+                    ) {
+                        CarpoolTeaserTombstoneTable.relayReporterPartnerId.isNull()
+                    } else {
+                        CarpoolTeaserTombstoneTable.relayReporterPartnerId eq
+                            reporter
+                    }
+                val rows = scan(where = relayWhere and own, limit = share)
+                if (rows.size > share) relayCapped = true
+                rows.take(share)
+            }
+        val capped = ownRows.size > scanLimit || relayCapped
+
+        fun earliest(rows: List<Scanned>): LinkedHashMap<String, Scanned> {
+            val map = LinkedHashMap<String, Scanned>()
+            rows.forEach { row ->
+                val known = map[row.teaserId]
+                if (known == null || row.createdAt.date < known.createdAt.date) map[row.teaserId] = row
+            }
+            return map
         }
+        val own = earliest(ownRows.take(scanLimit))
+        val relay = earliest(relayRows)
         return CarpoolLiveWithdrawals(
             rows =
-                earliest.map {
-                    CarpoolTeaserWithdrawalRow(teaserId = it.key, withdrawnAt = it.value)
-                },
+                own.map { CarpoolTeaserWithdrawalRow(teaserId = it.key, withdrawnAt = it.value.createdAt.date, own = true) } +
+                    relay
+                        .filterKeys { it !in own }
+                        .map {
+                            CarpoolTeaserWithdrawalRow(
+                                teaserId = it.key,
+                                withdrawnAt = it.value.createdAt.date,
+                                reporter = it.value.reporter,
+                            )
+                        },
             scanCapped = capped,
         )
     }
+
+    private const val MIN_RELAY_SCAN_SHARE = 100
+
+    /**
+     * Teaser ids of our OWN live withdrawals (provenance: no relay origin) that apply to [partnerId] (scope = every partner or exactly this one).
+     * The feed build drops relayed copies of these ids, so a foreign origin listing our id cannot make "item wins" swallow our withdrawal.
+     */
+    fun liveOwnWithdrawnIds(
+        partnerId: Uuid,
+        now: LocalDateTime,
+        scanLimit: Int,
+    ): Set<String> =
+        CarpoolTeaserTombstoneTable
+            .selectAll()
+            .where {
+                (CarpoolTeaserTombstoneTable.expiresAt greater now) and
+                    CarpoolTeaserTombstoneTable.relayOriginHost.isNull() and
+                    (CarpoolTeaserTombstoneTable.partnerId.isNull() or (CarpoolTeaserTombstoneTable.partnerId eq partnerId))
+            }.limit(scanLimit)
+            .map { it[CarpoolTeaserTombstoneTable.teaserId] }
+            .toSet()
 
     fun hasLiveWithdrawalsFor(
         partnerId: Uuid,

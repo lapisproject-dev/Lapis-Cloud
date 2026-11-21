@@ -597,7 +597,7 @@ class CarpoolService internal constructor(
                     // a global tombstone written by the instance switch-off must survive a consent that is re-given at that time.
                     if (CarpoolFederationStore.settings().enabled) {
                         CarpoolWithdrawalKey.current()?.let {
-                            CarpoolFederationStore.forgetGlobalTombstone(it.of(id))
+                            CarpoolFederationStore.forgetOwnGlobalTombstone(it.of(id))
                         }
                     }
                 } else {

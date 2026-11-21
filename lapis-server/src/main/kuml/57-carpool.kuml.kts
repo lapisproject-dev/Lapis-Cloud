@@ -153,6 +153,7 @@ classDiagram(name = "Carpool") {
             stereotype("Index") { "columns" to listOf("teaser_id"); "name" to "idx_carpool_teaser_tombstone_teaser" }
             stereotype("Index") { "columns" to listOf("expires_at"); "name" to "idx_carpool_teaser_tombstone_expires" }
             stereotype("Index") { "columns" to listOf("partner_id"); "name" to "idx_carpool_teaser_tombstone_partner" }
+            stereotype("Index") { "columns" to listOf("relay_reporter_partner_id"); "name" to "idx_carpool_teaser_tombstone_relay_reporter" }
 
             attribute(name = "id", type = "UUID") {
                 stereotype("Id")
@@ -164,6 +165,16 @@ classDiagram(name = "Carpool") {
             attribute(name = "partnerId", type = "UUID") {
                 multiplicity = Multiplicity(0, 1)
                 stereotype("Column") { "columnName" to "partner_id"; "fkEntity" to "PartnerServer" }
+            }
+            // V1.9.319 (V165) W7: the provenance of a PASSED-ON tombstone. relayOriginHost NULL = this server's OWN withdrawal. The reporter has
+            // deliberately NO foreign key (the cap per reporter keeps counting after the partner is removed).
+            attribute(name = "relayOriginHost", type = "String") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "relay_origin_host"; "sqlType" to "VARCHAR(253)" }
+            }
+            attribute(name = "relayReporterPartnerId", type = "UUID") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "relay_reporter_partner_id" }
             }
             attribute(name = "createdAt", type = "LocalDateTime") {
                 stereotype("Column") { "columnName" to "created_at" }

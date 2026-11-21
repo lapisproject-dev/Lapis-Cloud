@@ -70,4 +70,18 @@ interface IPartnerServerService {
         partnerId: String,
         enabled: Boolean,
     )
+
+    // ---- V1.9.319 "Mitfahr-Foederation" W7: appended at the END. ----
+
+    /**
+     * ADMIN. Accepts the PENDING signing key of a direct partner whose announced key changed. [pendingFingerprint] must be exactly the fingerprint
+     * shown for the pending key (a bad request otherwise, also when no key change is pending); the pause ends and the next pull is due right away.
+     */
+    suspend fun acceptPartnerSigningKey(
+        partnerId: String,
+        pendingFingerprint: String,
+    )
+
+    /** ADMIN. Lets a discovered [host] whose signing key changed be pinned anew by the next fetch. Not found when no hold exists. */
+    suspend fun releaseDiscoveredSigningKeyHold(host: String)
 }

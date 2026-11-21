@@ -1,0 +1,42 @@
+= Staging test plan: carpool exchange between two real servers (V1.9.319)
+:toc:
+
+== Purpose
+
+Waves 1 to 7 of the carpool exchange are covered by unit, scenario (H2 and PostgreSQL), DOM and tripwire tests. The scenario tests run every store and the feed/pull path in **one**
+database and one JVM; a test with several independent servers (each with its own database) was planned for wave 7 and **was not built**. What only two **real** servers can show: real TLS, real DNS, the real HTTP stack and clocks, the pins from a real partner poll, and the behaviour of both
+databases over hours. This plan is the part of the acceptance that a human must do. **It is not executed by the pipeline and it was not executed by the author of the wave.** Until somebody has
+run it, the sentence "tested against a real partner" must not be written anywhere.
+
+== Set-up
+
+. Two servers, **A** and **B**, both on version 1.9.319 or newer, each with its own database, a real hostname and a valid certificate, `LAPIS_SECRET_ENCRYPTION_KEY` set, and an ADMIN account.
+. On each: at least two ACTIVE members (A1, A2 and B1, B2), one guest, one friend. A1 has an OFFER with postcodes on both places (for example 38100 and 30159) departing in 10 days, and a REQUEST.
+. A way to see the database (`psql`) and the logs of both servers. A second channel (phone) between the two administrators.
+. A partner pair "A and B", not yet added to each other. Exchange off on both.
+
+== Steps
+
+[cols="1,4,4",options="header"]
+|===
+| # | Action | Expected
+| 1 | On A: add B as partner. On B: add A. Compare the fingerprints of the pinned keys with the other administrator by phone | each shows a fingerprint; the two numbers match the other server's own key; the rows show "Kein Signaturschlüssel" only if the other side is too old
+| 2 | On both: switch the exchange on (reach 1). On A: "Fahrten teilen" for B. A1 ticks the consent on the OFFER | no hint is visible on B yet (B has not allowed A); `SELECT * FROM carpool_received_hint` on B is empty; A's partner row says "Kurzhinweise: noch nie abgerufen"
+| 3 | On B: "Fahrten teilen" for A. Wait one pull tick (up to about 30 minutes) | B shows the pull state READY and "accepted 1"; B1 sees the offer in "Angebote von Partnerorganisationen" with day, "PLZ-Gebiet 38 -> PLZ-Gebiet 30" and host A, nothing else
+| 4 | On B read the row: `SELECT teaser_id, origin_host, hops, source_partner_id FROM carpool_received_hint` | exactly one row, hops 1, origin host A; no member id, no place, no text anywhere in the row
+| 5 | A1 unticks the consent | at B's next pull the hint is gone; `carpool_received_hint` empty; B holds a local block (`carpool_received_tombstone`); on A a tombstone row exists with `relay_origin_host` NULL
+| 6 | A1 ticks the consent again | the hint comes back at B after the next pull
+| 7 | A1 edits the OFFER into a REQUEST, then back; A1 deletes the trip; erase a member with a shared trip | each time the hint is gone at B after a pull; no copy of the place text exists on B
+| 8 | A: switch the exchange off | B's hint is gone after one pull or immediately where B can tell; A refuses the feed with one uniform answer; B's pull state goes to BACKING_OFF after failures
+| 9 | A: switch on again, B: "Fahrten teilen" off for A | B's copies from A are deleted at once; B's tombstones scoped to A exist
+| 10 | Key change: on A rotate the actor key (or simulate with the key rotation procedure) | B shows "Signaturschlüssel geändert: Austausch angehalten" with both fingerprints; B no longer pulls; the hint is gone from B; A's feed refuses B's old-key requests as before
+| 11 | B's admin compares the new fingerprint with A's admin by phone, then accepts | B pulls again within one tick; an audit entry lists host and both fingerprints and no key
+| 12 | Three servers (add C as a partner of B, reach 2): A shares, B relays, C shows | C shows the hint with hops 2 and host A; withdrawing at A removes it at B and then at C within about an hour (24 hours worst case)
+| 13 | Restore: take a backup on A, A1 withdraws the consent, restore the backup | after the restore the exchange on A is off, no trip is opted in, there is an audit entry "CARPOOL_RESET_BY_RESTORE"; the feed hands out nothing
+| 14 | Limits: let B pull while A has more than 5000 opted-in offers (use a script) | the feed is marked incomplete, B stores what fits, the "skipped" and "capacity" counters rise, no error
+| 15 | Read the logs of both servers for the whole test | no hint id, no key, no signature appears in any line
+|===
+
+== Evidence to attach
+
+The date and the versions of both servers, the commands used for the database queries, the fingerprints compared, and for each failed step the log excerpt. A step that was not run must be marked "not run", never "ok".

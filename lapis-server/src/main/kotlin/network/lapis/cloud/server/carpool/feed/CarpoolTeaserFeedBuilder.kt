@@ -170,6 +170,14 @@ internal object CarpoolTeaserFeedBuilder {
         if (unsigned > 0) complete = false
         // Wave 4: hints received from other partners that may travel on to THIS partner (own hints win). Read before the sweep and the tombstones.
         val ownIds = ownItems.map { it.teaser.teaserId }.toSet()
+        // A live OWN withdrawal also beats a relayed copy with the same id (a foreign origin signs its own item under our id): the copy is not
+        // passed on, so the withdrawal survives "item wins" and reaches this partner.
+        val ownWithdrawnIds =
+            CarpoolFederationStore.liveOwnWithdrawnIds(
+                partnerId = partner.id,
+                now = now,
+                scanLimit = CarpoolTeaserTombstonePolicy.WITHDRAWN_SCAN_LIMIT,
+            )
         val relayItems =
             if (settings.enabled && partner.carpoolSharing && !blocked) {
                 CarpoolReceivedStore
@@ -179,7 +187,7 @@ internal object CarpoolTeaserFeedBuilder {
                         today = today,
                         now = now,
                         limit = maxItems + 1,
-                    ).filter { it.teaser.teaserId !in ownIds }
+                    ).filter { it.teaser.teaserId !in ownIds && it.teaser.teaserId !in ownWithdrawnIds }
                     .map {
                         CarpoolTeaserFeedItem(
                             originHost = it.originHost,
@@ -274,14 +282,21 @@ internal object CarpoolTeaserFeedBuilder {
                 scanLimit = CarpoolTeaserTombstonePolicy.WITHDRAWN_SCAN_LIMIT,
             )
         if (live.scanCapped) CarpoolWithdrawalKey.scanCapped.incrementAndGet()
+        val byDay =
+            compareByDescending<network.lapis.cloud.server.carpool.CarpoolTeaserWithdrawalRow> { it.withdrawnAt }.thenBy { it.teaserId }
+        val visible = live.rows.filter { it.teaserId !in itemIds }
+        // Own rows first; pass-on rows interleaved round-robin per reporter, so the output cut never lets one reporter push the others out.
+        val relayGroups =
+            visible
+                .filter { !it.own }
+                .groupBy { it.reporter }
+                .values
+                .map { it.sortedWith(byDay) }
+        val interleaved =
+            (0 until (relayGroups.maxOfOrNull { it.size } ?: 0)).flatMap { i -> relayGroups.mapNotNull { it.getOrNull(i) } }
         val list =
-            live.rows
-                .filter { it.teaserId !in itemIds }
-                .sortedWith(
-                    compareByDescending<network.lapis.cloud.server.carpool.CarpoolTeaserWithdrawalRow> {
-                        it.withdrawnAt
-                    }.thenBy { it.teaserId },
-                ).map { CarpoolTeaserWithdrawal(teaserId = it.teaserId, withdrawnAt = it.withdrawnAt) }
+            (visible.filter { it.own }.sortedWith(byDay) + interleaved)
+                .map { CarpoolTeaserWithdrawal(teaserId = it.teaserId, withdrawnAt = it.withdrawnAt) }
         return Withdrawn(list = list, capped = live.scanCapped)
     }
 

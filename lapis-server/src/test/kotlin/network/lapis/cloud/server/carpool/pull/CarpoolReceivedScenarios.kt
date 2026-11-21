@@ -1079,7 +1079,14 @@ abstract class CarpoolReceivedScenarios(
         }
 
         test("the pass-on tombstones of relayed withdrawals stop at their cap and are counted; without a cap everything is written") {
-            val targets = (1..4).map { CarpoolRelayedTarget(teaserId = hexId("rl$it"), departureDate = PULL_DEPARTURE) }
+            val targets =
+                (1..4).map {
+                    CarpoolRelayedTarget(
+                        teaserId = hexId("rl$it"),
+                        departureDate = PULL_DEPARTURE,
+                        originHost = "o.beispiel.de",
+                    )
+                }
             val written =
                 transaction {
                     CarpoolFederationStore.withdrawRelayed(
@@ -1118,7 +1125,14 @@ abstract class CarpoolReceivedScenarios(
         test("expired pass-on tombstones are deleted in batches too") {
             transaction {
                 CarpoolFederationStore.withdrawRelayed(
-                    targets = (1..5).map { CarpoolRelayedTarget(teaserId = hexId("dt$it"), departureDate = PULL_DEPARTURE) },
+                    targets =
+                        (1..5).map {
+                            CarpoolRelayedTarget(
+                                teaserId = hexId("dt$it"),
+                                departureDate = PULL_DEPARTURE,
+                                originHost = "o.beispiel.de",
+                            )
+                        },
                     partnerId = null,
                     now = PULL_NOW,
                     requireServedSince = null,

@@ -92,6 +92,14 @@ The home-server form of the guest sign-in (`/federation/oidc/rp/login`) lists th
 
 The page also holds the section "Mitfahrzentrale-Austausch": a switch (off by default), the reach (1 to 3 levels, default 2) and, per direct partner, the box "Fahrten teilen" (off by default, offered only while the switch is on). Wave 1 stored the switches; since V1.9.312 (wave 2) an approved partner with its own client can fetch the short hints (signed request, only for a direct partner with "Fahrten teilen" on that announced a signing key). **No Lapis server fetches them yet.** Each partner row with sharing on shows how often the hints were fetched, when last and how many entries; a partner whose poll did not pin a signing key (it must run version 1.9.312 or newer; a feed without a key clears the pin) is named as such. The own public feed now carries this server's public signing key (`signingKey`). The reach of this exchange (how far a hint is passed on) is independent of the depth of the partner recursion above (how far partner lists are read). See link:../architecture/carpool-federation.adoc[the design note].
 
+== Signing key changes (V1.9.319)
+
+The signing key of a direct partner is pinned only the first time it announces one. If the partner later announces **another key, or none**, the old pin stays and the new key is kept as a pending key: the row shows
+"Signaturschlüssel geändert: Austausch angehalten" with both fingerprints and the carpool exchange with that partner is paused (it is not fetched, it cannot fetch our feed, its stored hints are deleted).
+An administrator who has compared the fingerprint with the partner organisation over a second channel accepts it with "Neuen Schlüssel übernehmen". If the old key comes back, the pause ends by itself.
+For a **discovered** server (a partner of a partner) the same change sets a hold ("Schlüsselwechsel gesperrt") that survives the eviction of the row; "Sperre aufheben" lets the next fetch pin anew.
+Event exchange is not affected by the pause; only the carpool exchange is. Operation: xref:carpool-federation-runbook.adoc[carpool-federation-runbook.adoc].
+
 == Outlook
 
 Merging an event that two partners announce is not needed so far: an event (announced server id plus event id) is stored once, whichever path reaches it first. Further extensions need their own review.

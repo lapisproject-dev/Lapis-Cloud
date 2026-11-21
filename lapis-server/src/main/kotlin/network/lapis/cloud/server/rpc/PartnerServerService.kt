@@ -12,6 +12,7 @@ import network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedBuilder
 import network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedCounters
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.federation.SigningKeyFingerprint
 import network.lapis.cloud.server.partner.BlockRow
 import network.lapis.cloud.server.partner.ForeignText
 import network.lapis.cloud.server.partner.PartnerAddressParse
@@ -366,6 +367,7 @@ internal class PartnerServerService(
         resolveCurrentMember(call).requireRole(AccountRole.ADMIN)
         return transaction {
             val roots = PartnerServerStore.listPartners().associateBy { it.id }
+            val held = PartnerDiscoveryStore.heldHosts()
             PartnerDiscoveryStore.listForAdmin().mapNotNull { row ->
                 val root = roots[row.rootPartnerId] ?: return@mapNotNull null
                 DiscoveredPartnerServerDto(
@@ -379,6 +381,7 @@ internal class PartnerServerService(
                     lastStatus = row.lastStatus,
                     lastError = row.lastError?.let { code -> PartnerFetchErrorCode.entries.firstOrNull { it.name == code } },
                     lastFetchAt = row.lastFetchAt,
+                    signingKeyHeld = row.host in held,
                 )
             }
         }
@@ -526,6 +529,55 @@ internal class PartnerServerService(
         }
     }
 
+    override suspend fun acceptPartnerSigningKey(
+        partnerId: String,
+        pendingFingerprint: String,
+    ) {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val uuid = runCatching { Uuid.parse(partnerId) }.getOrElse { throw NotFoundException("Partner not found") }
+        if (pendingFingerprint.length != FINGERPRINT_HEX_LENGTH) throw BadRequestException("Invalid fingerprint")
+        val now = clock()
+        transaction {
+            when (val result = PartnerServerStore.acceptPendingSigningKey(id = uuid, expectedFingerprint = pendingFingerprint, now = now)) {
+                PartnerServerStore.AcceptKeyResult.NoSuchPartner -> throw NotFoundException("Partner not found")
+                PartnerServerStore.AcceptKeyResult.Mismatch ->
+                    throw BadRequestException("No pending signing key with this fingerprint")
+                is PartnerServerStore.AcceptKeyResult.Accepted ->
+                    // Fingerprints only (never the key), so the entry shows WHO accepted WHICH key over WHICH one.
+                    audit(
+                        actor = current,
+                        entityType = AuditEntityType.PARTNER_SERVER,
+                        entityId = uuid,
+                        action = AuditAction.UPDATE,
+                        kind = PartnerAuditKind.PARTNER_SIGNING_KEY_ACCEPTED,
+                        subject = "${result.host} ${result.oldFingerprint ?: "-"} -> ${result.newFingerprint}",
+                        now = now,
+                    )
+            }
+        }
+    }
+
+    override suspend fun releaseDiscoveredSigningKeyHold(host: String) {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val normalized = host.trim().lowercase().trimEnd('.')
+        if (normalized.isEmpty() || normalized.length > MAX_HOST_LENGTH) throw BadRequestException("Invalid host")
+        val now = clock()
+        transaction {
+            if (!PartnerDiscoveryStore.releaseSigningKeyHold(normalized)) throw NotFoundException("No signing key hold for this host")
+            audit(
+                actor = current,
+                entityType = AuditEntityType.PARTNER_SERVER,
+                entityId = ORGANIZATION_SETTINGS_ID,
+                action = AuditAction.UPDATE,
+                kind = PartnerAuditKind.DISCOVERED_SIGNING_KEY_HOLD_RELEASED,
+                subject = normalized,
+                now = now,
+            )
+        }
+    }
+
     private fun overviewInTx(): PartnerServerOverviewDto {
         val blocks = PartnerServerStore.listBlocklist()
         val patterns = blocks.map { it.pattern }
@@ -576,6 +628,8 @@ internal class PartnerServerService(
 }
 
 private val SUMMARY_JSON = Json { ignoreUnknownKeys = true }
+private const val FINGERPRINT_HEX_LENGTH = 64
+private const val MAX_HOST_LENGTH = 253
 private const val PARTNER_RECURSION_MIN_DEPTH = 1
 private const val PARTNER_RECURSION_MAX_DEPTH = 3
 
@@ -609,4 +663,7 @@ private fun PartnerRow.toDto(blocked: Boolean) =
         carpoolPullOkAt = carpoolPullOkAt,
         carpoolPullNextAt = if (carpoolSharing && active) carpoolPullNextAt else null,
         carpoolPullState = if (carpoolSharing && active) CarpoolPullStates.of(carpoolPullFailures) else null,
+        signingKeyFingerprint = signingPublicKeyPem?.let { SigningKeyFingerprint.of(it) },
+        signingKeyPendingFingerprint = signingKeyPendingPem?.let { SigningKeyFingerprint.of(it) },
+        signingKeyChangedAt = signingKeyChangedAt,
     )

@@ -12,6 +12,8 @@ public object CarpoolTeaserTombstoneTable : Table("carpool_teaser_tombstone") {
     public val id: Column<Uuid> = uuid("id")
     public val teaserId: Column<String> = varchar("teaser_id", 64)
     public val partnerId: Column<Uuid?> = reference("partner_id", PartnerServerTable.id).nullable()
+    public val relayOriginHost: Column<String?> = varchar("relay_origin_host", 253).nullable()
+    public val relayReporterPartnerId: Column<Uuid?> = uuid("relay_reporter_partner_id").nullable()
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
     public val expiresAt: Column<LocalDateTime> = datetime("expires_at")
 

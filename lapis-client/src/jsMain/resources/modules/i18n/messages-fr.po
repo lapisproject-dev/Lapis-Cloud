@@ -33429,3 +33429,55 @@ msgstr "Retraits transmis non écrits depuis le démarrage : %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
 msgid "Ablehnungsgründe"
 msgstr "Motifs de rejet"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Signaturschlüssel geändert: Austausch angehalten"
+msgstr "Clé de signature modifiée : échange suspendu"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Bisher vertrauter Schlüssel (Fingerabdruck)"
+msgstr "Clé de confiance précédente (empreinte)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Neu angekündigter Schlüssel (Fingerabdruck)"
+msgstr "Clé nouvellement annoncée (empreinte)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Der Partner kündigt keinen Schlüssel mehr an."
+msgstr "Le partenaire n'annonce plus de clé."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Neuen Schlüssel übernehmen"
+msgstr "Accepter la nouvelle clé"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Schlüssel übernehmen?"
+msgstr "Accepter la clé ?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Prüfen Sie den Fingerabdruck mit der Partnerorganisation, bevor Sie ihn übernehmen."
+msgstr "Vérifiez l'empreinte auprès de l'organisation partenaire avant de l'accepter."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Schlüsselwechsel gesperrt"
+msgstr "Changement de clé bloqué"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Sperre aufheben"
+msgstr "Lever le blocage"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Sperre aufheben?"
+msgstr "Lever le blocage ?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Der nächste Abruf übernimmt den Schlüssel dieses Servers neu. Prüfen Sie vorher, ob der Wechsel erwartet war."
+msgstr "La prochaine récupération épinglera à nouveau la clé de ce serveur. Vérifiez d'abord si le changement était attendu."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Jetzt übernehmen"
+msgstr "Accepter maintenant"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Sperre jetzt aufheben"
+msgstr "Lever le blocage maintenant"

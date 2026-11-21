@@ -227,7 +227,7 @@ object PersonalDataRegistry {
                 "Whether the exchange needs " +
                 "an agreement between the organisations (Art. 26 GDPR) is NOT clarified (see docs/architecture/dsgvo.adoc).",
             "carpool_received_tombstone" to
-                "A local block against re-importing a withdrawn foreign hint: pseudonym and origin host only, at most 14 days.",
+                "A local block against re-importing a withdrawn foreign hint: pseudonym and origin host only, until two days after the departure.",
             "document_folder" to "Pure organizational structure, no personal data.",
             "committee" to "Pure organizational structure, no personal data.",
             "vote_option" to

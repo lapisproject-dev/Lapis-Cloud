@@ -108,6 +108,19 @@ classDiagram(name = "PartnerServers") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "signing_key_pinned_at" }
         }
+        // V1.9.319 (V165) W7: a DIFFERENT announced key never replaces the pin; it waits here until an ADMIN accepts it by its fingerprint.
+        attribute(name = "signingKeyPendingId", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "signing_key_pending_id"; "sqlType" to "VARCHAR(512)" }
+        }
+        attribute(name = "signingKeyPendingPem", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "signing_key_pending_pem"; "sqlType" to "VARCHAR(4096)" }
+        }
+        attribute(name = "signingKeyChangedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "signing_key_changed_at" }
+        }
         attribute(name = "carpoolFeedServedAt", type = "LocalDateTime") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "carpool_feed_served_at" }
@@ -338,6 +351,23 @@ classDiagram(name = "PartnerServers") {
         }
         attribute(name = "createdAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "created_at" }
+        }
+    }
+
+    // V1.9.319 (V165) W7: a DISCOVERED server whose announced signing key changed. Keyed by host (survives the eviction of the discovered row).
+    // Written ONLY by PartnerDiscoveryStore; no personal data, part of the backup.
+    classOf(name = "PartnerSigningKeyHold") {
+        stereotype("Entity") { "tableName" to "partner_signing_key_hold"; "kotlinObjectName" to "PartnerSigningKeyHoldTable" }
+
+        attribute(name = "host", type = "String") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "host"; "sqlType" to "VARCHAR(253)" }
+        }
+        attribute(name = "trustedKeySha256", type = "String") {
+            stereotype("Column") { "columnName" to "trusted_key_sha256"; "sqlType" to "CHAR(64)" }
+        }
+        attribute(name = "detectedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "detected_at" }
         }
     }
 }

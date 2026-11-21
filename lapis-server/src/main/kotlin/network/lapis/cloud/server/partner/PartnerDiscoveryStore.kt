@@ -3,11 +3,14 @@ package network.lapis.cloud.server.partner
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toKotlinLocalDateTime
+import network.lapis.cloud.server.carpool.CarpoolReceivedStore
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PartnerDiscoveredServerTable
 import network.lapis.cloud.server.db.generated.PartnerEventTable
+import network.lapis.cloud.server.db.generated.PartnerSigningKeyHoldTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.withSavepoint
+import network.lapis.cloud.server.federation.SigningKeyFingerprint
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.shared.domain.PartnerFetchErrorCode
 import network.lapis.cloud.shared.domain.PartnerFetchStatus
@@ -23,6 +26,7 @@ import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
@@ -319,6 +323,7 @@ internal object PartnerDiscoveryStore {
         }
         val id = ensureRow(c = c, existing = existing, now = now) ?: return DiscoveredWriteResult.CapReached
         val partnerHostsJson = if (parsed.partnersHidden) null else parsed.partnersJson
+        val keyDecision = decideKeyPin(id = id, host = c.host, key = parsed.signingKey, now = now)
         val stored =
             try {
                 withSavepoint(name = "partner_discovered_events") {
@@ -333,12 +338,15 @@ internal object PartnerDiscoveryStore {
                         it[PartnerDiscoveredServerTable.etag] = etag
                         it[remotePartnersJson] = partnerHostsJson
                         it[partnersHidden] = parsed.partnersHidden
-                        // V1.9.314: the announced signing key is pinned from this very TLS fetch (no extra request); a feed without a valid key clears it.
-                        val key = parsed.signingKey
-                        it[signingKeyId] = key?.keyId
-                        it[signingPublicKeyPem] = key?.publicKeyPem
-                        it[signingKeyPinnedAt] = if (key == null) null else now
+                        // V1.9.314: the announced signing key is pinned from this very TLS fetch (no extra request).
+                        // V1.9.319 (wave 7): ONLY the first time. A different key (or none) never replaces a pin: it clears the pin and sets a
+                        // HOLD for this host (survives the eviction and re-creation of the row), see [decideKeyPin].
+                        it[signingKeyId] = keyDecision.keyId
+                        it[signingPublicKeyPem] = keyDecision.pem
+                        it[signingKeyPinnedAt] = if (keyDecision.pem == null) null else keyDecision.pinnedAt ?: now
                     }
+                    // The hold ends only together with the pin it allows: inside this savepoint, so a rollback keeps the hold (never TOFU-pins anew).
+                    if (keyDecision.endsHold) PartnerSigningKeyHoldTable.deleteWhere { PartnerSigningKeyHoldTable.host eq c.host }
                     replaceDiscoveredEvents(id = id, c = c, parsed = parsed, now = now)
                 }
             } catch (e: Exception) {
@@ -349,6 +357,69 @@ internal object PartnerDiscoveryStore {
         PartnerDiscoveredServerTable.update({ PartnerDiscoveredServerTable.id eq id }) { it[eventCount] = stored }
         return DiscoveredWriteResult.Stored(stored)
     }
+
+    private class KeyDecision(
+        val keyId: String?,
+        val pem: String?,
+        /** The pin time to keep (an unchanged pin), `null` = now. */
+        val pinnedAt: LocalDateTime?,
+        /** The trusted key came back: the hold of the host ends, but only once the pin is written (see the savepoint in the caller). */
+        val endsHold: Boolean = false,
+    )
+
+    /**
+     * V1.9.319 (wave 7): what the pin of a discovered server becomes after a fetch announced [key]. The pin is set only when there is none and no hold
+     * for the host; a different key or none while a key is pinned clears the pin and sets the hold (with the fingerprint of the trusted key) and the
+     * copies this host signed as origin go; while a hold stands, only the trusted key may be pinned again (and that ends the hold). Only an
+     * administrator ([releaseSigningKeyHold]) lets the host be pinned anew. Runs inside the root partner's lock (see [gate]).
+     */
+    private fun decideKeyPin(
+        id: Uuid,
+        host: String,
+        key: PinnedSigningKey?,
+        now: LocalDateTime,
+    ): KeyDecision {
+        val current =
+            PartnerDiscoveredServerTable
+                .selectAll()
+                .where { PartnerDiscoveredServerTable.id eq id }
+                .singleOrNull()
+        val pinnedPem = current?.get(PartnerDiscoveredServerTable.signingPublicKeyPem)
+        val pinnedId = current?.get(PartnerDiscoveredServerTable.signingKeyId)
+        val pinnedAt = current?.get(PartnerDiscoveredServerTable.signingKeyPinnedAt)
+        val hold = PartnerSigningKeyHoldTable.selectAll().where { PartnerSigningKeyHoldTable.host eq host }.singleOrNull()
+        if (hold != null) {
+            val trusted = hold[PartnerSigningKeyHoldTable.trustedKeySha256]
+            return if (key != null &&
+                PartnerServerStore.keyIdHost(key.keyId) == host &&
+                SigningKeyFingerprint.of(key.publicKeyPem) == trusted
+            ) {
+                // The key that was trusted before the change is back: no new trust, the hold ends.
+                KeyDecision(keyId = key.keyId, pem = key.publicKeyPem, pinnedAt = null, endsHold = true)
+            } else {
+                KeyDecision(keyId = null, pem = null, pinnedAt = null)
+            }
+        }
+        if (pinnedPem == null) return KeyDecision(keyId = key?.keyId, pem = key?.publicKeyPem, pinnedAt = null)
+        if (key != null && key.keyId == pinnedId && key.publicKeyPem == pinnedPem) {
+            return KeyDecision(keyId = pinnedId, pem = pinnedPem, pinnedAt = pinnedAt)
+        }
+        PartnerSigningKeyHoldTable.insertIgnore {
+            it[PartnerSigningKeyHoldTable.host] = host
+            it[trustedKeySha256] = SigningKeyFingerprint.of(pinnedPem)
+            it[detectedAt] = now
+        }
+        // The copies this host signed as origin go (partner rows are locked by the caller's gate), the forwardable ones as withdrawn.
+        CarpoolReceivedStore.dropMatchingBlock(patterns = listOf(host), now = now)
+        return KeyDecision(keyId = null, pem = null, pinnedAt = null)
+    }
+
+    /** The hosts whose signing key is held back after a change (for the admin overview). */
+    fun heldHosts(): Set<String> = PartnerSigningKeyHoldTable.selectAll().map { it[PartnerSigningKeyHoldTable.host] }.toSet()
+
+    /** An administrator lets [host] be pinned anew. @return `true` when a hold existed. */
+    fun releaseSigningKeyHold(host: String): Boolean =
+        PartnerSigningKeyHoldTable.deleteWhere { PartnerSigningKeyHoldTable.host eq host } > 0
 
     /**
      * V1.9.314: the pinned signing key of the discovered server with exactly this [host], or `null` (not found, not pinned, blocked, or the key id is

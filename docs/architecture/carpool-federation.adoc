@@ -4,11 +4,13 @@
 :toc-placement: preamble
 :icons: font
 
-NOTE: **Implementation status.** **Waves 1 to 5 of 7 exist.** Wave 1 (V1.9.311, schema V159) is the foundation: switches and consent. Wave 2 (V1.9.312,
+NOTE: **Implementation status.** **Waves 1 to 7 exist.** Wave 1 (V1.9.311, schema V159) is the foundation: switches and consent. Wave 2 (V1.9.312,
 schema V160) is the **origin side of the teaser feed**. Wave 3 (V1.9.313, schema V161) is the **withdrawal on the origin side** (tombstones). Wave 4
 (V1.9.314, schema V162) adds the **pull client**: this server fetches the feed of its approved direct partners, checks the signature of the origin of every
 hint, stores the hints it accepts (pseudonymous, until the day of departure), hands them on within the reach, and passes withdrawals on. Wave 5 (V1.9.317, **no
-schema change**) **shows** the received hints to active members and shows the owner where a hint goes. Waves 6 and 7 below are the plan, not the code. It was **never run against a real partner server** and has had no legal review.
+schema change**) **shows** the received hints to active members and shows the owner where a hint goes. Wave 6 (V1.9.318, no schema change) is operations. Wave 7
+(V1.9.319, schema V165, **not released**) is **hardening and documentation**: four defects found by reading the code are fixed (see "Wave 7: hardening"), and the
+security model with its known limits is written down. The exchange was **never run against a real partner server**, was **never run on two real servers**, and has had **no legal review**.
 
 == Goal
 
@@ -596,6 +598,91 @@ empties the member view. What stays: the own trips, the consents and the own tom
 A hostile partner: switch carpool sharing off for it (its copies go at once), then block it by pattern or remove it. Deactivating a partner also deletes its copies at once
 and forgets its ETag. To try a failing partner again: switch sharing off and on.
 
+== Wave 7: hardening (schema V165, not released)
+
+Wave 7 changes no wire format. It fixes four defects that a read of the code of waves 1 to 6 found. Each fix has a test that describes the failure; the
+tests are in `CarpoolHardeningScenarios` (H2 and PostgreSQL) and `PartnerSigningKeyAcceptAdminTest`.
+
+=== F1: a changed signing key is never re-pinned silently
+
+Before wave 7 the partner poll pinned **every** announced key (`applyFetchSuccess`), a feed without a key cleared the pin, and the next feed with a key pinned
+again; the recursion did the same for discovered servers, and an evicted discovered row was created anew with a fresh trust on first use. A party that
+took over the domain of a partner therefore got the teaser feed (the gate checks against the pin) and its origin signatures were accepted.
+
+[source,kuml,name="carpool-signing-key-state"]
+----
+stateDiagram(name = "Carpool signing key of a direct partner") {
+    val start = initialState()
+    val trusted = state(name = "TRUSTED")
+    val paused = state(name = "PAUSED_KEY_CHANGED")
+
+    transition(source = start, target = trusted) { trigger = "first announced key is pinned (TOFU)" }
+    transition(source = trusted, target = paused) { trigger = "the feed announces another key or none: pin stays, copies go, pull stops" }
+    transition(source = paused, target = paused) { trigger = "the next feed: pending key updated, first sighting kept" }
+    transition(source = paused, target = trusted) { trigger = "the old key comes back, or the administrator accepts the pending fingerprint" }
+}
+----
+
+* **Direct partners.** The key is pinned only the **first** time. A different key, or none, leaves the pin as it is and is stored as a *pending* key with the
+  moment of the first sighting (`signing_key_pending_id`, `signing_key_pending_pem`, `signing_key_changed_at`). While `signing_key_changed_at` is set:
+  the exchange is paused (`mayPullCarpoolFeed` is false, so the feed gate answers with the one uniform refusal, the reach information and the pass-on skip the
+  partner, `dueForCarpoolPull` skips it, `pinnedSigningKeyFor` returns nothing); the copies that came from this partner or that it signed as their origin are deleted
+  in the same transaction (the ones that could have travelled are reported as withdrawn, partner row locked first, like every other drop). If the **identical old key**
+  returns the pause ends by itself (no new trust).
+* **Accepting.** An ADMIN accepts the pending key with `acceptPartnerSigningKey(partnerId, pendingFingerprint)`. The fingerprint (SHA-256 of the DER public key,
+  64 hex characters) must be exactly that of the pending key, so a key that changed again between reading and clicking is refused. The page shows both
+  fingerprints; the administrator is told to compare them with the partner organisation over a second channel. The accept writes one audit entry with host and
+  both fingerprints, never the key.
+* **Discovered servers.** The pin is set only the first time. A change clears the pin and sets a **hold** (`partner_signing_key_hold`, keyed by host, with the SHA-256 of
+  the key that was trusted). The hold survives the eviction and re-creation of the discovered row. While it stands only the trusted key may be pinned again
+  (and that ends the hold); hints of that origin are refused as `UNKNOWN_ORIGIN_KEY`. An ADMIN lifts it with `releaseDiscoveredSigningKeyHold(host)`; the
+  next fetch then pins anew, which is a deliberate act.
+* **Honest limit.** A discovered server that was evicted and comes back with a new key **before any change was seen** gets trust on first use again, as does a
+  direct partner that never announced a key. Rows written before V165 whose key was cleared by the old behaviour are treated as "never pinned".
+* The hold table is part of the backup (it is security state and holds no personal data). A hold row is never deleted automatically (only by an administrator or when the trusted key returns); one row per host, bounded by the hosts that were ever reached.
+
+=== F2: a partner can no longer erase our own withdrawal
+
+`CarpoolReceivedStore.clearTombstone` used to call `forgetGlobalTombstone(teaserId)`, which deleted **every** global tombstone with that id, including the one of
+our own withdrawal (waves 1 to 3). A direct partner that knew a teaser id (because we had served it) could list `(itself, id)` as its own hint, withdraw it,
+list it again, and thereby remove our own withdrawal from the list that other partners read. This suppressed consent withdrawals, so it is fixed:
+
+* `carpool_teaser_tombstone` gets `relay_origin_host` (NULL = our own withdrawal) and `relay_reporter_partner_id`. The primary key of a pass-on tombstone is derived
+  from `(teaserId, originHost, scope)` with its own purpose string, so it never collides with an own row.
+* `forgetOwnGlobalTombstone` (the owner gives consent again) removes only own rows; `forgetRelayedTombstone(originHost, teaserId)` (a foreign hint came back) removes
+  only the matching pass-on row. Tripwire (w) pins who may call which.
+* The wire is unchanged: an own and a pass-on row for the same id give **one** entry in `withdrawn`.
+* New cap `MAX_RELAY_TOMBSTONES_PER_REPORTER = 5000` next to the global 20 000, so that one hostile reporter cannot use up the table and starve the pass-on tombstones of every
+  other source. This closes the open question of wave 6.
+* Serving side (wave 7): the pass-on scan of `liveWithdrawals` gives every reporting partner its own share of the scan window (`scanLimit / reporters`, at least 100), and the
+  feed interleaves pass-on withdrawals round-robin per reporter before the 1000-entry cut. One hostile reporter therefore cannot push the pass-on rows of other reporters out of the
+  scan or out of the served list; if a reporter exceeds its share, `complete=false` is set as before.
+* Rows written before V165 stay NULL, that is "own". They live at most 14 days and were never published.
+* `relay_reporter_partner_id` has no foreign key on purpose: after a partner is removed the tombstone still protects the consent, and the count per reporter keeps counting.
+
+=== F3: the local block against a replay lasts until the hint could no longer be imported
+
+The signature of the origin has no expiry. The local block (`carpool_received_tombstone`) used the 14-day cap of the wire tombstone, so a dishonest relay could replay a
+withdrawn, validly signed hint on day 15, up to 90 days before the departure. The local block now lasts until `(departure + 2 days) 00:00 UTC`
+(`CarpoolReceivedBlockPolicy`). The caps of wave 6 (5000 per source, 20 000 in total) still bound the table. The wire tombstones keep their 14 days.
+*Rest:* a server that never saw the withdrawal can still be served the replay; closing that needs a signed `validUntil` in the origin statement, which is a wire change
+and was deliberately not made in this wave.
+
+=== F4: a restore does not bring back withdrawn consents
+
+A restore brings back `carpool_posting.federation_opt_in`, the instance switch and the pins, but not the tombstones (local state). A consent withdrawn after the backup
+was taken was therefore active again and the next feed handed the trip out. After all tables are restored, `CarpoolFederationStore.resetAfterRestore` now switches the exchange
+**off**, clears **every** consent (members agree again, after an administrator switched the exchange on), and writes one audit entry without an actor (kind
+`CARPOOL_RESET_BY_RESTORE`, subject = the number of consents cleared). Only `OrganizationRestoreService` calls it (tripwire y).
+*Not built:* a banner on the partner page that says a restore reset the exchange; the audit entry is the record.
+
+=== What wave 7 did and did not verify
+
+* Parallel locking on PostgreSQL (hypothesis H1) was reviewed by reading: the feed build takes the trip rows (share lock) and later updates the partner row (counter); the
+  switch-off and key-change paths lock the partner row first and then read the trips. No transaction takes both in a cycle that this review could construct, but **no
+  parallel test was written**; this stays an open item.
+* No second server and no real partner were involved. The staging checklist is `carpool-federation-staging-test.adoc`; **it has not been executed**.
+
 == What wave 3 deliberately does not do
 
 * **No pull client**, no display, no pass-on: a partner with its own client can read `withdrawn`, a Lapis server does not yet. The hop count is still 0.
@@ -606,6 +693,144 @@ and forgets its ETag. To try a failing partner again: switch sharing off and on.
 * A global tombstone also goes to a partner whose own switch is already off, as long as it was served before: it learns the number and the days of withdrawals
   of the last 14 days (a small activity signal, accepted and documented).
 * `deletePosting` has no rate limit of its own; the consent filter and the 1000 cap bound the effect of a flood.
+
+== Security model and known limits
+
+[source,kuml,name="carpool-trust-boundaries"]
+----
+classDiagram(name = "Carpool exchange -- trust boundaries") {
+    val owner = classOf(name = "Owner member (consent)")
+    val origin = classOf(name = "Origin O") {
+        attribute(name = "signsHintWithOwnKey", type = "Boolean")
+    }
+    val a = classOf(name = "Relay A (direct partner of O)") {
+        attribute(name = "pinsOriginKeyByTlsTofu", type = "Boolean")
+    }
+    val b = classOf(name = "Relay B (partner of A)") {
+        attribute(name = "keyFromRecursionPin", type = "Boolean")
+    }
+    val admin = classOf(name = "Administrator (fingerprint check)")
+
+    association(source = owner, target = origin) {
+        source { multiplicity(spec = "1"); role = "consents" }
+        target { multiplicity(spec = "1"); role = "stores consent" }
+    }
+    association(source = a, target = origin) {
+        source { multiplicity(spec = "1"); role = "signed GET" }
+        target { multiplicity(spec = "1"); role = "teaser feed" }
+    }
+    association(source = b, target = a) {
+        source { multiplicity(spec = "1"); role = "signed GET" }
+        target { multiplicity(spec = "1"); role = "republished feed" }
+    }
+    association(source = admin, target = a) {
+        source { multiplicity(spec = "1"); role = "accepts changed key" }
+        target { multiplicity(spec = "1"); role = "pending key" }
+    }
+}
+----
+
+What is trusted: the TLS fetch of the public partner feed to the partner host (the key of a **direct** partner is pinned from it the first time, nothing else gives
+a key), the administrator who compares fingerprints, and the origin server for the truth of its own statement. What is not trusted: every feed content, every `hops`
+and `via` value, every other partner on the path, and every text from a foreign server (shown as data only).
+
+[cols="2,3,3,2",options="header"]
+|===
+|Threat |Protection |Remainder |Test
+
+|Consent bypass: a trip shared without consent
+|One eligibility rule (`teaserCandidates` and the projection); the consent is a per-trip flag; withdrawal paths B1 to B7 clear it and write a tombstone; the feed is a complete snapshot, so a missing trip is gone at the next fetch.
+|A partner that cached a hint keeps it until it reads the list or until the day of departure; this server cannot delete it.
+|`CarpoolWithdrawalScenarios`, `CarpoolTeaserFeedScenarios`
+
+|SSRF and redirects (pull client)
+|Target resolution with the private-range blocklist and IP pinning, no redirects, 1 MiB cap, 10 s total timeout, host must be a direct partner.
+|DNS answers are pinned per request; nothing is cached across requests.
+|`CarpoolTeaserFeedClientTest`
+
+|Amplification and loops
+|`hops + 1 <= min(maxHops, own limit, 3)`; a partner is never offered a hint it is the source, the origin or a relay of; the source of a hint is bound to a partner row.
+|`hops` and `via` are statements of the relaying server and are **not signed per hop**: a dishonest relay can understate them.
+|`CarpoolReceivedScenarios`
+
+|Forged or altered hint
+|The origin signs teaser, origin host and `maxHops` (RSA, key pinned by the origin host); hop 2 and further use the key pinned by the partner recursion.
+|The signature has no expiry (see replay).
+|`CarpoolOriginSignaturesTest`
+
+|Replay of a withdrawn hint
+|Local block until two days after the departure (F3); the pass-on tombstone on the wire for 14 days.
+|A server that never saw the withdrawal can be replayed to; fixing it needs a signed validity window (wire change, not done).
+|`CarpoolHardeningScenarios` (F3)
+
+|Key change or domain takeover
+|Pin only the first time; pending key, pause and administrator acceptance by fingerprint; hold for discovered servers (F1).
+|Trust on first use at the first pin, for a never-announced key and for a discovered server evicted before a change was seen.
+|`CarpoolHardeningScenarios` (F1)
+
+|Withdrawal erased by a partner
+|Provenance of pass-on tombstones; own rows only removed by the owner's renewed consent (F2). A relayed copy that carries the id of one of our live own withdrawals is not passed on, so a foreign origin listing our id cannot make "item wins" swallow the withdrawal in the feeds we serve.
+|None known for this path.
+|`CarpoolHardeningScenarios` (F2)
+
+|Starving the tombstone table
+|Cap per reporter (5000) and global cap (20 000) for pass-on rows; own rows are never capped.
+|A global cap still stops pass-on rows once it is reached; the reporter cap makes that hard to cause for one partner, not for many.
+|`CarpoolHardeningScenarios` (F2)
+
+|Timing oracle in the feed gate
+|One uniform refusal for every reason (unknown key, inactive, sharing off, paused, blocked); the 429 comes only after the gate accepted the caller.
+|Not measured.
+|`CarpoolTeaserFeedScenarios`
+
+|Enumeration of teaser ids
+|The id is a keyed HMAC pseudonym; the counters are visible to ADMIN only.
+|The same id is seen by every partner that is served the trip, so partners can correlate that trip among themselves.
+|tripwires
+
+|Leaks (logs, audit, counters, public feeds)
+|No log line names a hint id (tripwire l); audit snapshots carry fingerprints, hosts and counts only; the public feeds never mention a carpool.
+|Not reviewed by an outside party.
+|`CarpoolFederationTripwireTest`
+
+|DoS (feed build, verification, tombstone flood, slow partners)
+|Build budget and at most 4 parallel builds, 5000-trip scan cap, per-source and total caps, at most 2 parallel pulls, 20 due partners per tick, 10 s timeout.
+|The values were never tuned against real traffic.
+|`CarpoolPullPollerScenarios`
+
+|Lock order
+|Partner row first, trips after, in every path that takes both; savepoints around caught constraint violations on PostgreSQL.
+|No parallel PostgreSQL test of the feed build against a switch-off or key change exists.
+|none (open)
+
+|Retention
+|Copies until the day of departure; local blocks until departure + 2 days; wire tombstones 14 days; consent until withdrawn.
+|Audit entries `CARPOOL_FEDERATION_OPT_IN` name the actor and the trip id and follow the audit retention, not the 14 days.
+|`CarpoolPersonalData` tests
+
+|Authorization of the RPCs
+|`ICarpoolService`: the four federation methods need an ACTIVE member; every method of `IPartnerServerService` needs ADMIN, also the two new ones.
+|None known.
+|`PartnerSigningKeyAcceptAdminTest`, `CarpoolFederationAdminTest`
+
+|XSS from foreign text
+|Every foreign string (origin host, labels, fingerprints) goes through the `untrusted*` helpers, never as an argument of a translated text.
+|None known.
+|`PartnerServersScreenDomTest`, `PartnerCarpoolHintsDomTest`
+
+|Backup and restore
+|A restore switches the exchange off and clears every consent (F4).
+|There is no banner that tells the administrator; only the audit entry.
+|`CarpoolHardeningScenarios` (F4)
+|===
+
+*Protected:* the consent of a member for one trip, its withdrawal along the whole path as far as this server controls it, the authenticity of the origin of a hint
+as long as the pinned key is the true key, and the administrator's decision about a changed key.
+*Not protected:* the truth of `hops` and `via`; a partner that keeps what it cached; replay to a server that never saw the withdrawal; trust on first use; the privacy of a trip among
+the partners that were served it (they can correlate its pseudonym); anything about a real partner implementation, because none was ever tested.
+
+*Honest limits of the whole work:* no lawyer has reviewed it, the question of joint controllership (Art. 26 GDPR) is open, there is no signature chain per hop, the replay
+guard of the signed GET is per JVM, the limits and caps were chosen by reasoning and not by measurement, and the behaviour towards a real partner is unknown.
 
 == Waves
 
@@ -643,7 +868,7 @@ envelope; a hop-2 server checks it against the key of the origin host. Without i
 |5 (V1.9.317, **built**, no schema change) |Display: the hints appear in the carpool page of active members, labelled with the origin, as data and never as markup (the same `untrusted*`
 rule as partner events). The owner sees which direct partners and which reach apply, next to the consent box (see the section below).
 |6 (V1.9.318, **built**, no schema change) |Operations: the pull state per partner, caps and a per-tick budget, summary counters for the administrator, retention made timely (the sweep runs before every pull; see the section above).
-|7 |Hardening and release: audit by an independent reviewer (SSRF, amplification, consent bypass), staging test with two real servers, documentation.
+|7 (V1.9.319, **built**, schema V165, not released) |Hardening and documentation: four defects fixed (key change, own withdrawal erased, replay after 14 days, restore), security model and limits, operator runbook, staging checklist, an end-to-end test. A staging test with two real servers and an outside legal review have **not** happened.
 |===
 
 == What wave 2 deliberately does not do
@@ -671,5 +896,5 @@ rule as partner events). The owner sees which direct partners and which reach ap
 * Whether the board, not only the administrator, may switch the exchange (it would change the whole partner administration, a separate decision).
 * Wave 6, open: the counters are in memory and restart at 0 with every deployment; a persisted window (for example 7 days) would need a table and is not part of the wave.
 * Wave 6, open: the `Retry-After` header of a `429` is not evaluated.
-* Wave 6, open: `carpool_teaser_tombstone` does not record which source caused a pass-on tombstone, so its cap is global. A cap per source needs a nullable column (a schema wave).
+* Resolved in wave 7: `carpool_teaser_tombstone` records the origin and the reporter of a pass-on tombstone (V165); there is a cap per reporter.
 * Wave 6, open: there is no "try again now" button; switching sharing off and on does it, with the side effect of deleting the copies of that partner.

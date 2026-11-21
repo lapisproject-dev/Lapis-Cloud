@@ -108,7 +108,8 @@ abstract class CarpoolPullPollerScenarios(
             d: Duration,
         ) = (at.toInstant(TimeZone.UTC) + d).toLocalDateTime(TimeZone.UTC)
 
-        val departure = OrganizationTimeZone.today().plus(DatePeriod(days = 5))
+        // lazy: the spec is instantiated before any database is connected (the Postgres lane), so it must not read the zone at construction.
+        val departure by lazy { OrganizationTimeZone.today().plus(DatePeriod(days = 5)) }
 
         fun partnerRow(id: kotlin.uuid.Uuid) = transaction { PartnerServerStore.findPartner(id)!! }
 
@@ -314,7 +315,7 @@ abstract class CarpoolPullPollerScenarios(
             copies() shouldBe 1L
             transaction {
                 CarpoolFederationStore.withdrawRelayed(
-                    targets = listOf(CarpoolRelayedTarget(teaserId = hexId("sw"), departureDate = departure)),
+                    targets = listOf(CarpoolRelayedTarget(teaserId = hexId("sw"), departureDate = departure, originHost = "o.beispiel.de")),
                     partnerId = null,
                     now = PULL_NOW,
                     requireServedSince = null,

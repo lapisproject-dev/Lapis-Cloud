@@ -59,7 +59,7 @@ abstract class CarpoolTeaserTombstoneMigrationScenarios(
             (partner?.let { "'$it'" } ?: "NULL") + ", TIMESTAMP '$created', TIMESTAMP '$expires')"
 
         test(
-            "the table has exactly the five columns, a global row (no partner) is accepted, the teaser id must be 64 characters, expiry after creation",
+            "the table has exactly the seven columns (five of V161, two provenance columns of V165), a global row (no partner) is accepted, the teaser id must be 64 characters, expiry after creation",
         ) {
             val columns = mutableListOf<String>()
             transaction {
@@ -67,7 +67,8 @@ abstract class CarpoolTeaserTombstoneMigrationScenarios(
                     while (rs.next()) columns += rs.getString(1).lowercase()
                 }
             }
-            columns.toSet() shouldBe setOf("id", "teaser_id", "partner_id", "created_at", "expires_at")
+            columns.toSet() shouldBe
+                setOf("id", "teaser_id", "partner_id", "relay_origin_host", "relay_reporter_partner_id", "created_at", "expires_at")
             val ok = "a".repeat(64)
             transaction { exec(insertSql(Uuid.random(), ok, null)) }
             refused { exec(insertSql(Uuid.random(), "short", null)) } shouldBe true

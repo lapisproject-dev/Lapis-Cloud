@@ -99,7 +99,9 @@ abstract class PartnerSigningKeyPinScenarios(
             row(a).signingPublicKeyPem shouldBe null
         }
 
-        test("a successful fetch updates a changed key, keeps an equal one, and CLEARS the pin when the key is missing") {
+        test(
+            "a successful fetch NEVER replaces the pin: a changed key waits as pending, an equal key keeps it, a missing key pauses the partner",
+        ) {
             val remote = Uuid.random()
             val a = insert(host = "a.beispiel.de", key = key("a.beispiel.de"), remoteId = remote)
             transaction {
@@ -110,16 +112,20 @@ abstract class PartnerSigningKeyPinScenarios(
                     now = LocalDateTime(2026, 11, 5, 11, 0, 0),
                 )
             }
-            row(a).signingPublicKeyPem shouldBe "PEM-B"
+            row(a).signingPublicKeyPem shouldBe "PEM-A"
+            row(a).signingKeyPendingPem shouldBe "PEM-B"
+            row(a).signingKeyChangedAt shouldBe LocalDateTime(2026, 11, 5, 11, 0, 0)
             transaction {
                 PartnerServerStore.applyFetchSuccess(
                     id = a,
-                    parsed = okFeed(remoteId = remote, key = key("a.beispiel.de", pem = "PEM-B")),
+                    parsed = okFeed(remoteId = remote, key = key("a.beispiel.de", pem = "PEM-A")),
                     etag = null,
                     now = PIN_T0,
                 )
             }
-            row(a).signingPublicKeyPem shouldBe "PEM-B"
+            row(a).signingPublicKeyPem shouldBe "PEM-A"
+            row(a).signingKeyChangedAt shouldBe null
+            row(a).signingKeyPendingPem shouldBe null
             transaction {
                 PartnerServerStore.applyFetchSuccess(
                     id = a,
@@ -128,9 +134,11 @@ abstract class PartnerSigningKeyPinScenarios(
                     now = PIN_T0,
                 )
             }
-            row(a).signingKeyId shouldBe null
-            row(a).signingPublicKeyPem shouldBe null
-            transaction { PartnerServerStore.findBySigningKeyId("https://a.beispiel.de/federation/actor#main-key") } shouldHaveSize 0
+            // the pin stays (the id still finds the row), but it is not trusted any more
+            row(a).signingPublicKeyPem shouldBe "PEM-A"
+            row(a).signingKeyChangedAt shouldBe PIN_T0
+            row(a).signingKeyPendingPem shouldBe null
+            transaction { PartnerServerStore.pinnedSigningKeyFor("a.beispiel.de") } shouldBe null
         }
 
         test("a 304 keeps the pin; a host blocked while the request was on the wire gets no update") {

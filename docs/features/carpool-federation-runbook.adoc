@@ -1,0 +1,96 @@
+= Runbook: carpool exchange between partner servers (operator)
+:toc:
+:description: Step-by-step operation of the carpool exchange (waves 1 to 7): switches, pins and fingerprints, the first pull, monitoring, emergency stop, a hostile partner, key changes, backup and restore.
+
+NOTE: This runbook describes the code as of V1.9.319 (schema V165, **not released**). The exchange has **never run against a real partner server** and the
+checklist in xref:../architecture/carpool-federation-staging-test.adoc[carpool-federation-staging-test.adoc] has **not been executed**. Treat every number below as a default
+chosen by reasoning, not as a measured value. Design and limits: xref:../architecture/carpool-federation.adoc[carpool-federation.adoc]. Personal data:
+xref:../architecture/dsgvo.adoc[dsgvo.adoc].
+
+== 0. Before you start
+
+* You need the ADMIN role. Everything below is on the page "Partnerserver" (Organisation, Partnerserver) unless stated otherwise.
+* `LAPIS_SECRET_ENCRYPTION_KEY` must be set (the hint ids are derived from it). Without it the page says so and no hint can be withdrawn.
+* The partner must run version 1.9.312 or newer, otherwise it announces no signing key.
+* Agree **before** the first fetch with the partner organisation: who is responsible for what (joint controllership, Art. 26 GDPR, is **not reviewed**), who is the contact for
+  a withdrawal, and how you will compare key fingerprints (a second channel such as a phone call).
+
+== 1. Switch the exchange on (instance)
+
+. Section "Mitfahrzentrale-Austausch": tick "Fahrtangebote mit freigegebenen Partnern austauschen" and choose the reach (1 = direct partners only, 2 = also partners of
+  partners, 3 = one step further). Start with 1.
+. Expected: nothing is transferred yet. No member sees anything and no trip is shared; every trip needs its owner's separate consent.
+. An audit entry is written for a real change.
+
+== 2. Add a partner and pin its key
+
+. Add the partner server (address), as for event exchange. The first successful fetch of its public feed **pins its signing key (trust on first use)**.
+. The row shows no fingerprint until a key is pinned. If it says "Kein Signaturschlüssel des Partners bekannt", the partner is too old or announced none.
+. **Compare the fingerprint** of the pinned key with the partner organisation over a second channel. The fingerprint is the SHA-256 of the public key (64 hex characters). If it
+  differs, remove the partner at once.
+
+== 3. Allow the exchange with that partner and check the first pull
+
+. Tick "Fahrten teilen" for the partner (only visible while the instance switch is on).
+. Within about 30 minutes the pull state shows READY and "zuletzt" with a time, and the counters show accepted and rejected hints. A fresh partner may need two ticks.
+. States: READY (fine), BACKING_OFF (failures, doubling wait from 15 minutes), PAUSED (the wait sits at 24 hours; one trial pull a day). There is no "try again now" button: switch
+  sharing off and on again (this deletes the copies of that partner and reports them as withdrawn).
+. If the key was never pinned or a key change is pending (see 7) no pull happens.
+
+== 4. What members see
+
+* Active members see "Angebote von Partnerorganisationen": day, postcode areas, origin host. No booking, no contact.
+* The owner of a trip sees which partner organisations can fetch the hint, next to the consent box. Check this text with a test trip before you announce the feature.
+
+== 5. Emergency stop
+
+* **Everything:** switch the instance switch off. Every copy is deleted at once, the hints that could have travelled are reported as withdrawn, and all ETags are forgotten.
+* **One partner:** untick "Fahrten teilen" (its copies go at once, withdrawals are reported for that partner only), or deactivate it.
+* **Permanently:** remove the partner, or add its host (or `*.host`) to the block list. A blocked or removed partner keeps what it already cached until the day of the hint; this
+  server cannot delete it there. Ask the partner organisation to delete.
+
+== 6. A hostile or misbehaving partner
+
+. Untick "Fahrten teilen" first (its copies and the pass-on go immediately), then block it by pattern.
+. Look at the rejection reasons (SIGNATURE, UNKNOWN_ORIGIN_KEY, CAPACITY, BLOCKED, EXPIRED). A burst of SIGNATURE or UNKNOWN_ORIGIN_KEY from one partner is a sign of a forged or confused feed.
+. A partner that lists hints it never owned cannot be told apart from an honest relay by the data alone: `hops` and `via` are not signed per hop.
+. Withdrawals reported by one partner are limited per source (5000 blocks, 5000 pass-on rows); a flood is counted and skipped, not applied beyond that.
+
+== 7. A signing key changed (wave 7)
+
+=== A partner's key changed
+
+. The partner row shows "Signaturschlüssel geändert: Austausch angehalten", the previously trusted fingerprint and the newly announced one. The exchange with this partner is
+  paused: it is not fetched, it cannot fetch our feed, its copies are deleted.
+. Ask the partner organisation (second channel) whether it replaced its key and what the new fingerprint is.
+. If the fingerprints match: "Neuen Schlüssel übernehmen", confirm. The pull is due at once. An audit entry records host, old and new fingerprint.
+. If they do not match, or nobody can explain it: do **not** accept. Untick "Fahrten teilen", block the host, and treat it as a possible takeover of the domain.
+. If the partner announces **no** key any more, the row says so and there is nothing to accept. The pause ends when the partner publishes the old key again, or when you remove the partner and add it
+  again after clarification.
+. If the old key returns on its own, the pause ends by itself.
+
+=== A discovered server's key changed (partner of a partner)
+
+. In "Erreichte Server" the server shows "Schlüsselwechsel gesperrt". Hints of that origin are refused (UNKNOWN_ORIGIN_KEY) and its existing copies are deleted.
+. Clarify with the organisation of the **direct** partner that reaches it. Only then use "Sperre aufheben": the next fetch pins whatever key the server announces then.
+
+=== Our own key
+
+Our signing key is the actor key of this server. If you rotate it, every partner will see a changed key and pause the exchange until its administrator accepts the new fingerprint. Announce the
+new fingerprint to your partners **before** you rotate.
+
+== 8. Backup and restore
+
+* A backup contains the consents, the switches, the pins, the holds and the pending keys. It does **not** contain received hints (a refilled cache) and not the local blocks.
+* **A restore (wave 7) switches the exchange off and clears every consent.** Members must agree again, after an administrator switched the exchange on again. Reason: consents withdrawn after
+  the backup would otherwise be active again, and their withdrawals are not restored. There is one audit entry without an actor (`CARPOOL_RESET_BY_RESTORE`) with the number of consents cleared.
+  There is no banner; tell your members.
+* A backup taken before V165 cannot be restored on V165 (schema checksum).
+
+== 9. Monitoring
+
+* Counters on the page (in memory, they restart at 0 with every deployment): feed requests refused and answered, pulls, accepted and rejected by reason, hints expired, deferred by budget,
+  pass-on tombstones skipped.
+* Audit log: switches, sharing flags, key accepted, hold released, restore reset. Fingerprints appear; keys and hint ids never do.
+* Logs: no hint id is logged by design. If you see one, that is a bug; report it.
+* What to watch: a partner in PAUSED for days, a growing "skipped" counter, a partner with many rejections, a key change warning you did not expect.

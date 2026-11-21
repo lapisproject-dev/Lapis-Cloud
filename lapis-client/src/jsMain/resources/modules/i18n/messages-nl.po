@@ -33488,3 +33488,55 @@ msgstr "Niet geschreven doorgegeven intrekkingen sinds de start: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
 msgid "Ablehnungsgründe"
 msgstr "Redenen van afwijzing"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Signaturschlüssel geändert: Austausch angehalten"
+msgstr "Ondertekeningssleutel gewijzigd: uitwisseling gepauzeerd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Bisher vertrauter Schlüssel (Fingerabdruck)"
+msgstr "Eerder vertrouwde sleutel (vingerafdruk)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Neu angekündigter Schlüssel (Fingerabdruck)"
+msgstr "Nieuw aangekondigde sleutel (vingerafdruk)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Der Partner kündigt keinen Schlüssel mehr an."
+msgstr "De partner kondigt geen sleutel meer aan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Neuen Schlüssel übernehmen"
+msgstr "Nieuwe sleutel accepteren"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Schlüssel übernehmen?"
+msgstr "Sleutel accepteren?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Prüfen Sie den Fingerabdruck mit der Partnerorganisation, bevor Sie ihn übernehmen."
+msgstr "Controleer de vingerafdruk bij de partnerorganisatie voordat u hem accepteert."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Schlüsselwechsel gesperrt"
+msgstr "Sleutelwijziging geblokkeerd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Sperre aufheben"
+msgstr "Blokkade opheffen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Sperre aufheben?"
+msgstr "Blokkade opheffen?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Der nächste Abruf übernimmt den Schlüssel dieses Servers neu. Prüfen Sie vorher, ob der Wechsel erwartet war."
+msgstr "Bij de volgende ophaalronde wordt de sleutel van deze server opnieuw vastgelegd. Controleer eerst of de wijziging verwacht was."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Jetzt übernehmen"
+msgstr "Nu accepteren"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Sperre jetzt aufheben"
+msgstr "Blokkade nu opheffen"

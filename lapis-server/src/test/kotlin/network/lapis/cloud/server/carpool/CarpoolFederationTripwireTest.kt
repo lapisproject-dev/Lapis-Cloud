@@ -296,7 +296,8 @@ class CarpoolFederationTripwireTest :
                     .descriptor,
             ) shouldBe listOf("teaserId", "withdrawnAt")
             network.lapis.cloud.server.db.generated.CarpoolTeaserTombstoneTable.columns
-                .map { it.name } shouldBe listOf("id", "teaser_id", "partner_id", "created_at", "expires_at")
+                .map { it.name } shouldBe
+                listOf("id", "teaser_id", "partner_id", "relay_origin_host", "relay_reporter_partner_id", "created_at", "expires_at")
         }
 
         test("(j) only CarpoolFederationStore and the table file reference CarpoolTeaserTombstoneTable") {

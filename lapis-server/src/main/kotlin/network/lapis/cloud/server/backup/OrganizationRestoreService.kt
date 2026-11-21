@@ -1,10 +1,13 @@
 package network.lapis.cloud.server.backup
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import network.lapis.cloud.server.backup.OrganizationSchemaCatalog.TableMetadata
+import network.lapis.cloud.server.carpool.CarpoolFederationStore
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.BackupOperationStatus
 import network.lapis.cloud.shared.domain.BackupOperationType
@@ -179,6 +182,11 @@ class OrganizationRestoreService(
         var status = BackupOperationStatus.FAILED
         var errorMessage: String? = null
         var tablesRestored = emptyList<TableManifestEntry>()
+        // F4 (carpool federation): set before the FIRST table is written -- from then on a failure must not leave the exchange switched on.
+        var tableWritten = false
+        val carpoolNeutralized =
+            java.util.concurrent.atomic
+                .AtomicLong()
         var blobsRestored = 0
         var blobBytesRestored = 0L
         var assetsRestored = 0
@@ -239,6 +247,7 @@ class OrganizationRestoreService(
                     val zipEntry =
                         zip.getEntry(DATA_ENTRY_PREFIX + tableMeta.tableName + ".jsonl")
                             ?: throw IncompatibleBundleException("Bundle is missing data file for table '${tableMeta.tableName}'")
+                    tableWritten = true
                     val rowCount =
                         restoreTable(
                             zip = zip,
@@ -246,6 +255,7 @@ class OrganizationRestoreService(
                             table = tableMeta,
                             manifestEntry = manifestEntry,
                             referencedAssetIds = referencedAssetIds,
+                            carpoolNeutralized = carpoolNeutralized,
                         )
                     totalRowCount += rowCount
                     restored += manifestEntry.copy(rowCount = rowCount)
@@ -288,6 +298,14 @@ class OrganizationRestoreService(
                     warnings += "Manifest declared ${manifest.assetCount} asset file(s) but only $assetsRestored were restorable"
                 }
             }
+            // V1.9.319 (carpool federation wave 7): consents withdrawn after the backup came back with it, their tombstones did not -- reset them.
+            // The rows are already written switched off / without consent (see `neutralizeCarpoolRow`); this is the safety net for what a
+            // non-empty target held beyond the bundle, and it keeps the audit entry when the neutralization left nothing to reset.
+            val resetNow = nowLocalDateTime()
+            val didReset = transaction(database) { CarpoolFederationStore.resetAfterRestore(resetNow) }
+            if (!didReset && carpoolNeutralized.get() > 0) {
+                transaction(database) { CarpoolFederationStore.auditResetByRestore(consents = carpoolNeutralized.get(), now = resetNow) }
+            }
             status = BackupOperationStatus.SUCCEEDED
         } catch (e: IncompatibleBundleException) {
             errorMessage = e.message
@@ -302,6 +320,14 @@ class OrganizationRestoreService(
             errorMessage = e.message ?: e::class.simpleName
             throw RestoreIncompleteException("Restore failed: $errorMessage").also { it.initCause(e) }
         } finally {
+            if (tableWritten && status != BackupOperationStatus.SUCCEEDED) {
+                // Tables written before a failure stay in the target (documented partial-write tradeoff): never leave the exchange on there.
+                try {
+                    transaction(database) { CarpoolFederationStore.resetAfterRestore(nowLocalDateTime()) }
+                } catch (resetFailure: Exception) {
+                    if (errorMessage == null) throw resetFailure
+                }
+            }
             try {
                 recordBackupOperation(
                     database = database,
@@ -364,6 +390,7 @@ class OrganizationRestoreService(
         table: TableMetadata,
         manifestEntry: TableManifestEntry,
         referencedAssetIds: Map<BackupAssetKind, MutableSet<String>>,
+        carpoolNeutralized: java.util.concurrent.atomic.AtomicLong,
     ): Long {
         val assetKinds = BACKUP_ASSET_KINDS.filter { it.tableName == table.tableName }
         val digest = MessageDigest.getInstance("SHA-256")
@@ -375,7 +402,12 @@ class OrganizationRestoreService(
                     batch.forEach { line ->
                         digest.update(line.toByteArray(Charsets.UTF_8))
                         digest.update(NEWLINE_BYTE)
-                        val row = Json.parseToJsonElement(line).jsonObject
+                        val row =
+                            neutralizeCarpoolRow(
+                                table = table,
+                                row = Json.parseToJsonElement(line).jsonObject,
+                                counter = carpoolNeutralized,
+                            )
                         upsertRow(connection = connection, table = table, row = row)
                         for (kind in assetKinds) {
                             (row[kind.idColumn] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull?.let {
@@ -400,6 +432,35 @@ class OrganizationRestoreService(
         }
         return rowCount
     }
+
+    /**
+     * F4: the exchange switch and the consents are written already neutral (in the SAME transaction as the row), so no partner pull can ever see the
+     * restored consents -- not between two tables, not after a later table or blob failed. The content checksum is computed over the original line.
+     */
+    private fun neutralizeCarpoolRow(
+        table: TableMetadata,
+        row: JsonObject,
+        counter: java.util.concurrent.atomic.AtomicLong,
+    ): JsonObject =
+        when (table.tableName) {
+            "organization_settings" ->
+                if ((row["carpool_federation_enabled"] as? JsonPrimitive)?.contentOrNull == "true") {
+                    counter.incrementAndGet()
+                    JsonObject(row + ("carpool_federation_enabled" to JsonPrimitive(false)))
+                } else {
+                    row
+                }
+            "carpool_posting" -> {
+                val consented = (row["federation_opt_in"] as? JsonPrimitive)?.contentOrNull == "true"
+                if (consented) counter.incrementAndGet()
+                if (consented || (row["federation_opt_in_at"] != null && row["federation_opt_in_at"] != JsonNull)) {
+                    JsonObject(row + mapOf("federation_opt_in" to JsonPrimitive(false), "federation_opt_in_at" to JsonNull))
+                } else {
+                    row
+                }
+            }
+            else -> row
+        }
 
     /** UPDATE-by-primary-key first, INSERT only if that matched zero rows -- a portable upsert with no `ON CONFLICT` dialect dependency, working identically on H2 and Postgres. */
     private fun upsertRow(

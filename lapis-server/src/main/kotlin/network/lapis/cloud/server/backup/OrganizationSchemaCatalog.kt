@@ -123,7 +123,7 @@ object OrganizationSchemaCatalog {
                 "(see docs/architecture/carpool-federation.adoc).",
             "carpool_received_tombstone" to
                 "Welle V1.9.314. Local blocks against re-importing a withdrawn foreign hint (pseudonym and origin " +
-                "host, at most 14 days). " +
+                "host, until two days after the departure). " +
                 "Meaningless without the excluded carpool_received_hint rows and never to be brought back by a restore.",
             "activism_signal" to
                 "Welle V1.9.246. A bare \"I would take part\" of a member for an action: political and therefore Art. 9 DSGVO relevant, " +

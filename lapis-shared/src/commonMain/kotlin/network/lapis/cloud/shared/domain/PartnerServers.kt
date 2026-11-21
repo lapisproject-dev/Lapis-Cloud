@@ -90,6 +90,14 @@ data class PartnerServerDto(
     val carpoolPullState: CarpoolPullState? = null,
     /** Live local blocks that THIS partner reported (a count only). */
     val carpoolReceivedBlocks: Int = 0,
+    /**
+     * V1.9.319 (wave 7): the fingerprint (SHA-256 of the key, 64 hex) of the pinned signing key, and -- while the partner announces a DIFFERENT key
+     * (or none) -- the fingerprint of that pending key and the moment the change was seen. While [signingKeyChangedAt] is set the carpool exchange
+     * with this partner is paused until an ADMIN accepts the pending key (`acceptPartnerSigningKey`). Fingerprints only, never the key itself.
+     */
+    val signingKeyFingerprint: String? = null,
+    val signingKeyPendingFingerprint: String? = null,
+    val signingKeyChangedAt: LocalDateTime? = null,
 )
 
 @Serializable
@@ -143,6 +151,13 @@ enum class PartnerAuditKind {
     CARPOOL_HOP_LIMIT_CHANGED,
     PARTNER_CARPOOL_SHARING_ON,
     PARTNER_CARPOOL_SHARING_OFF,
+
+    /** V1.9.319 (wave 7): a direct partner's signing key was accepted (subject = host and both fingerprints, never the key); a discovered host's hold was released (subject = host). */
+    PARTNER_SIGNING_KEY_ACCEPTED,
+    DISCOVERED_SIGNING_KEY_HOLD_RELEASED,
+
+    /** V1.9.319: a restore switched the carpool exchange off and cleared every consent (subject = the number of consents cleared). */
+    CARPOOL_RESET_BY_RESTORE,
 }
 
 /** After-snapshot: a host or pattern (the admin's own input, normalised) and the kind. Never a name from a foreign feed. */
@@ -189,4 +204,6 @@ data class DiscoveredPartnerServerDto(
     val lastStatus: PartnerFetchStatus,
     val lastError: PartnerFetchErrorCode?,
     val lastFetchAt: LocalDateTime?,
+    /** V1.9.319 (wave 7): the announced signing key of this host changed and is held back until an ADMIN releases the hold. */
+    val signingKeyHeld: Boolean = false,
 )

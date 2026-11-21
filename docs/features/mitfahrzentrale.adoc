@@ -88,7 +88,7 @@ members-only.
 * A person who leaves the organisation keeps their rows; new confirmations are refused, nothing ends automatically (the ride messages are the exception: the access ends at once, see above).
 * The ride messages cannot be reported (there is no report path except for social posts), and a throttle of the e-mail is per history, not per recipient: an answer within the hour of the first message sends no second mail.
 
-== Exchange with partner servers (V1.9.311, wave 1 of 7; origin side of the feed V1.9.312, wave 2; withdrawal V1.9.313, wave 3)
+== Exchange with partner servers (V1.9.311 to V1.9.319, waves 1 to 7)
 
 An administrator can switch on an **exchange of ride offers with partner servers** (page *Partnerserver*, section "Mitfahrzentrale-Austausch": the switch, the reach of 1 to 3 levels and, per partner, "Fahrten teilen"). A member then finds in the form of an *offer* the box "Diese Fahrt als Kurzhinweis an Partnerorganisationen weitergeben", unticked by default, with a live preview of exactly what a partner would see: the day and the first two digits of the postcodes ("PLZ-Gebiet 38 → PLZ-Gebiet 30"). A trip without a postcode on both places cannot be shared. The consent can be withdrawn at any time. On the own card the badge "Für Partner freigegeben" shows the state.
 
@@ -102,3 +102,7 @@ An administrator can switch on an **exchange of ride offers with partner servers
 
 No structured place data (no postal code, no map, no distance calculation) and no notification when a new posting matching a member's
 interest appears.
+
+**In short, for members (wave 7).** If you agree, a short hint about your offer (the day and the first two digits of the two postcodes, nothing else) can be shown to the members of partner organisations. You can take your agreement back at any time; the hint is then removed at the partner organisations that are connected to this server and that read the withdrawal. A hint that a partner has already stored cannot be deleted by this server. After a restore of a backup the exchange is switched off and **all agreements are reset**, so you will be asked again.
+
+**What does not work yet / is not guaranteed.** The exchange was never tested with a real partner server or on two real servers. There is no legal review; whether the organisations are joint controllers (Art. 26 GDPR) is open. A partner can understate how far a hint has travelled. A server that never saw a withdrawal can still be sent an old hint. See the operator xref:carpool-federation-runbook.adoc[runbook].

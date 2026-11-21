@@ -613,7 +613,8 @@ class DomainModelMergerTest :
             // 74-tender.kuml.kts (V1.9.308) adds ONE real table (tender_payout); its LtrLedgerEntry stub dedups into the real entity, net +1 (271 -> 272).
             // 57-carpool.kuml.kts (V1.9.314, W4) adds TWO real tables (carpool_received_hint, carpool_received_tombstone), 277 -> 279.
             // 83-meeting-reward.kuml.kts (V1.9.316) adds FIVE real tables (meeting_reward_policy, _policy_change, _committee, _settlement, _line), 279 -> 284.
-            val distinctTableNames = 284
+            // 79-partner-servers.kuml.kts (V1.9.319, W7) adds ONE real table (partner_signing_key_hold), 284 -> 285.
+            val distinctTableNames = 285
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -1048,6 +1049,7 @@ class DomainModelMergerTest :
                     "PartnerEventTable.kt",
                     "PartnerBlocklistTable.kt",
                     "PartnerDiscoveredServerTable.kt",
+                    "PartnerSigningKeyHoldTable.kt",
                     // Welle V1.9.246 "Aktionen A1" -- NINE new real tables; the cross-domain references are stubs.
                     "ActivismActionTable.kt",
                     "ActivismResponsibleTable.kt",

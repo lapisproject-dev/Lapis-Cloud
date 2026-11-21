@@ -31,6 +31,10 @@ internal data class CarpoolWithdrawalTarget(
 internal data class CarpoolTeaserWithdrawalRow(
     val teaserId: String,
     val withdrawnAt: LocalDate,
+    /** Provenance: a withdrawal of THIS server (no relay origin). Own rows are served before pass-on rows and never pushed out by them. */
+    val own: Boolean = false,
+    /** The partner that reported a pass-on row (null for own rows and legacy rows): the feed cut is shared fairly per reporter. */
+    val reporter: Uuid? = null,
 )
 
 /** The live withdrawals of one partner plus whether the scan limit cut the list (the feed is then marked incomplete). */

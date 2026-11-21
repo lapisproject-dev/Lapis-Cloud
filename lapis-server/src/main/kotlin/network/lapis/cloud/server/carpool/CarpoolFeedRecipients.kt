@@ -13,4 +13,6 @@ internal fun PartnerRow.mayPullCarpoolFeed(blockPatterns: List<String>): Boolean
         carpoolSharing &&
         signingPublicKeyPem != null &&
         signingKeyId != null &&
+        // V1.9.319 (wave 7): a changed signing key pauses the exchange until an administrator accepts it (pinned by CarpoolFederationTripwireTest).
+        signingKeyChangedAt == null &&
         !PartnerBlocklistPattern.isBlocked(host = host, patterns = blockPatterns)

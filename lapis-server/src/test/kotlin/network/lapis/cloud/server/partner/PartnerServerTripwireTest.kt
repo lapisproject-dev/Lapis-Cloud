@@ -33,10 +33,12 @@ class PartnerServerTripwireTest :
                 "getCarpoolFederationSettings",
                 "setCarpoolFederationSettings",
                 "setPartnerCarpoolSharing",
+                "acceptPartnerSigningKey",
+                "releaseDiscoveredSigningKeyHold",
             )
         val partnerFiles = SourceScan.mainFiles().filter { "/server/partner/" in it.path }
 
-        test("the RPC surface is exactly the fourteen known methods") {
+        test("the RPC surface is exactly the sixteen known methods") {
             IPartnerServerService::class.java.declaredMethods
                 .filter { !it.isSynthetic && '$' !in it.name }
                 .map { it.name }

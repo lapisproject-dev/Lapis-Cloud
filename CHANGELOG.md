@@ -6,6 +6,28 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+Wave V1.9.319 "Mitfahr-Foederation" W7 (hardening and documentation), **schema V164 -> V165**. Not released yet: no version bump, no tag. A backup taken before V165 cannot be restored on V165 (schema checksum), as after every schema change.
+
+**Behaviour first:**
+
+1. **A changed signing key of a partner is no longer re-pinned silently.** The key is pinned only the first time. If a direct partner announces another key (or none), the old pin stays, the new key waits as a pending key, the carpool exchange with that partner is paused (no pull, its fetch of our feed is refused with the one uniform answer, its stored hints are deleted and the ones that could have travelled are reported as withdrawn), and the partner page shows both fingerprints. An administrator accepts the pending key by its fingerprint ("Neuen Schlüssel übernehmen"); if the old key returns the pause ends by itself. For discovered servers (partners of partners) a hold is set that survives the eviction of the row until an administrator releases it ("Sperre aufheben").
+2. **A partner can no longer erase our own withdrawal.** A foreign hint with the same id used to delete our own global tombstone (the known limit of V1.9.314); pass-on tombstones now record their origin and reporter and are removed only as such. One reporter is capped at 5000 pass-on tombstones (the table cap stays 20000).
+3. **The local block against a replay lasts until two days after the departure** instead of at most 14 days (the origin signature has no expiry). The wire tombstones keep their 14 days.
+4. **A restore switches the carpool exchange off and clears every consent** (members agree again), with one audit entry without actor. Before, consents withdrawn after the backup were active again and their tombstones were gone.
+5. New ADMIN RPCs `acceptPartnerSigningKey` and `releaseDiscoveredSigningKeyHold` (appended at the end of `IPartnerServerService`); two new fields in `PartnerServerDto` (fingerprints and change moment) and one in `DiscoveredPartnerServerDto` (hold), all with defaults.
+
+**Technique:** migration `V165__carpool_federation_hardening.sql` (additive: three columns on `partner_server`, table `partner_signing_key_hold`, two columns and an index on `carpool_teaser_tombstone`; no backfill, existing tombstones count as own); `SigningKeyFingerprint`; `CarpoolReceivedBlockPolicy`; `CarpoolFederationStore.forgetOwnGlobalTombstone`, `forgetRelayedTombstone` and `resetAfterRestore` (the old `forgetGlobalTombstone` is gone); client: warning, fingerprints, accept dialog and the hold release on the partner page (7 catalogs, translations written by a model); tripwires (v) to (z); documentation: security model and known limits, operator runbook, staging checklist, data inventory and retention in `dsgvo.adoc`.
+
+**Not verified / not done:**
+
+* Never run against a real partner server and never on two real servers; the staging checklist (`docs/architecture/carpool-federation-staging-test.adoc`) was **not executed**.
+* No legal review; the question of joint controllership between the servers (Art. 26 GDPR) is still open.
+* **Not built although planned:** an end-to-end test with three servers that each have their own database; a parallel test on PostgreSQL for the lock order of the feed build against a switch-off or key change (reviewed by reading only); a banner on the partner page after a restore reset; a signed validity window in the origin statement (replay to a server that never saw a withdrawal remains possible).
+* The red-before-fix evidence for F1 to F4 was not recorded separately: the new tests were written together with the fixes.
+* Trust on first use remains at the first pin, for a partner that never announced a key, and for a discovered server evicted before a change was seen.
+* The limits and caps were chosen by reasoning, not measured. UI seen only in DOM tests. Translations (en, es, fr, it, nl, pl, ru) are written by a model and not reviewed by a native speaker.
+
+
 Wave V1.9.318 "Mitfahrzentrale-Foederation" W6 (operations), **no schema change**. Not released yet: no version bump.
 
 **Behaviour first:**

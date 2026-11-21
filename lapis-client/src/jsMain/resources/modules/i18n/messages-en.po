@@ -33443,3 +33443,55 @@ msgstr "Forwarded withdrawals not written since the start: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
 msgid "Ablehnungsgründe"
 msgstr "Reasons for rejection"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Signaturschlüssel geändert: Austausch angehalten"
+msgstr "Signing key changed: exchange paused"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Bisher vertrauter Schlüssel (Fingerabdruck)"
+msgstr "Previously trusted key (fingerprint)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Neu angekündigter Schlüssel (Fingerabdruck)"
+msgstr "Newly announced key (fingerprint)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Der Partner kündigt keinen Schlüssel mehr an."
+msgstr "The partner no longer announces a key."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Neuen Schlüssel übernehmen"
+msgstr "Accept new key"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Schlüssel übernehmen?"
+msgstr "Accept key?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Prüfen Sie den Fingerabdruck mit der Partnerorganisation, bevor Sie ihn übernehmen."
+msgstr "Check the fingerprint with the partner organisation before you accept it."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Schlüsselwechsel gesperrt"
+msgstr "Key change blocked"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Sperre aufheben"
+msgstr "Release block"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Sperre aufheben?"
+msgstr "Release block?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Der nächste Abruf übernimmt den Schlüssel dieses Servers neu. Prüfen Sie vorher, ob der Wechsel erwartet war."
+msgstr "The next fetch pins this server's key anew. Check beforehand whether the change was expected."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Jetzt übernehmen"
+msgstr "Accept now"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Sperre jetzt aufheben"
+msgstr "Release block now"

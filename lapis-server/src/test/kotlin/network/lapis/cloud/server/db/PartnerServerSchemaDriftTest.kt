@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.PartnerBlocklistTable
 import network.lapis.cloud.server.db.generated.PartnerDiscoveredServerTable
 import network.lapis.cloud.server.db.generated.PartnerEventTable
 import network.lapis.cloud.server.db.generated.PartnerServerTable
+import network.lapis.cloud.server.db.generated.PartnerSigningKeyHoldTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
@@ -31,9 +32,9 @@ class PartnerServerSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("the model declares exactly the four partner tables") {
+        test("the model declares exactly the five partner tables") {
             model.entities.map { it.name }.toSet() shouldBe
-                setOf("partner_server", "partner_event", "partner_discovered_server", "partner_blocklist")
+                setOf("partner_server", "partner_event", "partner_discovered_server", "partner_blocklist", "partner_signing_key_hold")
         }
 
         fun check(
@@ -76,6 +77,10 @@ class PartnerServerSchemaDriftTest :
                 mapOf("root_partner_server_id" to "partner_server"),
                 setOf("id"),
             )
+        }
+
+        test("partner_signing_key_hold (V165) matches the migrated schema and its Exposed object 1:1, keyed by host, with no foreign key") {
+            check("partner_signing_key_hold", PartnerSigningKeyHoldTable.columns.map { it.name }, emptyMap(), setOf("host"))
         }
 
         test("partner_blocklist matches the migrated schema and its Exposed object 1:1") {

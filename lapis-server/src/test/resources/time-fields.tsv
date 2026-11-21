@@ -1190,3 +1190,6 @@ col:MeetingRewardSettlementTable.releasedAt	A	stamped by the server clock (DbClo
 dto:PartnerServerDto.carpoolPullNextAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:PartnerServerDto.carpoolPullOkAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:CarpoolFederationSettingsDto.serverStartedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PartnerServerDto.signingKeyChangedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartnerServerTable.signingKeyChangedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartnerSigningKeyHoldTable.detectedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

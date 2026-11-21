@@ -175,6 +175,9 @@ internal object CarpoolReceivedStore {
     /** V1.9.318: cap of the pass-on tombstones (relayed withdrawals) in `carpool_teaser_tombstone`; our own withdrawals are never capped. */
     const val MAX_RELAY_TOMBSTONES_TOTAL = 20_000
 
+    /** V1.9.319: the share of the table ONE reporting partner may fill with pass-on tombstones (the V1.9.318 open question "starvation by one reporter"). */
+    const val MAX_RELAY_TOMBSTONES_PER_REPORTER = 5000
+
     /** The fair share of ONE source when [sharingPartners] partners share: never below [MIN_PER_SOURCE], never above [MAX_PER_SOURCE]. */
     fun effectivePerSourceCap(sharingPartners: Int): Int =
         minOf(
@@ -271,6 +274,7 @@ internal object CarpoolReceivedStore {
         val settings = CarpoolFederationStore.settings()
         if (!settings.enabled || !row.active || !row.carpoolSharing) return CarpoolPullApplyResult(applied = false)
         if (row.signingPublicKeyPem == null ||
+            row.signingKeyChangedAt != null ||
             row.signingKeyId != source.signingKeyId ||
             row.signingPublicKeyPem != source.signingPublicKeyPem
         ) {
@@ -472,14 +476,22 @@ internal object CarpoolReceivedStore {
         )
     }
 
+    /** The local block against re-importing a withdrawn foreign hint: `(departure + 2 days) 00:00 UTC` (no 14-day cap). */
+    internal object CarpoolReceivedBlockPolicy {
+        const val GRACE_DAYS_AFTER_DEPARTURE = 2
+
+        fun expiresAt(departure: LocalDate): LocalDateTime =
+            departure.plus(GRACE_DAYS_AFTER_DEPARTURE, DateTimeUnit.DAY).atStartOfDayIn(TimeZone.UTC).toLocalDateTime(TimeZone.UTC)
+    }
+
     private class ReceivedTombstone(
         val reportedBy: Uuid?,
     )
 
     /**
-     * Known limit (documented, V1.9.314 review): withdrawals and the global pass-on tombstones are keyed by the pseudonymous teaser id only. A hostile
-     * partner that learned one of OUR teaser ids can list (itself, id) as its own hint and thereby clear our global tombstone for that id; the pass-on
-     * of that withdrawal to other partners may then be delayed until a complete snapshot is served. Nothing is displaced locally.
+     * V1.9.319: a hint came back (its origin or the reporter listed it again): the local block and ONLY the pass-on tombstone of exactly this
+     * (origin, id) are moot. Our OWN global tombstone for the same id is never touched, so a hostile partner that learned one of our teaser ids can
+     * no longer erase our withdrawal (the V1.9.314 "known limit").
      */
     private fun clearTombstone(
         originHost: String,
@@ -489,7 +501,7 @@ internal object CarpoolReceivedStore {
             (CarpoolReceivedTombstoneTable.originHost eq originHost) and (CarpoolReceivedTombstoneTable.teaserId eq teaserId)
         }
         // The renewed consent: the global pass-on tombstone of this hint is moot.
-        CarpoolFederationStore.forgetGlobalTombstone(teaserId)
+        CarpoolFederationStore.forgetRelayedTombstone(originHost = originHost, teaserId = teaserId)
     }
 
     /** A withdrawal reported by [reporter]: the copy goes, a local block is written, and (when it could have been handed on) the pass-on tombstone. */
@@ -500,7 +512,10 @@ internal object CarpoolReceivedStore {
         writeBlock: Boolean,
     ) {
         CarpoolReceivedHintTable.deleteWhere { CarpoolReceivedHintTable.id eq h.id }
-        val expires = CarpoolTeaserTombstonePolicy.expiresAt(createdAt = now, departure = h.departureDate)
+        // V1.9.319: the LOCAL block lasts until the hint could no longer be imported anyway (departure + 2 days), NOT 14 days: the signature of the
+        // origin has no expiry, so a dishonest relay could otherwise replay a withdrawn hint after the block ran out. (The pass-on tombstone on the wire
+        // below keeps its 14 days: a partner never needs it longer.)
+        val expires = CarpoolReceivedBlockPolicy.expiresAt(departure = h.departureDate)
         if (expires > now && writeBlock) {
             val tid = derivedId(purpose = "carpool-received-block/v1", originHost = h.originHost, teaserId = h.teaserId)
             CarpoolReceivedTombstoneTable.deleteWhere {
@@ -526,11 +541,16 @@ internal object CarpoolReceivedStore {
     ) {
         rows.filter { it.forwardable }.forEach {
             CarpoolFederationStore.withdrawRelayed(
-                targets = listOf(CarpoolRelayedTarget(teaserId = it.teaserId, departureDate = it.departureDate)),
+                targets =
+                    listOf(
+                        CarpoolRelayedTarget(teaserId = it.teaserId, departureDate = it.departureDate, originHost = it.originHost),
+                    ),
                 partnerId = null,
                 now = now,
                 requireServedSince = it.receivedAt,
                 maxRelayRows = MAX_RELAY_TOMBSTONES_TOTAL,
+                reporterId = it.sourcePartnerId,
+                maxRelayRowsPerReporter = MAX_RELAY_TOMBSTONES_PER_REPORTER,
             )
         }
     }
@@ -732,7 +752,7 @@ internal object CarpoolReceivedStore {
             .where { CarpoolReceivedHintTable.sourcePartnerId neq partner.id }
             .map { it.toHint() }
             .filter { it.forwardable && it.originHost != partner.host && partner.host !in it.via }
-            .map { CarpoolRelayedTarget(teaserId = it.teaserId, departureDate = it.departureDate) }
+            .map { CarpoolRelayedTarget(teaserId = it.teaserId, departureDate = it.departureDate, originHost = it.originHost) }
 
     /** Sources whose last successful pull is older than [STALE_AFTER] (or never succeeded) lose their copies (E9). */
     fun dropStale(now: LocalDateTime): Int {

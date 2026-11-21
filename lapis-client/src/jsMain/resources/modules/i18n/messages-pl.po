@@ -33391,3 +33391,55 @@ msgstr "Niezapisane przekazane wycofania od uruchomienia: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
 msgid "Ablehnungsgründe"
 msgstr "Powody odrzucenia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Signaturschlüssel geändert: Austausch angehalten"
+msgstr "Klucz podpisu zmieniony: wymiana wstrzymana"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Bisher vertrauter Schlüssel (Fingerabdruck)"
+msgstr "Dotychczas zaufany klucz (odcisk)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Neu angekündigter Schlüssel (Fingerabdruck)"
+msgstr "Nowo ogłoszony klucz (odcisk)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Der Partner kündigt keinen Schlüssel mehr an."
+msgstr "Partner nie ogłasza już klucza."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Neuen Schlüssel übernehmen"
+msgstr "Zaakceptuj nowy klucz"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Schlüssel übernehmen?"
+msgstr "Zaakceptować klucz?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Prüfen Sie den Fingerabdruck mit der Partnerorganisation, bevor Sie ihn übernehmen."
+msgstr "Sprawdź odcisk z organizacją partnerską, zanim go zaakceptujesz."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Schlüsselwechsel gesperrt"
+msgstr "Zmiana klucza zablokowana"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Sperre aufheben"
+msgstr "Zdejmij blokadę"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Sperre aufheben?"
+msgstr "Zdjąć blokadę?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Der nächste Abruf übernimmt den Schlüssel dieses Servers neu. Prüfen Sie vorher, ob der Wechsel erwartet war."
+msgstr "Następne pobranie ponownie przypnie klucz tego serwera. Sprawdź wcześniej, czy zmiana była oczekiwana."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Jetzt übernehmen"
+msgstr "Zaakceptuj teraz"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Sperre jetzt aufheben"
+msgstr "Zdejmij blokadę teraz"

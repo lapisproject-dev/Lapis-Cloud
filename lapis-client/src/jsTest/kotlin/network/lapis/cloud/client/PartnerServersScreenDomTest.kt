@@ -232,6 +232,40 @@ class PartnerServersScreenDomTest {
         }
 
     @Test
+    fun aChangedSigningKeyShowsTheWarningTheFingerprintsAndTheAcceptButton_andAHeldDiscoveredServerShowsTheRelease(): Promise<Unit> =
+        test {
+            val oldFp = "a".repeat(64)
+            val newFp = "b".repeat(63) + "<"
+            val changed =
+                partner(id = "k1", host = "key.beispiel.de")
+                    .copy(
+                        signingKeyFingerprint = oldFp,
+                        signingKeyPendingFingerprint = newFp,
+                        signingKeyChangedAt = LocalDateTime(2026, 11, 21, 9, 0),
+                    )
+            val noKey =
+                partner(id = "k2", host = "nokey.beispiel.de")
+                    .copy(signingKeyFingerprint = oldFp, signingKeyChangedAt = LocalDateTime(2026, 11, 21, 9, 0))
+            val calm = partner(id = "k3", host = "calm.beispiel.de").copy(signingKeyFingerprint = oldFp)
+            scenario(
+                PartnerServerOverviewDto(listOf(changed, noKey, calm), emptyList(), false),
+                discovered = listOf(server(host = "held.beispiel.de").copy(signingKeyHeld = true), server(host = "free.beispiel.de")),
+            ) { page ->
+                val text = page.textContent.orEmpty()
+                assertEquals(2, page.allOf(".partner-key-change").size, "only the two changed partners carry the warning")
+                assertTrue(text.contains("Signaturschlüssel geändert: Austausch angehalten"))
+                assertTrue(text.contains(oldFp))
+                assertTrue(text.contains(newFp), "a fingerprint is text, never markup")
+                assertEquals("alert", page.querySelector(".partner-key-change")?.getAttribute("role"))
+                // the accept button exists only where a pending key can be accepted (not for the partner that announces no key)
+                assertEquals(1, page.allOf("button").count { it.textContent.orEmpty().trim() == "Neuen Schlüssel übernehmen" })
+                assertTrue(text.contains("Der Partner kündigt keinen Schlüssel mehr an."))
+                assertEquals(1, page.allOf(".partner-key-hold").size)
+                assertEquals(1, page.allOf("button").count { it.textContent.orEmpty().trim() == "Sperre aufheben" })
+            }
+        }
+
+    @Test
     fun theFormHasLabelledFieldsAndAnAlertRegion(): Promise<Unit> =
         test {
             scenario(PartnerServerOverviewDto(emptyList(), emptyList(), false)) { page ->

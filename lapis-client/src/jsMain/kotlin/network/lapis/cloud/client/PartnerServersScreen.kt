@@ -251,6 +251,8 @@ private fun renderPartnerRow(
         }
     }
     val actions = head.div { addCssClasses("d-flex align-items-center gap-2") }
+    // V1.9.319: the partner announced another signing key (or none). The exchange is paused until an administrator accepts the new key.
+    if (partner.signingKeyChangedAt != null) renderSigningKeyChange(info = info, actions = actions, partner = partner, reload = reload)
     // V1.9.311: per-partner consent to exchange carpool hints; only while the exchange is switched on.
     if (PartnerServersLogic.partnerSharingVisible(carpoolExchangeOn)) {
         val sharing = actions.checkBox(value = partner.carpoolSharing, label = tr("Fahrten teilen"))
@@ -289,6 +291,47 @@ private fun renderPartnerRow(
     }
     // The group name is the host, so the "Aktiv" box and the buttons of every row have a distinguishable context for assistive technology.
     row.setAttribute("aria-label", partner.host)
+}
+
+/**
+ * The warning of a changed signing key. The fingerprints are SHA-256 hex computed by this server; they are still shown through the `untrusted*`
+ * helpers and never as an argument of a translated text.
+ */
+private fun renderSigningKeyChange(
+    info: Container,
+    actions: Container,
+    partner: PartnerServerDto,
+    reload: () -> Unit,
+) {
+    info.div(tr("Signaturschlüssel geändert: Austausch angehalten"), className = "text-danger small fw-bold partner-key-change") {
+        setAttribute("role", "alert")
+    }
+    partner.signingKeyFingerprint?.let { fingerprint ->
+        info.div(tr("Bisher vertrauter Schlüssel (Fingerabdruck)"), className = "small text-muted")
+        info.untrustedDiv(fingerprint, className = "font-monospace small text-break")
+    }
+    val pending = partner.signingKeyPendingFingerprint
+    if (pending == null) {
+        info.div(tr("Der Partner kündigt keinen Schlüssel mehr an."), className = "small text-muted")
+        return
+    }
+    info.div(tr("Neu angekündigter Schlüssel (Fingerabdruck)"), className = "small text-muted")
+    info.untrustedDiv(pending, className = "font-monospace small text-break")
+    actions.actionButton(ActionIcon.APPROVE, tr("Neuen Schlüssel übernehmen"), style = ButtonStyle.OUTLINEDANGER, small = true) {
+        onClick {
+            confirmDialog(
+                title = tr("Schlüssel übernehmen?"),
+                message = tr("Prüfen Sie den Fingerabdruck mit der Partnerorganisation, bevor Sie ihn übernehmen."),
+                confirmLabel = tr("Jetzt übernehmen"),
+                confirmIcon = ActionIcon.APPROVE,
+            ) {
+                runGuardedAction(button = null) {
+                    guarded { rpcService<IPartnerServerService>().acceptPartnerSigningKey(partner.id, pending) }
+                    reload()
+                }
+            }
+        }
+    }
 }
 
 private fun renderHiddenSwitch(
@@ -386,6 +429,30 @@ private fun renderDiscoveredRow(
         PartnerServersLogic.discoveredStatus(server),
         className = "small ${if (server.lastError != null) "text-danger" else "text-muted"}",
     )
+    if (server.signingKeyHeld) {
+        info.div(
+            tr("Schlüsselwechsel gesperrt"),
+            className = "small text-danger fw-bold partner-key-hold",
+        ) { setAttribute("role", "status") }
+        head.actionButton(ActionIcon.UNDO, tr("Sperre aufheben"), small = true) {
+            onClick {
+                confirmDialog(
+                    title = tr("Sperre aufheben?"),
+                    message =
+                        tr(
+                            "Der nächste Abruf übernimmt den Schlüssel dieses Servers neu. Prüfen Sie vorher, ob der Wechsel erwartet war.",
+                        ),
+                    confirmLabel = tr("Sperre jetzt aufheben"),
+                    confirmIcon = ActionIcon.UNDO,
+                ) {
+                    runGuardedAction(button = null) {
+                        guarded { rpcService<IPartnerServerService>().releaseDiscoveredSigningKeyHold(server.host) }
+                        reload()
+                    }
+                }
+            }
+        }
+    }
     head.actionButton(ActionIcon.REVOKE, tr("Sperren"), small = true) {
         onClick {
             runGuardedAction(button = this) {

@@ -12,6 +12,7 @@ import network.lapis.cloud.server.db.generated.PartnerEventTable
 import network.lapis.cloud.server.db.generated.PartnerServerTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.withSavepoint
+import network.lapis.cloud.server.federation.SigningKeyFingerprint
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.shared.domain.PartnerFetchErrorCode
 import network.lapis.cloud.shared.domain.PartnerFetchStatus
@@ -57,6 +58,13 @@ internal data class PartnerRow(
     /** V1.9.312: the signing key the partner announced in its public feed, pinned by the poll (see [PartnerServerStore.applyFetchSuccess]). */
     val signingKeyId: String? = null,
     val signingPublicKeyPem: String? = null,
+    /**
+     * V1.9.319 (wave 7): a signing key other than the pinned one (or none) was announced. The pin stays; the carpool exchange with this partner
+     * is paused ([signingKeyChangedAt] set) until an ADMIN accepts the pending key by its fingerprint.
+     */
+    val signingKeyPendingId: String? = null,
+    val signingKeyPendingPem: String? = null,
+    val signingKeyChangedAt: LocalDateTime? = null,
     val carpoolFeedServedAt: LocalDateTime? = null,
     val carpoolFeedServedCount: Long = 0,
     val carpoolFeedLastItems: Int? = null,
@@ -155,6 +163,9 @@ internal object PartnerServerStore {
             carpoolSharing = this[PartnerServerTable.carpoolSharing],
             signingKeyId = this[PartnerServerTable.signingKeyId],
             signingPublicKeyPem = this[PartnerServerTable.signingPublicKeyPem],
+            signingKeyPendingId = this[PartnerServerTable.signingKeyPendingId],
+            signingKeyPendingPem = this[PartnerServerTable.signingKeyPendingPem],
+            signingKeyChangedAt = this[PartnerServerTable.signingKeyChangedAt],
             carpoolFeedServedAt = this[PartnerServerTable.carpoolFeedServedAt],
             carpoolFeedServedCount = this[PartnerServerTable.carpoolFeedServedCount],
             carpoolFeedLastItems = this[PartnerServerTable.carpoolFeedLastItems],
@@ -377,6 +388,7 @@ internal object PartnerServerStore {
         }
         PartnerDiscoveryStore.deleteDiscoveredForHostOrId(host = row.host, remoteServerId = parsed.remoteServerId)
         replaceEvents(partnerId = id, host = row.host, parsed = parsed, now = now)
+        var keyChanged = false
         PartnerServerTable.update({ PartnerServerTable.id eq id }) {
             it[remoteServerId] = parsed.remoteServerId
             it[remoteName] = parsed.remoteName
@@ -388,15 +400,36 @@ internal object PartnerServerStore {
             it[nextFetchAt] = nextSlot(host = row.host, now = now)
             it[PartnerServerTable.etag] = etag
             it[remotePartnersJson] = parsed.partnersJson
-            // V1.9.312: the announced signing key is pinned on every successful fetch (TOFU over the TLS fetch to the partner host, refreshed on
-            // every poll). A feed WITHOUT a (valid) key clears the pin: a partner that withdraws its key loses access to the carpool teaser feed.
+            // V1.9.319 (wave 7): the announced key is pinned ONLY the first time (TOFU over the TLS fetch to the partner host). A different key, or none,
+            // never replaces the pin: it waits as a pending key and the carpool exchange pauses until an administrator accepts it (see below).
             val key = parsed.signingKey
-            if (key?.keyId != row.signingKeyId || key?.publicKeyPem != row.signingPublicKeyPem) {
-                it[signingKeyId] = key?.keyId
-                it[signingPublicKeyPem] = key?.publicKeyPem
-                it[signingKeyPinnedAt] = if (key == null) null else now
+            when {
+                row.signingPublicKeyPem == null -> {
+                    if (key != null) {
+                        it[signingKeyId] = key.keyId
+                        it[signingPublicKeyPem] = key.publicKeyPem
+                        it[signingKeyPinnedAt] = now
+                    }
+                }
+                key != null && key.keyId == row.signingKeyId && key.publicKeyPem == row.signingPublicKeyPem -> {
+                    // The old key is back: that is no new trust, the pause ends.
+                    if (row.signingKeyChangedAt != null) {
+                        it[signingKeyPendingId] = null
+                        it[signingKeyPendingPem] = null
+                        it[signingKeyChangedAt] = null
+                    }
+                }
+                else -> {
+                    keyChanged = row.signingKeyChangedAt == null
+                    it[signingKeyPendingId] = key?.keyId
+                    it[signingKeyPendingPem] = key?.publicKeyPem
+                    if (row.signingKeyChangedAt == null) it[signingKeyChangedAt] = now
+                }
             }
         }
+        // The partner row is locked (partner row first, like every other drop): the copies that came from this partner or that it signed as their
+        // origin go now, the forwardable ones are reported as withdrawn.
+        if (keyChanged) CarpoolReceivedStore.dropMatchingBlock(patterns = listOf(row.host), now = now)
         return true
     }
 
@@ -449,7 +482,7 @@ internal object PartnerServerStore {
                 .selectAll()
                 .where {
                     (PartnerServerTable.active eq true) and (PartnerServerTable.carpoolSharing eq true) and
-                        PartnerServerTable.signingPublicKeyPem.isNotNull() and
+                        PartnerServerTable.signingPublicKeyPem.isNotNull() and PartnerServerTable.signingKeyChangedAt.isNull() and
                         (PartnerServerTable.carpoolPullNextAt.isNull() or (PartnerServerTable.carpoolPullNextAt lessEq now))
                 }.orderBy(PartnerServerTable.carpoolPullNextAt to SortOrder.ASC, PartnerServerTable.host to SortOrder.ASC)
                 .limit(limit)
@@ -537,8 +570,62 @@ internal object PartnerServerStore {
         val row = findPartnerByHost(host) ?: return null
         val pem = row.signingPublicKeyPem ?: return null
         val keyId = row.signingKeyId ?: return null
+        // V1.9.319: while a key change waits for the administrator the partner is not trusted to sign anything.
+        if (row.signingKeyChangedAt != null) return null
         if (!row.active || PartnerBlocklistPattern.isBlocked(host = host, patterns = blockPatterns())) return null
         return if (keyIdHost(keyId) == host) pem else null
+    }
+
+    /** The outcome of [acceptPendingSigningKey]. The fingerprints are for the audit entry (never the PEM). */
+    internal sealed interface AcceptKeyResult {
+        data class Accepted(
+            val host: String,
+            val oldFingerprint: String?,
+            val newFingerprint: String,
+        ) : AcceptKeyResult
+
+        data object NoSuchPartner : AcceptKeyResult
+
+        /** No pending key, or its fingerprint is not [expectedFingerprint] (the partner announced yet another key meanwhile). */
+        data object Mismatch : AcceptKeyResult
+    }
+
+    /**
+     * V1.9.319: the administrator accepts the pending signing key of a direct partner. Only when its fingerprint is EXACTLY [expectedFingerprint]
+     * (protects against a key that changed again between the read and the click). The pin becomes the pending key, the pause ends, and the next
+     * pull is due right away with a clean slate. No network.
+     */
+    fun acceptPendingSigningKey(
+        id: Uuid,
+        expectedFingerprint: String,
+        now: LocalDateTime,
+    ): AcceptKeyResult {
+        val row = lockPartner(id) ?: return AcceptKeyResult.NoSuchPartner
+        val pem = row.signingKeyPendingPem
+        val keyId = row.signingKeyPendingId
+        if (row.signingKeyChangedAt == null || pem == null || keyId == null) return AcceptKeyResult.Mismatch
+        val fingerprint = SigningKeyFingerprint.of(pem)
+        if (!MessageDigest.isEqual(
+                fingerprint.toByteArray(Charsets.UTF_8),
+                expectedFingerprint.trim().lowercase().toByteArray(Charsets.UTF_8),
+            )
+        ) {
+            return AcceptKeyResult.Mismatch
+        }
+        PartnerServerTable.update({ PartnerServerTable.id eq id }) {
+            it[signingKeyId] = keyId
+            it[signingPublicKeyPem] = pem
+            it[signingKeyPinnedAt] = now
+            it[signingKeyPendingId] = null
+            it[signingKeyPendingPem] = null
+            it[signingKeyChangedAt] = null
+        }
+        resetCarpoolPull(id = id, now = now)
+        return AcceptKeyResult.Accepted(
+            host = row.host,
+            oldFingerprint = row.signingPublicKeyPem?.let { SigningKeyFingerprint.of(it) },
+            newFingerprint = fingerprint,
+        )
     }
 
     internal fun keyIdHost(keyId: String): String? =
