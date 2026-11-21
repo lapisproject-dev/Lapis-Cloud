@@ -1,0 +1,109 @@
+= Auctions in fiat currency and in the federation (concept)
+:description: Concept for auctions paid in euros or another currency without Lapis Cloud ever holding money, buy now and price offers, and showing auctions to partner servers.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+WARNING: **Concept only, nothing is built.** This document is a basis for a legal review and for a wave plan. **It is not legal advice and nothing in it has been reviewed by a lawyer.** Every legal statement below is a question for a lawyer, not a finding. The first country is **Germany**.
+
+== Decisions taken
+
+. **Lapis Cloud never holds money.** It does not receive, hold, forward or trigger a payment.
+. **One currency per auction.** The currency cannot change after the first bid.
+. **Bids only on the origin server.** Partner servers only *show* an auction; bidding, buying and paying happen on the origin server.
+. **Sellers are members selling privately**, not the organisation.
+. First country: **Germany**. Georgia later, checked separately.
+. Today (0.56.0) auctions and tenders are paid **only in LTR**. A buy-now price already exists (`buyNowPriceLtr`, RPC `buyNow`, LTR only). A **price offer does not exist**.
+
+== Model: direct payment outside Lapis Cloud
+
+. The seller creates the auction with a currency, a starting bid, an end and **their own payment details** (for example an IBAN or their own payment link).
+. The highest bidder wins. Lapis Cloud only establishes **who** won and **at which price**. Nothing is reserved or debited.
+. The buyer pays **the seller directly**, outside Lapis Cloud. Lapis Cloud shows the payment details to the winner only; it triggers nothing and forwards nothing.
+. Both confirm in Lapis Cloud: "payment received", then "delivered". Lapis Cloud records nothing else.
+. A dispute goes to the board or the arbitration body of the organisation. Lapis Cloud is not a party.
+
+Not recommended: a payment provider integrated into Lapis Cloud (marketplace model; extra review, fees, and the question whether Lapis Cloud then sits in the payment chain), and any escrow in the system (that is holding money).
+
+[kuml, auction-fiat-status, svg]
+----
+stateDiagram(name = "Status of a fiat auction") {
+    val start = initialState()
+    val open = state(name = "OPEN")
+    val awaiting = state(name = "AWAITING_PAYMENT")
+    val paid = state(name = "PAID")
+    val completed = state(name = "COMPLETED")
+    val unsold = state(name = "ENDED_NO_SALE")
+    transition(source = start, target = open)
+    transition(source = open, target = awaiting) { trigger = "winner, buy now or accepted offer" }
+    transition(source = open, target = unsold) { trigger = "ended without bid" }
+    transition(source = awaiting, target = paid) { trigger = "both confirm: payment received" }
+    transition(source = paid, target = completed) { trigger = "both confirm: delivered" }
+}
+----
+
+== Buy now and price offer
+
+*Buy now (exists, LTR only).* An optional fixed price per auction; `buyNow` ends the auction at once at that price, guarded against concurrent bids by a row lock. For a fiat auction the fixed price is in the currency of the auction and is followed by the direct-payment flow, without any reservation.
+
+*Price offer (new).* A buyer offers a price below the buy-now price. The seller accepts, declines or counters, each within a deadline (for example 48 hours). An acceptance ends the auction as a sale at the agreed price; an open offer does not extend the auction. Origin server only.
+
+* Abuse limits: one open offer per buyer and auction, a cap of offers per auction, a block after repeated declines.
+* When an offer binds the buyer and whether a consumer right of withdrawal applies to a commercial seller are **legal questions**.
+
+[kuml, auction-offer-status, svg]
+----
+stateDiagram(name = "Status of a price offer") {
+    val start = initialState()
+    val offered = state(name = "OFFERED")
+    val countered = state(name = "COUNTERED")
+    val accepted = state(name = "ACCEPTED")
+    val declined = state(name = "DECLINED")
+    val expired = state(name = "EXPIRED")
+    val withdrawn = state(name = "WITHDRAWN")
+    transition(source = start, target = offered)
+    transition(source = offered, target = accepted) { trigger = "seller accepts" }
+    transition(source = offered, target = declined) { trigger = "seller declines" }
+    transition(source = offered, target = countered) { trigger = "seller counters" }
+    transition(source = offered, target = expired) { trigger = "deadline" }
+    transition(source = offered, target = withdrawn) { trigger = "buyer withdraws" }
+    transition(source = countered, target = accepted) { trigger = "buyer accepts" }
+    transition(source = countered, target = declined) { trigger = "buyer declines" }
+    transition(source = countered, target = expired) { trigger = "deadline" }
+}
+----
+
+== Data model (sketch)
+
+* `auction.currency`: ISO 4217, mandatory, fixed after the first bid; amounts as integers in the smallest unit. LTR stays possible as its own "currency" `LTR` (today's behaviour, reservation only there).
+* No `AUCTION_HOLD` and no entry in the LTR account for a fiat auction.
+* The seller's payment details are personal data of a third party (GDPR), visible only to the winner, with retention and erasure rules.
+* Confirmations "payment received" and "delivered" with a timestamp; the audit log holds no amount and no account number.
+
+== Federation: visibility only
+
+Template: the carpool exchange (`carpool-federation.adoc`): a signed teaser feed, consent per entry, a switch per partner, withdrawal with tombstones, hop limit, key pin.
+
+* A partner shows only: title, starting or current price, **currency**, buy-now price, "price offer possible", end, origin server. **No** seller name, no bids, no offers, no payment details.
+* Bidding and paying only on the origin server; the hint links there. An account on the origin server is needed.
+* Consent of the seller per auction, off by default; instance switch and partner switch off by default.
+* Open: whether the feed shows the running price or a static teaser, withdrawal on cancellation and end, protection against fake auctions, retention until the end of the auction.
+
+== Legal questions for Germany (for a lawyer)
+
+* Is a pure direct payment, with Lapis Cloud only documenting the award, outside the payment-services supervision (ZAG)? Does showing the seller's payment details change that?
+* Private or commercial seller: repeated sales can be commercial (consumer law, VAT, trade registration, imprint). What notice does Lapis Cloud owe, and where does the responsibility lie?
+* Platform reporting duties (Plattformen-Steuertransparenzgesetz, DAC7): is the organisation that runs the instance a platform operator, from which volume, what would Lapis Cloud have to record?
+* Liability of the organisation for content and sales of its members (platform liability, Digital Services Act) and the terms of use.
+* Anti-money-laundering: a threshold notice for higher amounts between private persons.
+* Political parties: donation and reporting law (§ 25 PartG) if proceeds go to the party; for private sales between members probably not affected.
+* Binding force of an offer and the offer flow.
+
+== Waves (proposal)
+
+. Currency per auction and the direct-payment flow, including buy now in fiat.
+. Price offer.
+. Visibility in the federation (carpool pattern).
+. Tenders analogously.
+
+Nothing is started before the legal review of the open questions.
