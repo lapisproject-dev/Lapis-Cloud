@@ -3,6 +3,7 @@ package network.lapis.cloud.server.time
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.truncatedToDbPrecision
@@ -50,6 +51,15 @@ object ServerClock {
         utc: LocalDateTime,
         orgZone: TimeZone,
     ): LocalDateTime = utc.toInstant(zone).toLocalDateTime(orgZone)
+
+    /**
+     * Class D date to the class-A system timestamp (UTC) of its first instant in [orgZone]; a midnight DST gap
+     * resolves to the first valid instant of that day.
+     */
+    fun dateStartToSystem(
+        date: LocalDate,
+        orgZone: TimeZone,
+    ): LocalDateTime = date.atStartOfDayIn(orgZone).toLocalDateTime(zone).truncatedToDbPrecision()
 
     /** Class A value (UTC wall-clock) to the instant it denotes. */
     fun systemToInstant(utc: LocalDateTime): Instant = utc.toInstant(zone)

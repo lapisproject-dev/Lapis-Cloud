@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.payment.bankstatement
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
@@ -12,10 +13,10 @@ import network.lapis.cloud.server.db.generated.BankStatementLineTable
 import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
+import network.lapis.cloud.server.payment.PaymentJournalLink
 import network.lapis.cloud.server.payment.sepa.IbanValidator
 import network.lapis.cloud.server.rpc.ContributionPaymentEvents
 import network.lapis.cloud.server.rpc.ContributionPostingBridge
-import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -70,6 +71,7 @@ internal val bankStatementLineIsStillSuggested: Op<Boolean>
 private data class AutoPostCandidate(
     val lineId: Uuid,
     val lineOrdinal: Int,
+    val bookingDate: LocalDate,
     val contributionId: Uuid,
     val memberId: Uuid,
     val amount: BigDecimal,
@@ -579,6 +581,7 @@ internal class BankStatementImportService(
                             AutoPostCandidate(
                                 lineId = lineId,
                                 lineOrdinal = index,
+                                bookingDate = line.bookingDate,
                                 contributionId = outcome.contributionId,
                                 memberId = memberId,
                                 amount = line.amount,
@@ -808,6 +811,8 @@ internal class BankStatementImportService(
 
                     val paymentTransactionId = Uuid.random()
                     val now = clock()
+                    val paidWall = BankBookingTime.wallClockOf(candidate.bookingDate)
+                    val receivedAt = BankBookingTime.receivedAtOf(candidate.bookingDate)
                     val inserted =
                         runCatching {
                             PaymentTransactionTable.insert {
@@ -823,7 +828,7 @@ internal class BankStatementImportService(
                                 it[contributionId] = candidate.contributionId
                                 it[memberId] = candidate.memberId
                                 it[payerReference] = null
-                                it[receivedAt] = now
+                                it[PaymentTransactionTable.receivedAt] = receivedAt
                                 it[reconciledAt] = now
                                 it[reconciledBy] = uploadedBy
                                 it[reconciliationNote] = candidate.matchExplanation?.take(2000)
@@ -861,7 +866,7 @@ internal class BankStatementImportService(
                                 )
                         }) {
                             it[status] = ContributionStatus.PAID
-                            it[paidAt] = OrganizationTimeZone.wallNowOf(now)
+                            it[paidAt] = paidWall
                             it[paidAmount] = candidate.amount
                             it[paymentMethod] = ContributionPaymentMethod.MANUAL
                         }
@@ -873,7 +878,7 @@ internal class BankStatementImportService(
                         ContributionPostingBridge.postContributionPayment(
                             contributionId = candidate.contributionId,
                             paidAmount = candidate.amount,
-                            paidAt = OrganizationTimeZone.wallNowOf(now),
+                            paidAt = paidWall,
                             source = ContributionPaymentMethod.MANUAL,
                             providerFee = null,
                             actorMemberId = uploadedBy,
@@ -889,13 +894,17 @@ internal class BankStatementImportService(
                         throw PostOneLineHalt(PostOutcome.BookingIncomplete)
                     }
 
+                    // A failing link is a programming error (IllegalStateException): deliberately not mapped to a
+                    // PostOutcome, the whole transaction rolls back and the import aborts instead of hiding it.
+                    PaymentJournalLink.link(paymentTransactionId = paymentTransactionId, journalEntryId = journalEntryId)
+
                     BankStatementLineTable.update({ BankStatementLineTable.id eq candidate.lineId }) {
                         it[status] = BankStatementLineStatus.POSTED
                         it[BankStatementLineTable.paymentTransactionId] = paymentTransactionId
                     }
                     ContributionPaymentEvents.publishPaid(
                         contributionId = candidate.contributionId,
-                        paidAt = OrganizationTimeZone.wallNowOf(now),
+                        paidAt = paidWall,
                         amount = candidate.amount,
                         transactionId = paymentTransactionId.toString(),
                     )

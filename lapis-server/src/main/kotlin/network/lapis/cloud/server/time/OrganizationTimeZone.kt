@@ -58,7 +58,11 @@ object OrganizationTimeZone {
     /** The calendar date (class D) of [systemNow] (a class-A UTC stamp, possibly an injected test clock) in the organization zone. */
     fun dateOf(systemNow: LocalDateTime): LocalDate = wallNowOf(systemNow).date
 
+    /** Class D calendar date to the class-A timestamp of its start of day in the organization zone. */
+    fun systemStartOfDay(date: LocalDate): LocalDateTime = ServerClock.dateStartToSystem(date = date, orgZone = current())
+
     /** Class-D "today" in the organization zone. */
+
     fun today(): LocalDate = ServerClock.todayIn(current())
 
     /** Drops the cached value; the next [current] re-reads the database. */

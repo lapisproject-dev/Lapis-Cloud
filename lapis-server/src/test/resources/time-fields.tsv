@@ -344,7 +344,7 @@ dto:SepaSettingsDto.lastAcknowledgedAt	A	stamped by the server clock (DbClock/Se
 dto:PaymentGatewaySettingsDto.lastAcknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:CheckoutSessionDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:CheckoutSessionDto.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
-dto:PaymentTransactionDto.receivedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PaymentTransactionDto.receivedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; bank-statement payments derive it from the class-D booking date (start of that day in the organization zone, ServerClock.dateStartToSystem)
 dto:PeerTransferResultDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:PoliticianProfileDto.grantedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:PoliticianProfileDto.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
@@ -584,7 +584,7 @@ col:ContributionReliefRequestTable.decidedAt	A	stamped by the server clock (DbCl
 col:ContributionReliefRequestTable.executedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ContributionTable.periodStart	D	calendar date (LocalDate); never converted
 col:ContributionTable.periodEnd	D	calendar date (LocalDate); never converted
-col:ContributionTable.paidAt	B	ContributionService.markContributionPaid: typed by the treasurer; PSP/bank-statement writers store the organization wall-clock of now (V1.9.38); SEPA stores the settleable date at 00:00
+col:ContributionTable.paidAt	B	ContributionService.markContributionPaid: typed by the treasurer; PSP writers store the organization wall-clock of now (V1.9.38); bank-statement writers store the booking date at 00:00; SEPA stores the settleable date at 00:00
 col:ContributionTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ContributionTable.dueDate	D	calendar date (LocalDate); never converted
 col:CrmContactTable.consentGivenAt	B	CrmContactStore: input.consentGivenAt typed in the contact form
@@ -769,7 +769,7 @@ col:PaymentCheckoutSessionTable.createdAt	A	stamped by the server clock (DbClock
 col:PaymentCheckoutSessionTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PaymentCheckoutSessionTable.completedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PaymentGatewayComplianceAcknowledgmentTable.acknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
-col:PaymentTransactionTable.receivedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PaymentTransactionTable.receivedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; bank-statement payments derive it from the class-D booking date (start of that day in the organization zone, ServerClock.dateStartToSystem)
 col:PaymentTransactionTable.reconciledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PeerTransferTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PoliticianProfileTable.grantedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

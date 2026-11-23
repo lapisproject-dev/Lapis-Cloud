@@ -103,6 +103,11 @@ classDiagram(name = "Time classes (V1.9.38)") {
 * *Other writers.* SEPA `GrpHdr/CreDtTm` and the DATEV header "erzeugt am" are zone-less and read as local time, so they carry the
   organization wall-clock of the real clock. A letter's date line uses `ServerClock.todayIn(orgZone)`. The 72-hour data-breach deadline adds
   72 *real* hours to the instant of the typed-in wall-clock and is shown again as a wall-clock.
+* *Bank-statement booking paths.* The manual contribution/donation assignment and the import auto-post derive their times from the class-D
+  `bank_statement_line.booking_date`, not from the moment of the assignment: `payment_transaction.received_at` (class A) is the start of that day
+  in the organization zone as UTC (`ServerClock.dateStartToSystem`, `OrganizationTimeZone.systemStartOfDay`; a midnight DST gap resolves to the
+  first valid instant), while `contribution.paid_at` and the bridge `paidAt` (class B) are the booking date at 00:00. `reconciled_at` stays the
+  real assignment time. See `docs/architecture/bank-statement-import.adoc`.
 * *Filters.* `AuditLogListQuery.from/to` are wall-clocks typed in the filter form in the organization zone; the server converts them to UTC
   before comparing with `occurred_at`.
 

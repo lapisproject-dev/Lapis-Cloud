@@ -23,6 +23,7 @@ import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.testdb.legacyAccountRole
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BankStatementDonationAssignmentInput
 import network.lapis.cloud.shared.domain.BankStatementLineQuery
@@ -164,6 +165,10 @@ class BankStatementStoreTest :
                             it[JournalEntryTable.id]
                         }
                     if (journalEntryIds.isNotEmpty()) {
+                        // payment_transaction.journal_entry_id now points at these entries (bank booking paths link it).
+                        PaymentTransactionTable.update({ PaymentTransactionTable.journalEntryId inList journalEntryIds }) {
+                            it[PaymentTransactionTable.journalEntryId] = null
+                        }
                         PostingTable.deleteWhere { PostingTable.journalEntryId inList journalEntryIds }
                         JournalEntryTable.deleteWhere { JournalEntryTable.id inList journalEntryIds }
                     }
@@ -206,6 +211,33 @@ class BankStatementStoreTest :
             createdContributionIds.clear()
             createdLedgerAccountIds.clear()
             createdImportIds.clear()
+        }
+
+        /** The payment is linked to its journal entry and carries the bank booking date, not the assignment moment. */
+        fun assertBankBooking(
+            paymentTransactionId: String,
+            bookingDate: LocalDate,
+            expectContributionPaidAt: Uuid?,
+        ) {
+            transaction {
+                val pt =
+                    PaymentTransactionTable
+                        .selectAll()
+                        .where { PaymentTransactionTable.id eq Uuid.parse(paymentTransactionId) }
+                        .single()
+                val journalEntryId = pt[PaymentTransactionTable.journalEntryId]
+                journalEntryId shouldNotBe null
+                pt[PaymentTransactionTable.receivedAt] shouldBe OrganizationTimeZone.systemStartOfDay(bookingDate)
+                pt[PaymentTransactionTable.reconciledAt] shouldNotBe pt[PaymentTransactionTable.receivedAt]
+                val entry = JournalEntryTable.selectAll().where { JournalEntryTable.id eq journalEntryId!! }.single()
+                entry[JournalEntryTable.entryDate] shouldBe bookingDate
+                if (expectContributionPaidAt != null) {
+                    ContributionTable
+                        .selectAll()
+                        .where { ContributionTable.id eq expectContributionPaidAt }
+                        .single()[ContributionTable.paidAt] shouldBe LocalDateTime(bookingDate, kotlinx.datetime.LocalTime(0, 0))
+                }
+            }
         }
 
         fun uploaderId(): Uuid {
@@ -408,6 +440,39 @@ class BankStatementStoreTest :
                     .single()[ContributionTable.status] shouldBe ContributionStatus.PAID
                 JournalEntryTable.selectAll().where { JournalEntryTable.createdBy eq actor }.count() shouldBe 1
             }
+            assertBankBooking(dto.paymentTransactionId!!, LocalDate(2026, 3, 15), expectContributionPaidAt = contributionId)
+        }
+
+        test("assignLineToContribution: a note of 120 characters is accepted, the voucher is cut to 100, the note is kept in full") {
+            val bankAccountId = createLedgerAccount(LedgerAccountType.ASSET)
+            val incomeAccountId = createLedgerAccount(LedgerAccountType.INCOME)
+            setAccountMapping(bankAccountId = bankAccountId, incomeAccountId = incomeAccountId)
+            val contributionId = createMemberWithContribution(amountDue = BigDecimal("30.00"))
+            val actor = uploaderId()
+            val lineId = importOneUnmatchedLine(amount = "30,00")
+            val longNote = "N".repeat(120)
+
+            val dto =
+                BankStatementStore.assignLineToContribution(
+                    lineId = lineId,
+                    contributionId = contributionId,
+                    note = longNote,
+                    actorMemberId = actor,
+                    actorRole = AccountRole.TREASURER,
+                )
+
+            transaction {
+                val journalEntryId =
+                    PaymentTransactionTable
+                        .selectAll()
+                        .where { PaymentTransactionTable.id eq Uuid.parse(dto.paymentTransactionId!!) }
+                        .single()
+                        .also { it[PaymentTransactionTable.reconciliationNote] shouldBe longNote }[PaymentTransactionTable.journalEntryId]!!
+                JournalEntryTable
+                    .selectAll()
+                    .where { JournalEntryTable.id eq journalEntryId }
+                    .single()[JournalEntryTable.voucherReference] shouldBe "N".repeat(100)
+            }
         }
 
         test(
@@ -514,6 +579,7 @@ class BankStatementStoreTest :
 
             dto.status shouldBe BankStatementLineStatus.POSTED
             dto.paymentTransactionId shouldNotBe null
+            assertBankBooking(dto.paymentTransactionId!!, LocalDate(2026, 3, 15), expectContributionPaidAt = null)
         }
 
         test(

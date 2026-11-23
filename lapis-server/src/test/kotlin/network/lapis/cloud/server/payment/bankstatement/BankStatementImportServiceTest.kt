@@ -23,6 +23,7 @@ import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.testdb.legacyAccountRole
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BankAccountInput
 import network.lapis.cloud.shared.domain.BankStatementFormat
@@ -179,8 +180,7 @@ class BankStatementImportServiceTest :
                 }
                 // ContributionPostingBridge.postContributionPayment creates its OWN journal_entry
                 // row (created_by = the uploader/actor) independently of
-                // payment_transaction.journal_entry_id (which BankStatementImportService/
-                // BankStatementStore never populate) -- find journal entries by createdBy, same
+                // the payment, find journal entries by createdBy, same
                 // precedent ContributionPostingBridgeTest's own afterSpec establishes, not by
                 // tracing through payment_transaction.
                 if (createdMemberIds.isNotEmpty()) {
@@ -189,6 +189,10 @@ class BankStatementImportServiceTest :
                             it[JournalEntryTable.id]
                         }
                     if (journalEntryIds.isNotEmpty()) {
+                        // payment_transaction.journal_entry_id now points at these entries (bank booking paths link it).
+                        PaymentTransactionTable.update({ PaymentTransactionTable.journalEntryId inList journalEntryIds }) {
+                            it[PaymentTransactionTable.journalEntryId] = null
+                        }
                         PostingTable.deleteWhere { PostingTable.journalEntryId inList journalEntryIds }
                         JournalEntryTable.deleteWhere { JournalEntryTable.id inList journalEntryIds }
                     }
@@ -389,6 +393,16 @@ class BankStatementImportServiceTest :
                         .where { ContributionTable.id eq createdContributionIds.single() }
                         .single()
                 contributionRow[ContributionTable.status] shouldBe ContributionStatus.PAID
+                contributionRow[ContributionTable.paidAt] shouldBe LocalDateTime(2026, 3, 15, 0, 0)
+
+                // the payment is linked to its journal entry and carries the bank booking date
+                val pt =
+                    PaymentTransactionTable
+                        .selectAll()
+                        .where { PaymentTransactionTable.id eq lineRow[BankStatementLineTable.paymentTransactionId]!! }
+                        .single()
+                (pt[PaymentTransactionTable.journalEntryId] != null) shouldBe true
+                pt[PaymentTransactionTable.receivedAt] shouldBe OrganizationTimeZone.systemStartOfDay(LocalDate(2026, 3, 15))
             }
         }
 

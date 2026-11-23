@@ -11,10 +11,10 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.db.isUniqueViolation
+import network.lapis.cloud.server.payment.PaymentJournalLink
 import network.lapis.cloud.server.rpc.ContributionPaymentEvents
 import network.lapis.cloud.server.rpc.ContributionPostingBridge
 import network.lapis.cloud.server.rpc.DonationPostingBridge
-import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BankCsvDialect
 import network.lapis.cloud.shared.domain.BankStatementDonationAssignmentInput
@@ -53,6 +53,9 @@ import java.math.BigDecimal
 import kotlin.uuid.Uuid
 
 private const val MAX_PAGE_SIZE = 200
+
+/** `journal_entry.voucher_reference` is VARCHAR(100); a longer treasurer note used to make the assignment fail. */
+private const val VOUCHER_MAX_LENGTH = 100
 
 /**
  * Welle V1.4.5.1 "Kontoauszugs-Import". Reine Exposed-Datenzugriffs- UND Disposition-Schicht fuer
@@ -204,6 +207,9 @@ internal object BankStatementStore {
             val amount = lineRow[BankStatementLineTable.amount]
             val currency = lineRow[BankStatementLineTable.currency]
             val now = DbClock.nowLocalDateTime()
+            val bookingDate = lineRow[BankStatementLineTable.bookingDate]
+            val paidWall = BankBookingTime.wallClockOf(bookingDate)
+            val receivedAt = BankBookingTime.receivedAtOf(bookingDate)
 
             val contributionRow =
                 ContributionTable.selectAll().where { ContributionTable.id eq contributionId }.singleOrNull()
@@ -227,7 +233,7 @@ internal object BankStatementStore {
                         it[PaymentTransactionTable.contributionId] = contributionId
                         it[PaymentTransactionTable.memberId] = memberId
                         it[payerReference] = null
-                        it[receivedAt] = now
+                        it[PaymentTransactionTable.receivedAt] = receivedAt
                         it[reconciledAt] = now
                         it[reconciledBy] = actorMemberId
                         it[reconciliationNote] = note?.take(2000)
@@ -252,7 +258,7 @@ internal object BankStatementStore {
                         )
                 }) {
                     it[status] = ContributionStatus.PAID
-                    it[paidAt] = OrganizationTimeZone.wallNowOf(now)
+                    it[paidAt] = paidWall
                     it[paidAmount] = amount
                     it[paymentMethod] = ContributionPaymentMethod.MANUAL
                 }
@@ -264,12 +270,12 @@ internal object BankStatementStore {
                 ContributionPostingBridge.postContributionPayment(
                     contributionId = contributionId,
                     paidAmount = amount,
-                    paidAt = OrganizationTimeZone.wallNowOf(now),
+                    paidAt = paidWall,
                     source = ContributionPaymentMethod.MANUAL,
                     providerFee = null,
                     actorMemberId = actorMemberId,
                     actorRole = actorRole,
-                    voucherReference = note?.take(140) ?: "KA-MANUAL-$lineId",
+                    voucherReference = note?.take(VOUCHER_MAX_LENGTH) ?: "KA-MANUAL-$lineId",
                 )
             // Review fix (MAJOR): must throw, not silently degrade -- see the sibling
             // assignLineToDonation below, which already gets this right. A `null` result means the
@@ -287,6 +293,8 @@ internal object BankStatementStore {
                 )
             }
 
+            PaymentJournalLink.link(paymentTransactionId = paymentTransactionId, journalEntryId = journalEntryId)
+
             BankStatementLineTable.update({ BankStatementLineTable.id eq lineId }) {
                 it[status] = BankStatementLineStatus.POSTED
                 it[matchedContributionId] = contributionId
@@ -297,7 +305,7 @@ internal object BankStatementStore {
             }
             ContributionPaymentEvents.publishPaid(
                 contributionId = contributionId,
-                paidAt = OrganizationTimeZone.wallNowOf(now),
+                paidAt = paidWall,
                 amount = amount,
                 transactionId = paymentTransactionId.toString(),
             )
@@ -328,6 +336,9 @@ internal object BankStatementStore {
             val amount = lineRow[BankStatementLineTable.amount]
             val currency = lineRow[BankStatementLineTable.currency]
             val now = DbClock.nowLocalDateTime()
+            val bookingDate = lineRow[BankStatementLineTable.bookingDate]
+            val paidWall = BankBookingTime.wallClockOf(bookingDate)
+            val receivedAt = BankBookingTime.receivedAtOf(bookingDate)
 
             val fingerprint = "manual-donation:$lineId"
             val paymentTransactionId = Uuid.random()
@@ -346,7 +357,7 @@ internal object BankStatementStore {
                         it[PaymentTransactionTable.contributionId] = null
                         it[PaymentTransactionTable.memberId] = donorMemberUuid
                         it[payerReference] = null
-                        it[receivedAt] = now
+                        it[PaymentTransactionTable.receivedAt] = receivedAt
                         it[reconciledAt] = now
                         it[reconciledBy] = actorMemberId
                         it[reconciliationNote] = input.note?.take(2000)
@@ -364,20 +375,22 @@ internal object BankStatementStore {
                 DonationPostingBridge.postDonationPayment(
                     paymentTransactionId = paymentTransactionId,
                     paidAmount = amount,
-                    paidAt = OrganizationTimeZone.wallNowOf(now),
+                    paidAt = paidWall,
                     providerFee = null,
                     donorMemberId = donorMemberUuid,
                     externalDonorId = externalDonorUuid,
                     donorCategory = input.donorCategory,
                     actorMemberId = actorMemberId,
                     actorRole = actorRole,
-                    voucherReference = input.note?.take(140) ?: "SP-MANUAL-$lineId",
+                    voucherReference = input.note?.take(VOUCHER_MAX_LENGTH) ?: "SP-MANUAL-$lineId",
                 )
             if (journalEntryId == null) {
                 throw ConflictException(
                     "Spende konnte nicht gebucht werden (Kontenzuordnung unvollstaendig oder Spendengrenze ueberschritten).",
                 )
             }
+
+            PaymentJournalLink.link(paymentTransactionId = paymentTransactionId, journalEntryId = journalEntryId)
 
             BankStatementLineTable.update({ BankStatementLineTable.id eq lineId }) {
                 it[status] = BankStatementLineStatus.POSTED

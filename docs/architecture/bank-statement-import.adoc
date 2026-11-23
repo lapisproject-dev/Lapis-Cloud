@@ -276,6 +276,38 @@ posting one without a category would silently bypass the §25 PartG compliance c
   unbalanced posting, for instance) is caught and logged by line id only — the rest of the file
   keeps processing.
 
+== Journal link and booking date (fix/payment-journal-link, V168)
+
+*Journal link invariant.* All three booking paths (manual contribution, manual donation, import auto-post) write
+`payment_transaction.journal_entry_id` through `PaymentJournalLink.link` in the same transaction as the posting, after the bridge returned
+and before the line becomes `POSTED`. If the link cannot be written (`IllegalStateException`, a programming error) the whole transaction
+rolls back; in the auto-post path this aborts the import instead of hiding the error. `PaymentJournalLinkTripwireTest` fails when a production
+file inserts a payment and posts through a bridge without writing the link. Before this fix the payment list showed these payments as
+"not booked" and the filter `unreconciledOnly` listed them.
+
+*Booking date, not value date.* The bank's `booking_date` (NOT NULL) is the day the money reached the account (inflow principle, relevant for
+§25 PartG and the account statement). `value_date` is nullable, missing in some CSV dialects and relevant for interest only, so it is not used.
+Consequences: `payment_transaction.received_at` is the start of that day in the organization zone (class A, UTC), `contribution.paid_at`, the
+bridge `paidAt` (hence `journal_entry.entry_date` and the year of the §25 PartG annual sum) and the webhook `occurredAt` are the booking date at
+00:00 (class B). `reconciled_at` stays the assignment moment. `journal_entry.posted_at` remains the bridge `paidAt` as before (class A in the
+registry, but written as a class-B value by every bridge caller; unchanged, a separate wave).
+
+*Back-fill (V168).* The SQL migration links existing payments only where exactly one journal entry matches (description carries the payment or
+contribution id, voucher matches, a DEBIT posting has the payment amount, the entry is `POSTED` and not yet owned by another payment).
+Skipped and left unlinked: no match; more than one candidate; several payments claiming one entry; entry already linked to another payment;
+payment on several lines or a line that is not `POSTED`; already linked payments; PSP payments. `journal_entry` and `posting` are never
+touched. No audit entry is possible from SQL.
+
+*Start-up repair.* `BankPaymentReceivedAtRepair` (production entry point only, idempotent) sets `received_at` of legacy MANUAL payments whose
+`received_at` equals `reconciled_at` and whose `provider_event_id` is one of the three fingerprints of exactly one `POSTED` line. It writes no
+audit entry (there is no audit entity type for payments) and logs only counters. `contribution.paid_at` of old payments is not changed.
+
+*No period lock.* There is no closed-period or year-end lock: a booking date in an earlier month or year is accepted. Only the stored PartG
+report versions are frozen documents. A guard is a separate wave.
+
+*Voucher length.* The treasurer note is cut to 100 characters for `journal_entry.voucher_reference` (VARCHAR(100)); the full note stays in
+`payment_transaction.reconciliation_note`. Before, 101 to 140 characters made the assignment fail.
+
 == Limits
 
 [cols="1,1"]

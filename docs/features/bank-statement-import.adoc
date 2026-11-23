@@ -13,6 +13,12 @@ payment-reference grammar, the matching pipeline, the two-phase booking transact
 `ContributionPostingBridge`'s single-row-lock-per-transaction contract, the structured JSON
 rejection contract, and the screen's own UI/UX decisions).
 
+== What the treasurer sees
+
+A line assigned to a contribution or donation, by hand or automatically, is booked with the bank's booking date: the payment list shows the
+booking date as "received" (date at 00:00) and the payment as "booked" (journal entry linked). A wrongly assigned line cannot be reassigned;
+corrections are made with a counter entry in the accounting screen (a reversal function is a later wave).
+
 == What doesn't work yet (this wave)
 
 Deliberately out of scope, see `CHANGELOG.md`: DATEV/lexoffice/sevDesk export (see the next section

@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.DbClock
 import kotlin.time.Instant
 
@@ -54,6 +55,25 @@ class ServerClockTest :
             } finally {
                 java.util.TimeZone.setDefault(original)
             }
+        }
+
+        test("dateStartToSystem: start of the day in the organization zone as a UTC system timestamp") {
+            ServerClock.dateStartToSystem(date = LocalDate(2026, 9, 16), orgZone = berlin) shouldBe LocalDateTime(2026, 9, 15, 22, 0, 0)
+            ServerClock.dateStartToSystem(date = LocalDate(2026, 12, 31), orgZone = berlin) shouldBe LocalDateTime(2026, 12, 30, 23, 0, 0)
+            ServerClock.dateStartToSystem(date = LocalDate(2026, 12, 31), orgZone = TimeZone.of("America/Los_Angeles")) shouldBe
+                LocalDateTime(2026, 12, 31, 8, 0, 0)
+            ServerClock.dateStartToSystem(date = LocalDate(2026, 7, 1), orgZone = TimeZone.UTC) shouldBe LocalDateTime(2026, 7, 1, 0, 0, 0)
+        }
+
+        test("dateStartToSystem: the result is the first instant of the date in the zone, also across a midnight DST gap") {
+            val santiago = TimeZone.of("America/Santiago")
+            // 2026-09-06: Chile springs forward at 00:00 local time, so local midnight does not exist.
+            val date = LocalDate(2026, 9, 6)
+            val start = ServerClock.dateStartToSystem(date = date, orgZone = santiago)
+            val instant = ServerClock.systemToInstant(start)
+            instant.toLocalDateTime(santiago).date shouldBe date
+            val before = instant - kotlin.time.Duration.parse("1s")
+            before.toLocalDateTime(santiago).date shouldBe LocalDate(2026, 9, 5)
         }
 
         test("todayIn rolls over at the organization's midnight, not at UTC midnight") {

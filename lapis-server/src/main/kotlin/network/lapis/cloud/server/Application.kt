@@ -253,6 +253,7 @@ import network.lapis.cloud.server.partg.PartgReviewerRetentionPoller
 import network.lapis.cloud.server.partner.PartnerFeedPoller
 import network.lapis.cloud.server.partner.registerPartnerFeedRoutes
 import network.lapis.cloud.server.payment.bankstatement.BankAccountStore
+import network.lapis.cloud.server.payment.bankstatement.BankPaymentReceivedAtRepair
 import network.lapis.cloud.server.payment.bankstatement.BankStatementImportService
 import network.lapis.cloud.server.payment.dunning.DunningConfig
 import network.lapis.cloud.server.payment.dunning.DunningPoller
@@ -585,6 +586,7 @@ fun main() {
     DatabaseConfig.connect()
     // V1.9.298 review fix: legacy DONOR accounts that kept an administrative role must not regain it now that donors may sign in.
     DonorRoleDowngrade.run()
+    BankPaymentReceivedAtRepair.run()
     DevSeedData.seedIfEmpty()
     // Staging-Instanz-Welle: deliberately ONLY here, never in `module()` below -- see
     // StagingSeedData KDoc "Production entry point" for why (module() re-runs on every
