@@ -45,6 +45,9 @@ dto:AuctionSettingsDto.lastAcknowledgedAt	A	stamped by the server clock (DbClock
 dto:AuctionFiatAvailabilityDto.sellerAcknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:AuctionSettingsDto.fiatLastAcknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:AuctionFiatAuditSnapshot.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AuctionOfferDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AuctionOfferDto.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AuctionOfferDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:PollSnapshot.closesAt	B	PollService.createPoll: input.closesAt typed in the poll form; compared via wallNow (PollLifecycle)
 dto:PollSnapshot.closedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:AuditLogEntryDto.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
@@ -507,6 +510,9 @@ col:AuctionTable.paymentConfirmedAt	A	stamped by the server clock (DbClock/Serve
 col:AuctionTable.deliveryConfirmedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AuctionPaymentDetailsTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AuctionFiatAcknowledgmentTable.acknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AuctionOfferTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AuctionOfferTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AuctionOfferTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AuditLogEntryTable.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:BackupOperationLogTable.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:BackupOperationLogTable.finishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

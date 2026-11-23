@@ -615,7 +615,8 @@ class DomainModelMergerTest :
             // 83-meeting-reward.kuml.kts (V1.9.316) adds FIVE real tables (meeting_reward_policy, _policy_change, _committee, _settlement, _line), 279 -> 284.
             // 79-partner-servers.kuml.kts (V1.9.319, W7) adds ONE real table (partner_signing_key_hold), 284 -> 285.
             // 21-auction.kuml.kts (V1.9.320, Fiat wave a) adds TWO real tables (auction_payment_details, auction_fiat_acknowledgment), 285 -> 287.
-            val distinctTableNames = 287
+            // 21-auction.kuml.kts (V1.9.321, Fiat wave b) adds ONE real table (auction_offer), 287 -> 288.
+            val distinctTableNames = 288
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -717,6 +718,7 @@ class DomainModelMergerTest :
                     "AuctionComplianceAcknowledgmentTable.kt",
                     "AuctionPaymentDetailsTable.kt",
                     "AuctionFiatAcknowledgmentTable.kt",
+                    "AuctionOfferTable.kt",
                     "SessionTable.kt",
                     "MembershipAgreementAcknowledgmentTable.kt",
                     // V0.11.0 FRIEND self-registration.

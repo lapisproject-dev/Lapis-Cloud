@@ -30,11 +30,24 @@ The server allows changing the currency and the prices of an own auction **befor
 
 *Privacy of the progress.* Everybody sees that an auction was awarded; whether it is already paid or completed is visible only to the seller and the winner (others see "awarded").
 
+== Price offers
+
+A seller of a euro auction **with a buy-now price** can allow *Preisvorschläge* when listing (a checkbox; it cannot be changed afterwards, and the terms of the auction are frozen once the first offer exists). A buyer proposes a price; it binds the buyer only once the seller accepts.
+
+* The proposal must be at least the visible price plus 1.00 EUR (the starting price without a bid) and below the buy-now price. A proposal never extends the auction.
+* It is valid for 48 hours, but never beyond the end of the auction. The screen shows the real deadline.
+* The seller *accepts* (the auction ends at that price and goes on as after any award: payment directly, confirmations), *declines*, or makes **one** counter-offer, which the buyer accepts or declines. There is no free text.
+* Limits: one open proposal per buyer and auction, 20 proposals and counter-offers per auction, and after three declined proposals a buyer can propose no more on that auction.
+* When the auction ends (time, buy now or an accepted proposal) every other open proposal ends with it ("Auktion beendet").
+* Price bounds: a proposal must exceed the visible price by the minimum increment when bids exist. The seller may still accept, or counter at, an amount equal to the visible price (the visible price may have risen to a proposal's amount after it was made); only an amount below it is refused.
+* A buyer sees only his own proposals and the counter-offers addressed to him (*Meine Preisvorschläge*); the seller sees the list of his auction with the names of the proposers. Nobody else sees any figure about the proposals.
+* Not legally reviewed: when an offer binds, and consumer rights against a commercial seller, are open legal questions.
+
 == For administrators
 
 *Administration > Auction > Auctions in euros (direct payment).* *Euro-Auktionen aktivieren* shows the operator notice (version and hash are echoed back unchanged) and needs the explicit confirmation; the acknowledgment (who, when, which version) is recorded. *Deaktivieren* blocks only new euro listings; running euro auctions can still be bid on, awarded and confirmed.
 
-The feature needs `LAPIS_SECRET_ENCRYPTION_KEY` (the key that also protects the SEPA and travel-expense IBANs): without it no euro auction can be created. Backups taken before schema V166 cannot be restored.
+The feature needs `LAPIS_SECRET_ENCRYPTION_KEY` (the key that also protects the SEPA and travel-expense IBANs): without it no euro auction can be created. Backups taken before schema V166 (and, since price offers, before V167) cannot be restored.
 
 == Data protection
 
@@ -43,5 +56,5 @@ The payment details of the seller are deleted at once when the auction closes wi
 == Limits
 
 * EUR only; Germany first (a German IBAN is required).
-* No price offers, no appearance on partner servers, no outbid or ending-soon dashboard signals for euro auctions (the won and sold signals exist).
+* No appearance on partner servers, no outbid or ending-soon dashboard signals for euro auctions (the won and sold signals exist).
 * The wording of both notices is the proposal of the authors and has **not** been checked by a lawyer.

@@ -33762,3 +33762,180 @@ msgstr "Le aste in euro non sono attualmente disponibili su questo server."
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
 msgid "Auktion in Euro"
 msgstr "Asta in euro"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Gegenvorschlag, offen"
+msgstr "Controproposta, aperta"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Gegenvorschlag"
+msgstr "Controproposta"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Auktion beendet"
+msgstr "Asta terminata"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preis vorschlagen"
+msgstr "Proporre un prezzo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Gegenvorschlag machen"
+msgstr "Fare una controproposta"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Ein Preisvorschlag bindet Sie erst, wenn der Verkäufer ihn annimmt. Er gilt höchstens bis zum Auktionsende. Ihre Gebote und der Sofortkauf bleiben davon unberührt."
+msgstr "Una proposta di prezzo la vincola solo quando il venditore l'accetta. È valida al massimo fino alla fine dell'asta. Le sue offerte e l'acquisto immediato non vengono toccati."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Ein Gegenvorschlag bindet Sie erst, wenn der Käufer ihn annimmt. Es ist nur ein Gegenvorschlag möglich."
+msgstr "Una controproposta la vincola solo quando l'acquirente l'accetta. È possibile una sola controproposta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Ihr Preis (%1)"
+msgstr "Il suo prezzo (%1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Erlaubt: ab %1 bis unter %2."
+msgstr "Consentito: da %1 fino a meno di %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Bitte einen Betrag ab %1 und unter %2 angeben."
+msgstr "Inserisca un importo da %1 e inferiore a %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschlag gesendet."
+msgstr "Proposta di prezzo inviata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Gegenvorschlag gesendet."
+msgstr "Controproposta inviata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschlag annehmen"
+msgstr "Accettare la proposta di prezzo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Mit der Annahme endet die Auktion. %1 bezahlt %2 direkt an Sie. Lapis nimmt kein Geld an und vermittelt bei Streit nicht."
+msgstr "Con l'accettazione l'asta termina. %1 paga %2 direttamente a lei. Lapis non riceve denaro e non interviene in caso di controversia."
+
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Mit der Annahme endet die Auktion. Sie bezahlen %1 direkt an den Verkäufer. Das ist verbindlich. Es gibt keinen Käuferschutz."
+msgstr "Con l'accettazione l'asta termina. Lei paga %1 direttamente al venditore. È vincolante. Non esiste una tutela dell'acquirente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschlag angenommen: \"%1\" für %2."
+msgstr "Proposta di prezzo accettata: \"%1\" per %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschlag ablehnen"
+msgstr "Rifiutare la proposta di prezzo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Möchten Sie diesen Preisvorschlag ablehnen?"
+msgstr "Vuole rifiutare questa proposta di prezzo?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschlag abgelehnt."
+msgstr "Proposta di prezzo rifiutata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschlag zurückziehen"
+msgstr "Ritirare la proposta di prezzo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Möchten Sie diesen Preisvorschlag zurückziehen?"
+msgstr "Vuole ritirare questa proposta di prezzo?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschlag zurückgezogen."
+msgstr "Proposta di prezzo ritirata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Ihr Gegenvorschlag"
+msgstr "La sua controproposta"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Gegenvorschlag des Verkäufers"
+msgstr "Controproposta del venditore"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Ihr Preisvorschlag"
+msgstr "La sua proposta di prezzo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Gilt bis %1"
+msgstr "Valida fino a %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Unter dem aktuellen Gebot"
+msgstr "Inferiore all'offerta attuale"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Sie können auf diese Auktion keine weiteren Preisvorschläge machen."
+msgstr "Non può più fare proposte di prezzo per questa asta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Offene Preisvorschläge: %1"
+msgstr "Proposte di prezzo aperte: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschläge anzeigen"
+msgstr "Mostra le proposte di prezzo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Noch keine Preisvorschläge."
+msgstr "Ancora nessuna proposta di prezzo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Verkäufer"
+msgstr "Venditore"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Gilt bis"
+msgstr "Valida fino a"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Meine Preisvorschläge"
+msgstr "Le mie proposte di prezzo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Sie haben noch keine Preisvorschläge gemacht."
+msgstr "Non ha ancora fatto proposte di prezzo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschläge erlauben"
+msgstr "Consenti proposte di prezzo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Käufer können einen Preis unter dem Sofortkaufpreis vorschlagen. Das ist nur mit Sofortkaufpreis möglich und kann nach dem Einstellen nicht mehr geändert werden."
+msgstr "Gli acquirenti possono proporre un prezzo inferiore al prezzo di acquisto immediato. È possibile solo con un prezzo di acquisto immediato e non può più essere modificato dopo la pubblicazione."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschläge sind nur mit einem Sofortkaufpreis möglich."
+msgstr "Le proposte di prezzo sono possibili solo con un prezzo di acquisto immediato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Für diese Auktion ist kein Preisvorschlag möglich."
+msgstr "Per questa asta non è possibile una proposta di prezzo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Der Betrag liegt außerhalb des erlaubten Bereichs für einen Preisvorschlag."
+msgstr "L'importo è fuori dall'intervallo consentito per una proposta di prezzo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Für diese Auktion sind keine weiteren Preisvorschläge möglich."
+msgstr "Per questa asta non sono possibili altre proposte di prezzo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Das aktuelle Gebot liegt inzwischen über diesem Preisvorschlag."
+msgstr "L'offerta attuale supera ormai questa proposta di prezzo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Dieser Preisvorschlag ist nicht mehr offen."
+msgstr "Questa proposta di prezzo non è più aperta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Die Bedingungen dieser Auktion können wegen der Preisvorschläge nicht mehr geändert werden."
+msgstr "Le condizioni di questa asta non possono più essere modificate a causa delle proposte di prezzo."

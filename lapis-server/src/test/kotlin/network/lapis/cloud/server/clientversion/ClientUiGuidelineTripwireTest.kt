@@ -758,7 +758,8 @@ private val R24_JUSTIFIED: Map<String, List<String>> =
  * raw `text(` date/time fields (the event form's three, the shift forms, the CRM, GDPR, contribution, honor and filter dates)
  * became `localDateInput`/`localDateTimeInput`/`dateRangeFilter` calls, which are not `text(` calls any more. Only ever lowered.
  */
-private const val R24_REMAINING_MAX = 131 // +4 V1.9.320 (euro auction: the three payment-detail inputs of the listing form, and
+private const val R24_REMAINING_MAX = 132 // +1 V1.9.321 (the price field of the offer dialog, answered by its own send button),
+// +4 V1.9.320 (euro auction: the three payment-detail inputs of the listing form, and
 // the bid amount of a euro auction card, a dialog-like control answered by its own button; the listing form's other fields are counted already),
 // +2 V1.9.222 (gallery inputs), +1 V1.9.225 (party-report hint dialog),
 // +4 V1.9.229 (officer event form: title, description, place, link)
@@ -969,7 +970,8 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
  * a checkbox whose value feeds `setEventCaptureAllowed` after the event is saved -- a genuine field, not a filter, so it cannot be justified). The new consent screen
  * (`EventCaptureConsent.kt`) and the guest page were built with the form grammar and add nothing here. 71 -> 72.
  */
-private const val R24B_REMAINING_MAX = 85 // +2 V1.9.320 (euro auction listing form: the currency choice "Bezahlung" and the one
+private const val R24B_REMAINING_MAX = 86 // +1 V1.9.321 (the "Preisvorschläge erlauben" tick of the euro listing form),
+// +2 V1.9.320 (euro auction listing form: the currency choice "Bezahlung" and the one
 // acknowledgment tick of the seller notice -- genuine fields of the same unmigrated form, answered by its own submit button),
 // +1 V1.9.294 (layout select of the recording start dialog, next to the access select that is
 // already counted: a dialog without a form, answered by its own button),

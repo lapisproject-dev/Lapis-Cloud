@@ -26,6 +26,13 @@ import network.lapis.cloud.shared.rpc.AuctionCurrencyUnsupportedException
 import network.lapis.cloud.shared.rpc.AuctionFiatDisabledException
 import network.lapis.cloud.shared.rpc.AuctionFiatDisclaimerRequiredException
 import network.lapis.cloud.shared.rpc.AuctionFiatEncryptionUnavailableException
+import network.lapis.cloud.shared.rpc.AuctionOfferAmountInvalidException
+import network.lapis.cloud.shared.rpc.AuctionOfferBlockedException
+import network.lapis.cloud.shared.rpc.AuctionOfferLimitReachedException
+import network.lapis.cloud.shared.rpc.AuctionOfferNotAllowedException
+import network.lapis.cloud.shared.rpc.AuctionOfferNotOpenException
+import network.lapis.cloud.shared.rpc.AuctionOfferOutbidException
+import network.lapis.cloud.shared.rpc.AuctionOffersImmutableException
 import network.lapis.cloud.shared.rpc.AuctionPaymentDetailsInvalidException
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ChapterDonationFederalOnlyException
@@ -272,6 +279,15 @@ internal fun typedRefusalText(e: Throwable): String? =
         is AuctionAlreadyConfirmedException -> tr("Diese Bestätigung wurde bereits gegeben.")
         is AuctionAmountOutOfRangeException -> tr("Der Betrag liegt außerhalb des erlaubten Bereichs.")
         is AuctionFiatEncryptionUnavailableException -> tr("Auktionen in Euro sind auf diesem Server derzeit nicht verfügbar.")
+        // V1.9.321 price offers: fixed texts of its typed refusals.
+        is AuctionOfferNotAllowedException -> tr("Für diese Auktion ist kein Preisvorschlag möglich.")
+        is AuctionOfferAmountInvalidException -> tr("Der Betrag liegt außerhalb des erlaubten Bereichs für einen Preisvorschlag.")
+        is AuctionOfferLimitReachedException -> tr("Für diese Auktion sind keine weiteren Preisvorschläge möglich.")
+        is AuctionOfferBlockedException -> tr("Sie können auf diese Auktion keine weiteren Preisvorschläge machen.")
+        is AuctionOfferOutbidException -> tr("Das aktuelle Gebot liegt inzwischen über diesem Preisvorschlag.")
+        is AuctionOfferNotOpenException -> tr("Dieser Preisvorschlag ist nicht mehr offen.")
+        is AuctionOffersImmutableException ->
+            tr("Die Bedingungen dieser Auktion können wegen der Preisvorschläge nicht mehr geändert werden.")
         // V1.9.225 party report: the fixed texts of its typed refusals (Kilua RPC transmits only the exception type).
         is PartyReportNotEnabledException -> tr("Der Rechenschaftsbericht ist nur für politische Parteien verfügbar.")
         is PartyReportRevisionConflictException ->

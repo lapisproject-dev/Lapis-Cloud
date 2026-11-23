@@ -33197,3 +33197,180 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
 msgid "Auktion in Euro"
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Gegenvorschlag, offen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Gegenvorschlag"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Auktion beendet"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preis vorschlagen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Gegenvorschlag machen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Ein Preisvorschlag bindet Sie erst, wenn der Verkäufer ihn annimmt. Er gilt höchstens bis zum Auktionsende. Ihre Gebote und der Sofortkauf bleiben davon unberührt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Ein Gegenvorschlag bindet Sie erst, wenn der Käufer ihn annimmt. Es ist nur ein Gegenvorschlag möglich."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Ihr Preis (%1)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Erlaubt: ab %1 bis unter %2."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Bitte einen Betrag ab %1 und unter %2 angeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschlag gesendet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Gegenvorschlag gesendet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschlag annehmen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Mit der Annahme endet die Auktion. %1 bezahlt %2 direkt an Sie. Lapis nimmt kein Geld an und vermittelt bei Streit nicht."
+msgstr ""
+
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Mit der Annahme endet die Auktion. Sie bezahlen %1 direkt an den Verkäufer. Das ist verbindlich. Es gibt keinen Käuferschutz."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschlag angenommen: \"%1\" für %2."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschlag ablehnen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Möchten Sie diesen Preisvorschlag ablehnen?"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschlag abgelehnt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschlag zurückziehen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Möchten Sie diesen Preisvorschlag zurückziehen?"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschlag zurückgezogen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Ihr Gegenvorschlag"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Gegenvorschlag des Verkäufers"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Ihr Preisvorschlag"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Gilt bis %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Unter dem aktuellen Gebot"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Sie können auf diese Auktion keine weiteren Preisvorschläge machen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Offene Preisvorschläge: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschläge anzeigen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Noch keine Preisvorschläge."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Verkäufer"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Gilt bis"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Meine Preisvorschläge"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Sie haben noch keine Preisvorschläge gemacht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschläge erlauben"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Käufer können einen Preis unter dem Sofortkaufpreis vorschlagen. Das ist nur mit Sofortkaufpreis möglich und kann nach dem Einstellen nicht mehr geändert werden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Preisvorschläge sind nur mit einem Sofortkaufpreis möglich."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Für diese Auktion ist kein Preisvorschlag möglich."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Der Betrag liegt außerhalb des erlaubten Bereichs für einen Preisvorschlag."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Für diese Auktion sind keine weiteren Preisvorschläge möglich."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Das aktuelle Gebot liegt inzwischen über diesem Preisvorschlag."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Dieser Preisvorschlag ist nicht mehr offen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Die Bedingungen dieser Auktion können wegen der Preisvorschläge nicht mehr geändert werden."
+msgstr ""

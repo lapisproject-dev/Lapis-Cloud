@@ -81,6 +81,16 @@ class AuctionFiatLedgerTripwireTest :
                     "hasSellerAck",
                     "requireSellerAck",
                     "auditFiat",
+                    // V1.9.321 price offers: negotiation records only, never money.
+                    "makeOffer",
+                    "counterOffer",
+                    "acceptOffer",
+                    "declineOffer",
+                    "withdrawOffer",
+                    "listOffersForAuction",
+                    "listMyOffers",
+                    "lockOfferChain",
+                    "offerDto",
                 )
             val offenders =
                 fiatMethods.flatMap { method ->

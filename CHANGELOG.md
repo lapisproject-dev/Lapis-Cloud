@@ -6,6 +6,14 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+Wave V1.9.321 "Price offers" (fiat wave b), **schema V166 -> V167** (together with wave a in the same release). A backup taken before V167 cannot be restored on V167 and the other way round (schema checksum). **Not legally reviewed**; the legal-review gate of `docs/architecture/auction-fiat-and-federation.adoc` was not lifted by the code change and needs the project owner's decision before a release.
+
+* A seller of a euro auction with a buy-now price can allow price offers when listing (`auction.offers_enabled`, fixed afterwards, CHECK-protected). A buyer proposes a price above the visible price plus 1.00 EUR and below the buy-now price; the seller accepts (the auction is awarded at that price: `AWAITING_PAYMENT`), declines or counters once. 48 hours, never beyond the auction end; 1 open proposal per buyer, 20 per auction, a block after 3 declined proposals. Every end of the auction expires all other open offers. New RPCs `makeOffer`, `counterOffer`, `acceptOffer`, `declineOffer`, `withdrawOffer`, `listOffersForAuction`, `listMyOffers`; new table `auction_offer` (migration `V167__auction_price_offer.sql`). No ledger row, no money. The audit trail carries event and offer id, never an amount.
+* UI: checkbox in the euro listing form, "Preis vorschlagen" dialog, the seller's list with a tier-2 confirmation for the acceptance, the buyer's counter-offer handling, "Meine Preisvorschläge". Fixed texts in eight languages (the seven translations are model-written, not reviewed by a native speaker).
+* **Fix (wave a):** `getAuctionPaymentDetails` now requires an active membership like `confirmFiat` (a former member no longer opens the payment details); retention unchanged.
+* Export and erasure: `AuctionPersonalData` exports the offers; erasing a buyer deletes his negotiation chains without an award and keeps awarded ones.
+* Not done: the optional retention of declined/expired offers (they stay until the member is erased), notifications, federation of the "offers possible" flag.
+
 Wave V1.9.320 "Auctions in euros with direct payment" (fiat wave a), **schema V165 -> V166**. A backup taken before V166 cannot be restored on V166 (schema checksum), as after every schema change.
 
 **For operators:** the feature is **off by default**. An ADMIN switches it on (Administration, Auction, *Auctions in euros*) after reading and acknowledging an operator notice; the acknowledgment is recorded. It needs `LAPIS_SECRET_ENCRYPTION_KEY` (the key of the SEPA and travel-expense IBANs): without it no euro auction can be created. Release 0.56.0 cannot read a euro auction (its `starting_bid_ltr` was `NOT NULL`): roll back only from a backup taken before V166.

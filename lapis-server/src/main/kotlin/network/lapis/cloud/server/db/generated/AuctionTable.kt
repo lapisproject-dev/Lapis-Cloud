@@ -32,6 +32,7 @@ public object AuctionTable : Table("auction") {
     public val sellerDisclaimerVersion: Column<String?> = varchar("seller_disclaimer_version", 50).nullable()
     public val paymentConfirmedAt: Column<LocalDateTime?> = datetime("payment_confirmed_at").nullable()
     public val deliveryConfirmedAt: Column<LocalDateTime?> = datetime("delivery_confirmed_at").nullable()
+    public val offersEnabled: Column<Boolean> = bool("offers_enabled").default(false)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

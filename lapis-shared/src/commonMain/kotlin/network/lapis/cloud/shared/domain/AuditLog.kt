@@ -730,6 +730,8 @@ data class AuctionFiatAuditSnapshot(
     val currency: String,
     val status: AuctionStatus,
     val occurredAt: LocalDateTime,
+    /** V1.9.321: the id of the price offer an `AUCTION_OFFER_*` event is about -- never its amount. */
+    val offerId: String? = null,
 )
 
 /** V1.9.320 -- after-snapshot of the instance switch for Fiat auctions ([AuditEntityType.ORGANIZATION_SETTINGS]). */

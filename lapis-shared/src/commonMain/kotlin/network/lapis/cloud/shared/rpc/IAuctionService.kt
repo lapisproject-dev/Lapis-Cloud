@@ -8,6 +8,7 @@ import network.lapis.cloud.shared.domain.AuctionComplianceAcknowledgmentInput
 import network.lapis.cloud.shared.domain.AuctionComplianceDisclaimerDto
 import network.lapis.cloud.shared.domain.AuctionDto
 import network.lapis.cloud.shared.domain.AuctionFiatAvailabilityDto
+import network.lapis.cloud.shared.domain.AuctionOfferDto
 import network.lapis.cloud.shared.domain.AuctionPaymentDetailsDto
 import network.lapis.cloud.shared.domain.AuctionPaymentDetailsInput
 import network.lapis.cloud.shared.domain.AuctionSettingsDto
@@ -208,4 +209,34 @@ interface IAuctionService {
         enabled: Boolean,
         input: AuctionComplianceAcknowledgmentInput?,
     ): AuctionSettingsDto
+
+    // ── V1.9.321 (Fiat wave b): price offers. Every method needs an ACTIVE member. A stranger, a missing row and a malformed id all get the SAME
+    // NotFoundException (no existence leak). Not legally reviewed: an offer binds the buyer only once the seller accepts. ──
+
+    /** Role: any active member except the seller. Proposes [amountMinor] on a Fiat auction with price offers (below the Sofortkauf price). */
+    suspend fun makeOffer(
+        auctionId: String,
+        amountMinor: Long,
+    ): AuctionOfferDto
+
+    /** Role: the SELLER. Answers an open proposal with ONE counter-offer (higher than the proposal, below the Sofortkauf price). */
+    suspend fun counterOffer(
+        offerId: String,
+        amountMinor: Long,
+    ): AuctionOfferDto
+
+    /** Role: the seller (for a proposal) or the buyer (for a counter-offer). Awards the auction at the offered price: AWAITING_PAYMENT. */
+    suspend fun acceptOffer(offerId: String): AuctionDto
+
+    /** Role: the seller (for a proposal) or the buyer (for a counter-offer). */
+    suspend fun declineOffer(offerId: String): AuctionOfferDto
+
+    /** Role: the author of the open offer. */
+    suspend fun withdrawOffer(offerId: String): AuctionOfferDto
+
+    /** Role: the SELLER of the auction. All proposals and counter-offers, newest first (at most [network.lapis.cloud.shared.domain.AuctionOfferRules.MAX_OFFERS_PER_AUCTION]). */
+    suspend fun listOffersForAuction(auctionId: String): List<AuctionOfferDto>
+
+    /** Role: any active member. The caller's own proposals and the counter-offers addressed to him, newest first, capped. */
+    suspend fun listMyOffers(): List<AuctionOfferDto>
 }

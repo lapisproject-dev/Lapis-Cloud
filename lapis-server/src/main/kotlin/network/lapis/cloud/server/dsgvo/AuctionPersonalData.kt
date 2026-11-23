@@ -6,8 +6,10 @@ import kotlinx.serialization.json.putJsonArray
 import network.lapis.cloud.server.db.generated.AuctionBidTable
 import network.lapis.cloud.server.db.generated.AuctionComplianceAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.AuctionFiatAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.AuctionOfferTable
 import network.lapis.cloud.server.db.generated.AuctionPaymentDetailsTable
 import network.lapis.cloud.server.db.generated.AuctionTable
+import network.lapis.cloud.shared.domain.AuctionOfferStatus
 import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
@@ -44,6 +46,11 @@ import kotlin.uuid.Uuid
  * SELLER the payment details of all his auctions are deleted at once -- they are only useful while the auction runs, and the retained auction row
  * (shared transaction record) does not need them. The acknowledgments are retained like [AuctionComplianceAcknowledgmentTable]: accountability
  * (Art. 5(2) DSGVO).
+ *
+ * **V1.9.321 price offers** (`auction_offer`): the export lists the member's own offers (as buyer) and the offers on the auctions he sold, with
+ * amounts and status. On erasure the negotiation chains of the member as BUYER that did NOT lead to an award (no ACCEPTED row in the chain) are
+ * deleted -- they are only useful while the auction runs. A chain with an ACCEPTED offer is the proof of the purchase price of a shared
+ * transaction record and is retained like the auction itself; offers on auctions the member only SOLD belong to the buyers' records and stay.
  */
 object AuctionPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "auction"
@@ -55,6 +62,7 @@ object AuctionPersonalData : MemberPersonalDataContributor {
             AuctionComplianceAcknowledgmentTable,
             AuctionPaymentDetailsTable,
             AuctionFiatAcknowledgmentTable,
+            AuctionOfferTable,
         )
 
     override fun exportMember(memberId: Uuid) =
@@ -83,6 +91,31 @@ object AuctionPersonalData : MemberPersonalDataContributor {
                                 put("maxBidLtr", row[AuctionBidTable.maxBidLtr]?.toPlainString())
                                 put("maxBidMinor", row[AuctionBidTable.maxBidMinor])
                                 put("createdAt", row[AuctionBidTable.createdAt].toString())
+                            },
+                        )
+                    }
+            }
+            putJsonArray("priceOffers") {
+                AuctionOfferTable
+                    .selectAll()
+                    .where {
+                        (AuctionOfferTable.buyerMemberId eq memberId) or
+                            (
+                                AuctionOfferTable.auctionId inList
+                                    AuctionTable.selectAll().where { AuctionTable.sellerMemberId eq memberId }.map { it[AuctionTable.id] }
+                            )
+                    }.forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("id", row[AuctionOfferTable.id].toString())
+                                put("auctionId", row[AuctionOfferTable.auctionId].toString())
+                                // Art. 15(4): never the internal ID of another member -- only whether the row is the requester's own.
+                                put("ownOffer", row[AuctionOfferTable.buyerMemberId] == memberId)
+                                put("fromSeller", row[AuctionOfferTable.fromSeller])
+                                put("amountMinor", row[AuctionOfferTable.amountMinor])
+                                put("status", row[AuctionOfferTable.status].name)
+                                put("createdAt", row[AuctionOfferTable.createdAt].toString())
+                                put("expiresAt", row[AuctionOfferTable.expiresAt].toString())
                             },
                         )
                     }
@@ -163,7 +196,40 @@ object AuctionPersonalData : MemberPersonalDataContributor {
                 .where { AuctionFiatAcknowledgmentTable.acknowledgedByMemberId eq memberId }
                 .count()
 
+        // V1.9.321: the buyer's negotiation chains without an award are deleted (counter-offers first: they reference their parent).
+        val ownOffers = AuctionOfferTable.selectAll().where { AuctionOfferTable.buyerMemberId eq memberId }.toList()
+        val acceptedIds = ownOffers.filter { it[AuctionOfferTable.status] == AuctionOfferStatus.ACCEPTED }.map { it[AuctionOfferTable.id] }
+        val keepIds =
+            acceptedIds.toSet() +
+                ownOffers.filter { it[AuctionOfferTable.id] in acceptedIds }.mapNotNull { it[AuctionOfferTable.parentOfferId] }
+        val deletable = ownOffers.filter { it[AuctionOfferTable.id] !in keepIds }
+        val deletableChildren = deletable.filter { it[AuctionOfferTable.parentOfferId] != null }.map { it[AuctionOfferTable.id] }
+        val deletableParents = deletable.filter { it[AuctionOfferTable.parentOfferId] == null }.map { it[AuctionOfferTable.id] }
+        var offerRowsDeleted = 0
+        if (deletableChildren.isNotEmpty()) {
+            offerRowsDeleted +=
+                AuctionOfferTable.deleteWhere { AuctionOfferTable.id inList deletableChildren }
+        }
+        if (deletableParents.isNotEmpty()) {
+            offerRowsDeleted +=
+                AuctionOfferTable.deleteWhere { AuctionOfferTable.id inList deletableParents }
+        }
+        val offerRowsRetained =
+            AuctionOfferTable
+                .selectAll()
+                .where { AuctionOfferTable.buyerMemberId eq memberId }
+                .count()
+                .toInt()
+
         return listOf(
+            TableErasureOutcome(
+                table = "auction_offer",
+                rowsDeleted = offerRowsDeleted,
+                rowsRetained = offerRowsRetained,
+                retentionReason =
+                    "Offers that led to an award are the proof of the agreed price of a shared transaction record; offers on auctions " +
+                        "the member only sold belong to the buyers' records.",
+            ),
             TableErasureOutcome(
                 table = "auction_payment_details",
                 rowsDeleted = detailRows,

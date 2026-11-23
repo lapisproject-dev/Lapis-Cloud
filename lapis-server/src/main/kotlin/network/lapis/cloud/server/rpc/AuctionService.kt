@@ -5,6 +5,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.auction.AuctionOfferStore
 import network.lapis.cloud.server.auction.AuctionPaymentDetailsRetention
 import network.lapis.cloud.server.auction.AuctionPaymentDetailsStore
 import network.lapis.cloud.server.auction.AuctionPaymentDetailsValidator
@@ -15,6 +16,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AuctionBidTable
 import network.lapis.cloud.server.db.generated.AuctionComplianceAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.AuctionFiatAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.AuctionOfferTable
 import network.lapis.cloud.server.db.generated.AuctionTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -40,6 +42,9 @@ import network.lapis.cloud.shared.domain.AuctionDurationRules
 import network.lapis.cloud.shared.domain.AuctionFiatAuditSnapshot
 import network.lapis.cloud.shared.domain.AuctionFiatAvailabilityDto
 import network.lapis.cloud.shared.domain.AuctionFiatSwitchAuditSnapshot
+import network.lapis.cloud.shared.domain.AuctionOfferDto
+import network.lapis.cloud.shared.domain.AuctionOfferRules
+import network.lapis.cloud.shared.domain.AuctionOfferStatus
 import network.lapis.cloud.shared.domain.AuctionPaymentDetailsDto
 import network.lapis.cloud.shared.domain.AuctionPaymentDetailsInput
 import network.lapis.cloud.shared.domain.AuctionSettingsDto
@@ -50,6 +55,7 @@ import network.lapis.cloud.shared.domain.CreateAuctionListingInput
 import network.lapis.cloud.shared.domain.CreateFiatAuctionListingInput
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.UpdateAuctionTermsInput
 import network.lapis.cloud.shared.rpc.AuctionAlreadyConfirmedException
 import network.lapis.cloud.shared.rpc.AuctionAmountOutOfRangeException
@@ -59,6 +65,13 @@ import network.lapis.cloud.shared.rpc.AuctionCurrencyUnsupportedException
 import network.lapis.cloud.shared.rpc.AuctionFiatDisabledException
 import network.lapis.cloud.shared.rpc.AuctionFiatDisclaimerRequiredException
 import network.lapis.cloud.shared.rpc.AuctionFiatEncryptionUnavailableException
+import network.lapis.cloud.shared.rpc.AuctionOfferAmountInvalidException
+import network.lapis.cloud.shared.rpc.AuctionOfferBlockedException
+import network.lapis.cloud.shared.rpc.AuctionOfferLimitReachedException
+import network.lapis.cloud.shared.rpc.AuctionOfferNotAllowedException
+import network.lapis.cloud.shared.rpc.AuctionOfferNotOpenException
+import network.lapis.cloud.shared.rpc.AuctionOfferOutbidException
+import network.lapis.cloud.shared.rpc.AuctionOffersImmutableException
 import network.lapis.cloud.shared.rpc.AuctionPaymentDetailsInvalidException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -103,6 +116,9 @@ private const val FIAT_ACK_SELLER = "SELLER"
 
 /** The ONE answer of `getAuctionPaymentDetails`/the confirmations for a stranger, a missing row, an unawarded or an LTR auction. No id in it. */
 private const val PAYMENT_DETAILS_NOT_FOUND = "Auction not found"
+
+/** The ONE answer of every offer method for a stranger, a missing offer, a malformed id or an auction without offers. No id in it. */
+private const val OFFER_NOT_FOUND = "Offer not found"
 
 /** The statuses of an awarded Fiat auction (the payment details can be opened, the confirmations run). */
 private val AWARDED_FIAT_STATUSES = setOf(AuctionStatus.AWAITING_PAYMENT, AuctionStatus.PAID, AuctionStatus.COMPLETED)
@@ -447,7 +463,8 @@ class AuctionService(
                     type = AttachedImageOwnerType.AUCTION_LISTING,
                     ownerIds = rows.map { it[AuctionTable.id] },
                 )
-            rows.map { row -> rowToDto(row = row, now = now, callerId = current.memberId, covers = covers) }
+            val offerSummaries = offerSummariesFor(rows = rows, callerId = current.memberId, now = now)
+            rows.map { row -> rowToDto(row = row, now = now, callerId = current.memberId, covers = covers, offers = offerSummaries) }
         }
     }
 
@@ -526,7 +543,8 @@ class AuctionService(
                     type = AttachedImageOwnerType.AUCTION_LISTING,
                     ownerIds = rows.map { it[AuctionTable.id] },
                 )
-            rows.map { row -> rowToDto(row = row, now = now, callerId = current.memberId, covers = covers) }
+            val offerSummaries = offerSummariesFor(rows = rows, callerId = current.memberId, now = now)
+            rows.map { row -> rowToDto(row = row, now = now, callerId = current.memberId, covers = covers, offers = offerSummaries) }
         }
     }
 
@@ -661,6 +679,8 @@ class AuctionService(
         }
         requireSupportedFiatCurrency(input.currency)
         validateFiatPrices(startingMinor = input.startingPriceMinor, buyNowMinor = input.buyNowPriceMinor)
+        // Price offers need a Sofortkauf price as the upper bound (DB CHECK chk_auction_offers_enabled says the same).
+        if (input.offersEnabled && input.buyNowPriceMinor == null) throw AuctionOfferNotAllowedException()
         val details = AuctionPaymentDetailsValidator.validate(input.paymentDetails)
         if (!paymentStore.available) throw AuctionFiatEncryptionUnavailableException()
         val auctionId = Uuid.random()
@@ -697,6 +717,7 @@ class AuctionService(
                 it[createdAt] = now
                 it[AuctionTable.endsAt] = computedEndsAt
                 it[settledAt] = null
+                it[AuctionTable.offersEnabled] = input.offersEnabled
             }
             paymentStore.upsert(auctionId = auctionId, sealed = sealed, details = details, now = now)
             auditFiat(actor = current, auctionId = auctionId, event = "AUCTION_FIAT_CREATED", action = AuditAction.CREATE, now = now)
@@ -822,6 +843,10 @@ class AuctionService(
             if (row[AuctionTable.status] != AuctionStatus.OPEN) throw ConflictException("Only an open auction can be changed")
             // Once a bid exists the currency and the prices are frozen.
             if (AuctionBidTable.selectAll().where { AuctionBidTable.auctionId eq id }.any()) throw AuctionCurrencyLockedException()
+            // V1.9.321: price offers are fixed at creation. With offers enabled the auction must stay a Fiat auction with a Sofortkauf price (the
+            // DB CHECK would otherwise answer with a 500), and once any offer exists the terms are frozen like after the first bid.
+            if (row[AuctionTable.offersEnabled] && (!targetFiat || input.buyNowPriceMinor == null)) throw AuctionOffersImmutableException()
+            if (AuctionOfferStore.hasAny(id)) throw AuctionOffersImmutableException()
             val wasFiat = row.isFiat()
             if (targetFiat) {
                 if (!wasFiat) {
@@ -922,6 +947,8 @@ class AuctionService(
         val id = runCatching { Uuid.parse(auctionId) }.getOrElse { throw NotFoundException(PAYMENT_DETAILS_NOT_FOUND) }
         val now = nowLocalDateTime()
         return transaction {
+            // Former/deactivated members no longer open the payment details; retention unchanged. Checked before the row is loaded, so it tells nothing.
+            requireActiveMembership(memberId = current.memberId)
             val row = lockAndCloseIfDue(auctionId = id, now = now, notFoundMessage = PAYMENT_DETAILS_NOT_FOUND)
             val winner = row[AuctionTable.winnerMemberId]
             val isParty = current.memberId == row[AuctionTable.sellerMemberId] || (winner != null && current.memberId == winner)
@@ -1060,6 +1087,458 @@ class AuctionService(
         }
     }
 
+    // ── Price offers (V1.9.321, Fiat wave b) ───────────────────────────────
+    //
+    // Lock order, ALWAYS: auction row ([lockAndCloseIfDue]) -> offer row ([AuctionOfferStore.lock]) -> audit chain row (last, [auditFiat]).
+    // Reading methods never write. Nothing here touches the LTR ledger. Not legally reviewed: an offer binds the buyer only once the seller accepts.
+    // Only local (origin) auctions exist today; wave (c) must reject remote ones here.
+
+    override suspend fun makeOffer(
+        auctionId: String,
+        amountMinor: Long,
+    ): AuctionOfferDto {
+        val current = resolveCurrentMember(call)
+        requireAuctionEnabled()
+        val id = runCatching { Uuid.parse(auctionId) }.getOrElse { throw NotFoundException(PAYMENT_DETAILS_NOT_FOUND) }
+        if (amountMinor < AuctionCurrencies.MIN_MINOR ||
+            amountMinor > AuctionCurrencies.MAX_MINOR
+        ) {
+            throw AuctionOfferAmountInvalidException()
+        }
+        val now = nowLocalDateTime()
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            val row = lockAndCloseIfDue(auctionId = id, now = now, notFoundMessage = PAYMENT_DETAILS_NOT_FOUND)
+            if (!row.isFiat()) throw AuctionCurrencyMismatchException()
+            val buyNow = row[AuctionTable.buyNowPriceMinor]
+            if (!row[AuctionTable.offersEnabled] ||
+                buyNow == null ||
+                row[AuctionTable.status] != AuctionStatus.OPEN ||
+                row[AuctionTable.sellerMemberId] == current.memberId
+            ) {
+                throw AuctionOfferNotAllowedException()
+            }
+            // A running negotiation may be settled when the instance switch is off, but no NEW offer is made.
+            if (!fiatEnabledNow()) throw AuctionFiatDisabledException()
+            if (AuctionOfferStore.countBuyerDeclines(auctionId = id, buyerId = current.memberId) >=
+                AuctionOfferRules.MAX_DECLINES_PER_BUYER_PER_AUCTION ||
+                AuctionOfferStore.countBuyerProposals(auctionId = id, buyerId = current.memberId) >=
+                AuctionOfferRules.MAX_PROPOSALS_PER_BUYER_PER_AUCTION
+            ) {
+                throw AuctionOfferBlockedException()
+            }
+            if (AuctionOfferStore.openNegotiationOf(auctionId = id, buyerId = current.memberId, now = now) != null ||
+                AuctionOfferStore.countActive(id) >= AuctionOfferRules.MAX_OFFERS_PER_AUCTION
+            ) {
+                throw AuctionOfferLimitReachedException()
+            }
+            val priceNow = currentFiatPriceMinor(row)
+            // The visible price is the SECOND price; the leader's hidden maximum is deliberately never compared (that would be an oracle).
+            val lowerBound = if (priceNow.hasBids) priceNow.minor + AuctionCurrencies.MIN_INCREMENT_MINOR else priceNow.minor
+            if (amountMinor < lowerBound || amountMinor >= buyNow) throw AuctionOfferAmountInvalidException()
+            val offerId =
+                AuctionOfferStore.insert(
+                    auctionId = id,
+                    buyerId = current.memberId,
+                    fromSeller = false,
+                    parentOfferId = null,
+                    amountMinor = amountMinor,
+                    now = now,
+                    expiresAt = offerExpiry(now = now, auctionEndsAt = row[AuctionTable.endsAt]),
+                )
+            auditFiat(
+                actor = current,
+                auctionId = id,
+                event = "AUCTION_OFFER_MADE",
+                action = AuditAction.CREATE,
+                now = now,
+                offerId = offerId,
+            )
+            offerDto(
+                offer = AuctionOfferStore.find(offerId)!!,
+                auction = row,
+                callerId = current.memberId,
+                now = now,
+                includeBuyerName = false,
+                currentPrice = priceNow,
+            )
+        }
+    }
+
+    override suspend fun counterOffer(
+        offerId: String,
+        amountMinor: Long,
+    ): AuctionOfferDto {
+        val current = resolveCurrentMember(call)
+        requireAuctionEnabled()
+        val id = offerId.toOfferUuid()
+        if (amountMinor < AuctionCurrencies.MIN_MINOR ||
+            amountMinor > AuctionCurrencies.MAX_MINOR
+        ) {
+            throw AuctionOfferAmountInvalidException()
+        }
+        val now = nowLocalDateTime()
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            val locked = lockOfferChain(offerId = id, now = now)
+            val auction = locked.auction
+            val offer = locked.offer
+            // Everybody who is not the seller of this auction gets the same NOT_FOUND as for a random id.
+            if (auction[AuctionTable.sellerMemberId] != current.memberId) throw NotFoundException(OFFER_NOT_FOUND)
+            // A counter-offer cannot be countered again: one counter-offer per proposal.
+            if (offer[AuctionOfferTable.fromSeller]) throw AuctionOfferNotAllowedException()
+            requireOpenOffer(offer = offer, auction = auction, now = now)
+            val buyNow = auction[AuctionTable.buyNowPriceMinor] ?: throw AuctionOfferNotAllowedException()
+            val priceNow = currentFiatPriceMinor(auction)
+            if (amountMinor <= offer[AuctionOfferTable.amountMinor] || amountMinor >= buyNow || amountMinor < priceNow.minor) {
+                throw AuctionOfferAmountInvalidException()
+            }
+            if (AuctionOfferStore.countActive(auction[AuctionTable.id]) >= AuctionOfferRules.MAX_OFFERS_PER_AUCTION) {
+                throw AuctionOfferLimitReachedException()
+            }
+            AuctionOfferStore.setStatus(offerId = id, status = AuctionOfferStatus.COUNTERED, now = now)
+            val counterId =
+                AuctionOfferStore.insert(
+                    auctionId = auction[AuctionTable.id],
+                    buyerId = offer[AuctionOfferTable.buyerMemberId],
+                    fromSeller = true,
+                    parentOfferId = id,
+                    amountMinor = amountMinor,
+                    now = now,
+                    expiresAt = offerExpiry(now = now, auctionEndsAt = auction[AuctionTable.endsAt]),
+                )
+            auditFiat(
+                actor = current,
+                auctionId = auction[AuctionTable.id],
+                event = "AUCTION_OFFER_COUNTERED",
+                action = AuditAction.UPDATE,
+                now = now,
+                offerId = counterId,
+            )
+            offerDto(
+                offer = AuctionOfferStore.find(counterId)!!,
+                auction = auction,
+                callerId = current.memberId,
+                now = now,
+                includeBuyerName = true,
+                currentPrice = priceNow,
+            )
+        }
+    }
+
+    override suspend fun acceptOffer(offerId: String): AuctionDto {
+        val current = resolveCurrentMember(call)
+        requireAuctionEnabled()
+        val id = offerId.toOfferUuid()
+        val now = nowLocalDateTime()
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            val locked = lockOfferChain(offerId = id, now = now)
+            val auction = locked.auction
+            val offer = locked.offer
+            val auctionId = auction[AuctionTable.id]
+            if (current.memberId != recipientOf(offer = offer, auction = auction)) throw NotFoundException(OFFER_NOT_FOUND)
+            // A second acceptance (or one after the expiry/the end of the auction) lands here: the auction lock was taken first, so the lazy
+            // settlement has already expired everything it had to.
+            requireOpenOffer(offer = offer, auction = auction, now = now)
+            val buyer = offer[AuctionOfferTable.buyerMemberId]
+            // A buyer who left meanwhile must not win. Answered like a closed offer, so the seller learns nothing about the buyer's status.
+            val buyerStatus =
+                MemberTable
+                    .selectAll()
+                    .where { MemberTable.id eq buyer }
+                    .singleOrNull()
+                    ?.get(MemberTable.status)
+            if (buyerStatus == null || buyerStatus !in MemberStatusSets.ORGANIZATION_MEMBER) throw AuctionOfferNotOpenException()
+            val amount = offer[AuctionOfferTable.amountMinor]
+            val buyNow = auction[AuctionTable.buyNowPriceMinor] ?: throw AuctionOfferNotAllowedException()
+            if (amount >= buyNow) throw AuctionOfferAmountInvalidException()
+            if (amount < currentFiatPriceMinor(auction).minor) throw AuctionOfferOutbidException()
+            AuctionOfferStore.setStatus(offerId = id, status = AuctionOfferStatus.ACCEPTED, now = now)
+            AuctionTable.update({ AuctionTable.id eq auctionId }) {
+                it[AuctionTable.status] = AuctionStatus.AWAITING_PAYMENT
+                it[AuctionTable.winnerMemberId] = buyer
+                it[AuctionTable.finalPriceMinor] = amount
+                it[AuctionTable.settledAt] = now
+            }
+            AuctionOfferStore.expireAllOpenLocked(auctionId = auctionId, now = now, exceptOfferId = id)
+            auditFiat(
+                actor = current,
+                auctionId = auctionId,
+                event = "AUCTION_OFFER_ACCEPTED",
+                action = AuditAction.UPDATE,
+                now = now,
+                offerId = id,
+            )
+            auditFiat(actor = current, auctionId = auctionId, event = "AUCTION_FIAT_SETTLED", action = AuditAction.UPDATE, now = now)
+            rowToDto(row = AuctionTable.selectAll().where { AuctionTable.id eq auctionId }.single(), now = now, callerId = current.memberId)
+        }
+    }
+
+    override suspend fun declineOffer(offerId: String): AuctionOfferDto {
+        val current = resolveCurrentMember(call)
+        requireAuctionEnabled()
+        val id = offerId.toOfferUuid()
+        val now = nowLocalDateTime()
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            val locked = lockOfferChain(offerId = id, now = now)
+            if (current.memberId != recipientOf(offer = locked.offer, auction = locked.auction)) throw NotFoundException(OFFER_NOT_FOUND)
+            requireOpenOffer(offer = locked.offer, auction = locked.auction, now = now)
+            AuctionOfferStore.setStatus(offerId = id, status = AuctionOfferStatus.DECLINED, now = now)
+            auditFiat(
+                actor = current,
+                auctionId = locked.auction[AuctionTable.id],
+                event = "AUCTION_OFFER_DECLINED",
+                action = AuditAction.UPDATE,
+                now = now,
+                offerId = id,
+            )
+            offerDto(
+                offer = AuctionOfferStore.find(id)!!,
+                auction = locked.auction,
+                callerId = current.memberId,
+                now = now,
+                includeBuyerName = locked.auction[AuctionTable.sellerMemberId] == current.memberId,
+                currentPrice = null,
+            )
+        }
+    }
+
+    override suspend fun withdrawOffer(offerId: String): AuctionOfferDto {
+        val current = resolveCurrentMember(call)
+        requireAuctionEnabled()
+        val id = offerId.toOfferUuid()
+        val now = nowLocalDateTime()
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            val locked = lockOfferChain(offerId = id, now = now)
+            val author = authorOf(offer = locked.offer, auction = locked.auction)
+            if (current.memberId != author) throw NotFoundException(OFFER_NOT_FOUND)
+            requireOpenOffer(offer = locked.offer, auction = locked.auction, now = now)
+            AuctionOfferStore.setStatus(offerId = id, status = AuctionOfferStatus.WITHDRAWN, now = now)
+            auditFiat(
+                actor = current,
+                auctionId = locked.auction[AuctionTable.id],
+                event = "AUCTION_OFFER_WITHDRAWN",
+                action = AuditAction.UPDATE,
+                now = now,
+                offerId = id,
+            )
+            offerDto(
+                offer = AuctionOfferStore.find(id)!!,
+                auction = locked.auction,
+                callerId = current.memberId,
+                now = now,
+                includeBuyerName = locked.auction[AuctionTable.sellerMemberId] == current.memberId,
+                currentPrice = null,
+            )
+        }
+    }
+
+    /** No lock and no write: the effective status is derived (see [AuctionOfferStore.effectiveStatus]). */
+    override suspend fun listOffersForAuction(auctionId: String): List<AuctionOfferDto> {
+        val current = resolveCurrentMember(call)
+        requireAuctionEnabled()
+        val id = runCatching { Uuid.parse(auctionId) }.getOrElse { throw NotFoundException(PAYMENT_DETAILS_NOT_FOUND) }
+        val now = nowLocalDateTime()
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            val auction = AuctionTable.selectAll().where { AuctionTable.id eq id }.singleOrNull()
+            if (auction == null || auction[AuctionTable.sellerMemberId] != current.memberId || !auction[AuctionTable.offersEnabled]) {
+                throw NotFoundException(PAYMENT_DETAILS_NOT_FOUND)
+            }
+            val priceNow = currentFiatPriceMinor(auction)
+            AuctionOfferTable
+                .selectAll()
+                .where { AuctionOfferTable.auctionId eq id }
+                .orderBy(AuctionOfferTable.createdAt, SortOrder.DESC)
+                .limit(AuctionOfferRules.MAX_OFFERS_PER_AUCTION)
+                .map {
+                    offerDto(
+                        offer = it,
+                        auction = auction,
+                        callerId = current.memberId,
+                        now = now,
+                        includeBuyerName = true,
+                        currentPrice = priceNow,
+                    )
+                }
+        }
+    }
+
+    /** No lock and no write. Only rows of the caller as BUYER (his proposals and the counter-offers addressed to him). */
+    override suspend fun listMyOffers(): List<AuctionOfferDto> {
+        val current = resolveCurrentMember(call)
+        requireAuctionEnabled()
+        val now = nowLocalDateTime()
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            val offers =
+                AuctionOfferTable
+                    .selectAll()
+                    .where { AuctionOfferTable.buyerMemberId eq current.memberId }
+                    .orderBy(AuctionOfferTable.createdAt, SortOrder.DESC)
+                    .limit(AuctionOfferRules.MAX_MY_OFFERS)
+                    .toList()
+            val auctions =
+                AuctionTable
+                    .selectAll()
+                    .where { AuctionTable.id inList offers.map { it[AuctionOfferTable.auctionId] }.distinct() }
+                    .associateBy { it[AuctionTable.id] }
+            offers.mapNotNull { offer ->
+                val auction = auctions[offer[AuctionOfferTable.auctionId]] ?: return@mapNotNull null
+                offerDto(
+                    offer = offer,
+                    auction = auction,
+                    callerId = current.memberId,
+                    now = now,
+                    includeBuyerName = false,
+                    currentPrice = null,
+                )
+            }
+        }
+    }
+
+    // ── Price offer helpers ──────────────────────────────────────────────
+
+    private class LockedOffer(
+        val auction: ResultRow,
+        val offer: ResultRow,
+    )
+
+    private class FiatPrice(
+        val minor: Long,
+        val hasBids: Boolean,
+    )
+
+    private fun String.toOfferUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException(OFFER_NOT_FOUND) }
+
+    /** Auction row FIRST (lazy settlement included), then the offer row. A missing offer, a missing auction or an auction without offers: [OFFER_NOT_FOUND]. */
+    private fun lockOfferChain(
+        offerId: Uuid,
+        now: LocalDateTime,
+    ): LockedOffer {
+        val preliminary = AuctionOfferStore.find(offerId) ?: throw NotFoundException(OFFER_NOT_FOUND)
+        val auction = lockAndCloseIfDue(auctionId = preliminary[AuctionOfferTable.auctionId], now = now, notFoundMessage = OFFER_NOT_FOUND)
+        if (!auction.isFiat() || !auction[AuctionTable.offersEnabled]) throw NotFoundException(OFFER_NOT_FOUND)
+        val offer = AuctionOfferStore.lock(offerId) ?: throw NotFoundException(OFFER_NOT_FOUND)
+        return LockedOffer(auction = auction, offer = offer)
+    }
+
+    /** The party that has to decide: the seller for a proposal, the buyer for a counter-offer. */
+    private fun recipientOf(
+        offer: ResultRow,
+        auction: ResultRow,
+    ): Uuid = if (offer[AuctionOfferTable.fromSeller]) offer[AuctionOfferTable.buyerMemberId] else auction[AuctionTable.sellerMemberId]
+
+    /** The party that made the offer. */
+    private fun authorOf(
+        offer: ResultRow,
+        auction: ResultRow,
+    ): Uuid = if (offer[AuctionOfferTable.fromSeller]) auction[AuctionTable.sellerMemberId] else offer[AuctionOfferTable.buyerMemberId]
+
+    /** The auction must still be OPEN and the offer effectively OFFERED, else [AuctionOfferNotOpenException]. */
+    private fun requireOpenOffer(
+        offer: ResultRow,
+        auction: ResultRow,
+        now: LocalDateTime,
+    ) {
+        if (auction[AuctionTable.status] != AuctionStatus.OPEN ||
+            AuctionOfferStore.effectiveStatus(row = offer, now = now) != AuctionOfferStatus.OFFERED
+        ) {
+            throw AuctionOfferNotOpenException()
+        }
+    }
+
+    /** The visible price of a Fiat auction (second price, or the starting price without a bid). */
+    private fun currentFiatPriceMinor(auction: ResultRow): FiatPrice {
+        val outcome =
+            computeFiatAuctionOutcome(
+                startingMinor = auction[AuctionTable.startingPriceMinor]!!,
+                minIncrementMinor = AuctionCurrencies.MIN_INCREMENT_MINOR,
+                bids = currentFiatBidViews(auction[AuctionTable.id]),
+            )
+        return FiatPrice(
+            minor = outcome.currentPriceMinor ?: auction[AuctionTable.startingPriceMinor]!!,
+            hasBids = outcome.leaderMemberId != null,
+        )
+    }
+
+    /** `min(now + 48 h, end of the auction)`: an offer never outlives the auction. */
+    private fun offerExpiry(
+        now: LocalDateTime,
+        auctionEndsAt: LocalDateTime,
+    ): LocalDateTime {
+        val byValidity = now.toInstant(ServerClock.zone).plus(AuctionOfferRules.OFFER_DEFAULT_VALIDITY).toLocalDateTime(ServerClock.zone)
+        return if (byValidity < auctionEndsAt) byValidity else auctionEndsAt
+    }
+
+    /** One-query aggregation for a list of auctions; only the ones with offers enabled are looked at. */
+    private fun offerSummariesFor(
+        rows: List<ResultRow>,
+        callerId: Uuid,
+        now: LocalDateTime,
+    ): Map<Uuid, AuctionOfferStore.Summary> =
+        AuctionOfferStore.summaryFor(
+            auctionIds = rows.filter { it[AuctionTable.offersEnabled] }.map { it[AuctionTable.id] },
+            callerId = callerId,
+            now = now,
+        )
+
+    /** The auction ended: every offer still open expires (`decided_at` = now). Holds the auction lock. */
+    private fun expireOffersOnEnd(
+        row: ResultRow,
+        now: LocalDateTime,
+    ) {
+        if (row[AuctionTable.offersEnabled]) AuctionOfferStore.expireAllOpenLocked(auctionId = row[AuctionTable.id], now = now)
+    }
+
+    @Suppress("LongParameterList")
+    private fun offerDto(
+        offer: ResultRow,
+        auction: ResultRow,
+        callerId: Uuid,
+        now: LocalDateTime,
+        includeBuyerName: Boolean,
+        currentPrice: FiatPrice?,
+    ): AuctionOfferDto {
+        val status = AuctionOfferStore.effectiveStatus(row = offer, now = now)
+        val fromSeller = offer[AuctionOfferTable.fromSeller]
+        val sellerId = auction[AuctionTable.sellerMemberId]
+        val endsAt = auction[AuctionTable.endsAt]
+        val open = status == AuctionOfferStatus.OFFERED && auction[AuctionTable.status] == AuctionStatus.OPEN && now < endsAt
+        val decidedAt = offer[AuctionOfferTable.decidedAt]
+        val expiresAt = offer[AuctionOfferTable.expiresAt]
+        val isSeller = callerId == sellerId
+        return AuctionOfferDto(
+            id = offer[AuctionOfferTable.id].toString(),
+            auctionId = auction[AuctionTable.id].toString(),
+            auctionTitle = auction[AuctionTable.title],
+            fromSeller = fromSeller,
+            parentOfferId = offer[AuctionOfferTable.parentOfferId]?.toString(),
+            amountMinor = offer[AuctionOfferTable.amountMinor],
+            currency = auction[AuctionTable.currency],
+            status = status,
+            endedByAuction =
+                status == AuctionOfferStatus.EXPIRED && (expiresAt >= endsAt || (decidedAt != null && decidedAt < expiresAt)),
+            createdAt = offer[AuctionOfferTable.createdAt],
+            expiresAt = expiresAt,
+            decidedAt = decidedAt,
+            buyerDisplayName = if (includeBuyerName && isSeller) memberDisplayName(offer[AuctionOfferTable.buyerMemberId]) else null,
+            belowCurrentPrice =
+                isSeller &&
+                    !fromSeller &&
+                    currentPrice != null &&
+                    currentPrice.hasBids &&
+                    offer[AuctionOfferTable.amountMinor] < currentPrice.minor,
+            callerCanAccept = open && callerId == recipientOf(offer = offer, auction = auction),
+            callerCanDecline = open && callerId == recipientOf(offer = offer, auction = auction),
+            callerCanCounter = open && isSeller && !fromSeller,
+            callerCanWithdraw = open && callerId == authorOf(offer = offer, auction = auction),
+        )
+    }
+
     // ── Fiat helpers ──────────────────────────────────────────────────────
 
     private fun fiatEnabledNow(): Boolean =
@@ -1138,6 +1617,7 @@ class AuctionService(
         event: String,
         action: AuditAction,
         now: LocalDateTime,
+        offerId: Uuid? = null,
     ) {
         val row = AuctionTable.selectAll().where { AuctionTable.id eq auctionId }.single()
         AuditLogRecorder.record(
@@ -1155,6 +1635,7 @@ class AuctionService(
                         currency = row[AuctionTable.currency],
                         status = row[AuctionTable.status],
                         occurredAt = now,
+                        offerId = offerId?.toString(),
                     ),
                 ),
             occurredAt = now,
@@ -1179,6 +1660,7 @@ class AuctionService(
                 it[settledAt] = now
             }
             paymentStore.delete(auctionId)
+            expireOffersOnEnd(row = row, now = now)
             auditFiat(actor = null, auctionId = auctionId, event = "AUCTION_FIAT_CLOSED_NO_SALE", action = AuditAction.UPDATE, now = now)
             return
         }
@@ -1188,6 +1670,7 @@ class AuctionService(
             it[finalPriceMinor] = outcome.currentPriceMinor
             it[settledAt] = now
         }
+        expireOffersOnEnd(row = row, now = now)
         auditFiat(actor = null, auctionId = auctionId, event = "AUCTION_FIAT_SETTLED", action = AuditAction.UPDATE, now = now)
     }
 
@@ -1214,6 +1697,7 @@ class AuctionService(
             it[finalPriceMinor] = buyNowPrice
             it[settledAt] = now
         }
+        expireOffersOnEnd(row = row, now = now)
         auditFiat(actor = current, auctionId = id, event = "AUCTION_FIAT_SETTLED", action = AuditAction.UPDATE, now = now)
         return rowToDto(row = AuctionTable.selectAll().where { AuctionTable.id eq id }.single(), now = now, callerId = current.memberId)
     }
@@ -1295,6 +1779,7 @@ class AuctionService(
         now: LocalDateTime,
         callerId: Uuid,
         cover: GalleryCoverRef?,
+        offers: Map<Uuid, AuctionOfferStore.Summary>? = null,
     ): AuctionDto {
         val theAuctionId = row[AuctionTable.id]
         val status = row[AuctionTable.status]
@@ -1317,6 +1802,21 @@ class AuctionService(
         // The payment progress is private: a stranger sees every awarded euro auction as plain SETTLED, never AWAITING_PAYMENT/PAID/COMPLETED.
         val shownStatus = if (isParty) status else neutralForStranger(status)
         val shownEffectiveStatus = if (isParty) effectiveStatus else neutralForStranger(effectiveStatus)
+        // Offer figures: only for an auction with offers, and never an aggregate for a stranger (that would be an oracle).
+        val offersEnabled = row[AuctionTable.offersEnabled]
+        val offerSummary =
+            if (offersEnabled) {
+                (
+                    offers ?: AuctionOfferStore.summaryFor(
+                        auctionIds = listOf(theAuctionId),
+                        callerId = callerId,
+                        now = now,
+                    )
+                )[theAuctionId]
+            } else {
+                null
+            }
+        val callerIsSeller = callerId == sellerId
         return AuctionDto(
             id = theAuctionId.toString(),
             title = row[AuctionTable.title],
@@ -1350,6 +1850,18 @@ class AuctionService(
             callerIsSeller = callerId == sellerId,
             callerIsWinner = winnerId != null && callerId == winnerId,
             hasPaymentLink = isParty && awarded && paymentStore.hasLink(theAuctionId),
+            offersEnabled = offersEnabled,
+            openOfferCountForSeller = if (offersEnabled && callerIsSeller) offerSummary?.openForSeller ?: 0 else null,
+            callerHasOpenOffer = offerSummary?.callerHasOpen ?: false,
+            callerOfferBlocked =
+                offersEnabled &&
+                    !callerIsSeller &&
+                    status == AuctionStatus.OPEN &&
+                    offerSummary != null &&
+                    (
+                        offerSummary.callerDeclines >= AuctionOfferRules.MAX_DECLINES_PER_BUYER_PER_AUCTION ||
+                            offerSummary.callerProposals >= AuctionOfferRules.MAX_PROPOSALS_PER_BUYER_PER_AUCTION
+                    ),
         )
     }
 
@@ -1432,7 +1944,13 @@ class AuctionService(
                 .forUpdate()
                 .singleOrNull()
                 ?: throw NotFoundException(notFoundMessage ?: "Auction $auctionId not found")
-        if (row[AuctionTable.status] != AuctionStatus.OPEN || now < row[AuctionTable.endsAt]) return row
+        if (row[AuctionTable.status] != AuctionStatus.OPEN || now < row[AuctionTable.endsAt]) {
+            // V1.9.321: persist the expiry of timed-out offers while the auction lock is held, so every mutation sees consistent rows.
+            if (row[AuctionTable.offersEnabled] && row[AuctionTable.status] == AuctionStatus.OPEN) {
+                AuctionOfferStore.expireDueLocked(auctionId = auctionId, now = now)
+            }
+            return row
+        }
         settleAuctionLocked(row = row, now = now)
         return AuctionTable.selectAll().where { AuctionTable.id eq auctionId }.single()
     }
@@ -1636,6 +2154,7 @@ class AuctionService(
         now: LocalDateTime,
         callerId: Uuid,
         covers: Map<Uuid, GalleryCoverRef>? = null,
+        offers: Map<Uuid, AuctionOfferStore.Summary>? = null,
     ): AuctionDto {
         val theAuctionId = row[AuctionTable.id]
         // V1.9.222: a list passes the covers of ALL its rows (one query); a single row looks its own up.
@@ -1646,7 +2165,7 @@ class AuctionService(
                     ownerIds = listOf(theAuctionId),
                 )
             )[theAuctionId]
-        if (row.isFiat()) return fiatRowToDto(row = row, now = now, callerId = callerId, cover = cover)
+        if (row.isFiat()) return fiatRowToDto(row = row, now = now, callerId = callerId, cover = cover, offers = offers)
         val status = row[AuctionTable.status]
         val outcome =
             computeAuctionOutcome(

@@ -147,6 +147,10 @@ fun renderAuctionScreen(container: SimplePanel) {
     root.h2(tr("Meine Gebote")) { addCssClass("h5") }
     val myBidsPanel = root.vPanel(spacing = 6)
 
+    // ---- Meine Preisvorschläge (V1.9.321) -------------------------------------------------
+    root.h2(tr("Meine Preisvorschläge")) { addCssClass("h5") }
+    val myOffersPanel = root.vPanel(spacing = 6)
+
     // ---- Meine Auktionen (als Verkäufer) --------------------------------------------------
     root.h2(tr("Meine Auktionen (als Verkäufer)")) { addCssClass("h5") }
     val myAuctionsPanel = root.vPanel(spacing = 10)
@@ -174,6 +178,7 @@ fun renderAuctionScreen(container: SimplePanel) {
                     renderAuctionCard(auctionsPanel, auction, currentMemberId) {
                         loadAuctions()
                         loadMyBidsInto(myBidsPanel)
+                        loadMyOffersInto(myOffersPanel)
                         loadMyAuctionsInto(myAuctionsPanel, currentMemberId)
                     }
                 }
@@ -198,6 +203,7 @@ fun renderAuctionScreen(container: SimplePanel) {
 
     loadAuctions()
     loadMyBidsInto(myBidsPanel)
+    loadMyOffersInto(myOffersPanel)
     loadMyAuctionsInto(myAuctionsPanel, currentMemberId)
 
     if (adminPanel != null) {
@@ -300,6 +306,23 @@ private fun loadMyBidsInto(panel: SimplePanel) {
             panel.p(tr("Sie haben noch keine Gebote abgegeben.")) { addCssClasses("text-muted small") }
         } else {
             renderMyBidsTable(panel, bids)
+        }
+    }
+}
+
+private fun loadMyOffersInto(panel: SimplePanel) {
+    panel.removeAll()
+    panel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+    AppScope.launch {
+        val offers =
+            loadOrShowDisabledNotice(panel, tr("Die Auktion ist derzeit deaktiviert.")) {
+                rpcService<IAuctionService>().listMyOffers()
+            } ?: return@launch
+        panel.removeAll()
+        if (offers.isEmpty()) {
+            panel.p(tr("Sie haben noch keine Preisvorschläge gemacht.")) { addCssClasses("text-muted small") }
+        } else {
+            renderMyOffersTable(panel, offers)
         }
     }
 }

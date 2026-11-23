@@ -135,6 +135,10 @@ internal fun renderAuctionCard(
     if (!isSeller && auction.effectiveStatus == AuctionStatus.OPEN) {
         renderBidAndBuyNowControls(card, auction, onChanged)
     }
+    // V1.9.321: price offers of a Fiat auction with a Sofortkauf price (fixed by the seller at creation).
+    if (isFiat && auction.offersEnabled && auction.effectiveStatus == AuctionStatus.OPEN) {
+        if (isSeller) renderSellerOffersPanel(card, auction, onChanged) else renderBuyerOfferControls(card, auction, onChanged)
+    }
 
     // Any authenticated member (NOT seller-restricted server-side) may settle -- only
     // rendered/enabled once the auction has ended but the persisted status has not yet lazily

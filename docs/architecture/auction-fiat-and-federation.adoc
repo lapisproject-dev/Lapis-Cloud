@@ -4,7 +4,7 @@
 :toc-placement: preamble
 :icons: font
 
-WARNING: **Wave (a) "currency per auction and direct payment, including buy now in fiat" is implemented (V1.9.320, schema V166); everything else in this document is still concept.** The feature is **off by default** (instance switch) and **has not been legally reviewed**. **Nothing in it is legal advice and nothing has been reviewed by a lawyer.** Every legal statement below is a question for a lawyer, not a finding. The first country is **Germany**.
+WARNING: **Wave (a) "currency per auction and direct payment, including buy now in fiat" is implemented (V1.9.320, schema V166) and wave (b) "price offer" is implemented on a feature branch (V1.9.321, schema V167); everything else in this document is still concept.** The feature is **off by default** (instance switch) and **has not been legally reviewed**. **Nothing in it is legal advice and nothing has been reviewed by a lawyer.** Every legal statement below is a question for a lawyer, not a finding. The first country is **Germany**.
 
 == Decisions taken
 
@@ -56,7 +56,7 @@ stateDiagram(name = "Status of a EUR auction (implemented)") {
 * Audit: entity type `AUCTION`, snapshot `{event, currency, status, occurredAt}` only; the instance switch is audited as `ORGANIZATION_SETTINGS`.
 * The client never caches the details, fetches them on a click, renders them as untrusted text and opens a link only when it still begins with `https://`, in a new tab with `rel="noopener noreferrer"`, naming its host.
 
-*Not part of wave (a):* price offers, federation visibility, tenders, a second currency, an LTR-denominated dashboard signal for EUR auctions (the outbid/ending-soon signals stay LTR-only), a "sale withdrawn" status, any legal review.
+*Not part of wave (a):* price offers (wave (b)), federation visibility, tenders, a second currency, an LTR-denominated dashboard signal for EUR auctions (the outbid/ending-soon signals stay LTR-only), a "sale withdrawn" status, any legal review.
 
 == Model: direct payment outside Lapis Cloud
 
@@ -89,9 +89,11 @@ stateDiagram(name = "Status of a fiat auction") {
 
 *Buy now (exists, LTR only).* An optional fixed price per auction; `buyNow` ends the auction at once at that price, guarded against concurrent bids by a row lock. For a fiat auction the fixed price is in the currency of the auction and is followed by the direct-payment flow, without any reservation.
 
-*Price offer (new).* A buyer offers a price below the buy-now price. The seller accepts, declines or counters, each within a deadline (for example 48 hours). An acceptance ends the auction as a sale at the agreed price; an open offer does not extend the auction. Origin server only.
+*Price offer (wave (b), V1.9.321, schema V167).* A buyer offers a price below the buy-now price. The seller accepts, declines or counters, each within a deadline (for example 48 hours). An acceptance ends the auction as a sale at the agreed price; an open offer does not extend the auction. Origin server only.
 
 * Abuse limits: one open offer per buyer and auction, a cap of offers per auction, a block after repeated declines.
+* **As built (V1.9.321):** the seller switches `offers_enabled` on at creation (Fiat auction with a buy-now price only; fixed afterwards, and the terms are frozen as soon as an offer exists). A proposal must lie at least one minimum raise above the visible price (the hidden maximum of the leader is never compared: that would be an oracle) and below the buy-now price. It expires 48 hours after it was made, never later than the auction end. The seller accepts (the auction is awarded at that price: `AWAITING_PAYMENT`), declines, or counters **once** (a new row; the buyer accepts or declines it). At most 1 open negotiation per buyer, 20 rows per auction, 3 declined proposals per buyer block further proposals (a declined counter-offer does not count). Every end of the auction (time, buy now, an accepted offer) expires all other open offers in the same transaction. Lock order: auction row, offer row, audit row. Reading paths derive the effective status and never write. The audit trail names the event and the offer id, never an amount.
+* The dialogs say: an offer binds the buyer only once the seller accepts, and it is valid at most until the auction end.
 * When an offer binds the buyer and whether a consumer right of withdrawal applies to a commercial seller are **legal questions**.
 
 [kuml, auction-offer-status, svg]
@@ -104,15 +106,13 @@ stateDiagram(name = "Status of a price offer") {
     val declined = state(name = "DECLINED")
     val expired = state(name = "EXPIRED")
     val withdrawn = state(name = "WITHDRAWN")
-    transition(source = start, target = offered)
-    transition(source = offered, target = accepted) { trigger = "seller accepts" }
-    transition(source = offered, target = declined) { trigger = "seller declines" }
-    transition(source = offered, target = countered) { trigger = "seller counters" }
-    transition(source = offered, target = expired) { trigger = "deadline" }
-    transition(source = offered, target = withdrawn) { trigger = "buyer withdraws" }
-    transition(source = countered, target = accepted) { trigger = "buyer accepts" }
-    transition(source = countered, target = declined) { trigger = "buyer declines" }
-    transition(source = countered, target = expired) { trigger = "deadline" }
+    // A counter-offer is a NEW row that starts again at OFFERED (from the seller, addressed to the buyer); COUNTERED marks only the answered proposal.
+    transition(source = start, target = offered) { trigger = "proposal or counter-offer" }
+    transition(source = offered, target = accepted) { trigger = "recipient accepts (auction awarded)" }
+    transition(source = offered, target = declined) { trigger = "recipient declines" }
+    transition(source = offered, target = countered) { trigger = "seller counters (new row)" }
+    transition(source = offered, target = expired) { trigger = "deadline or end of the auction" }
+    transition(source = offered, target = withdrawn) { trigger = "author withdraws" }
 }
 ----
 
@@ -145,7 +145,7 @@ Template: the carpool exchange (`carpool-federation.adoc`): a signed teaser feed
 == Waves (proposal)
 
 . Currency per auction and the direct-payment flow, including buy now in fiat. **Done (V1.9.320), behind the instance switch, not legally reviewed.**
-. Price offer.
+. Price offer. **Implemented on a feature branch (V1.9.321), opt-in per auction, not legally reviewed. The legal-review gate below was NOT lifted by this change: the project owner has to decide before a release whether wave (b) may ship ahead of the review.**
 . Visibility in the federation (carpool pattern).
 . Tenders analogously.
 

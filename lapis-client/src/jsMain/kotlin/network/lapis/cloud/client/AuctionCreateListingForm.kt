@@ -93,6 +93,14 @@ internal fun SimplePanel.renderCreateListingForm(
     fiatSection.div(
         tr("Die Zahlung erfolgt direkt zwischen Ihnen und dem Höchstbietenden. Lapis nimmt kein Geld an und vermittelt bei Streit nicht."),
     ) { addCssClasses("small fw-bold") }
+    // V1.9.321: price offers are fixed at creation and need a Sofortkaufpreis as the upper bound.
+    val offersBox = fiatSection.checkBox(value = false, label = tr("Preisvorschläge erlauben"))
+    fiatSection.div(
+        tr(
+            "Käufer können einen Preis unter dem Sofortkaufpreis vorschlagen. Das ist nur mit Sofortkaufpreis möglich " +
+                "und kann nach dem Einstellen nicht mehr geändert werden.",
+        ),
+    ) { addCssClasses("text-muted small") }
     val noticeHost = fiatSection.vPanel(spacing = 4)
     fiatSection.hide()
     var availability: AuctionFiatAvailabilityDto? = null
@@ -284,6 +292,11 @@ internal fun SimplePanel.renderCreateListingForm(
             }
             buyNowMinor = parsed
         }
+        val offersEnabled = offersBox.value
+        if (offersEnabled && buyNowMinor == null) {
+            fail(tr("Preisvorschläge sind nur mit einem Sofortkaufpreis möglich."))
+            return
+        }
         val holder = holderInput.value.orEmpty().trim()
         val iban = ibanInput.value.orEmpty().trim()
         val link = linkInput.value.orEmpty().trim()
@@ -358,6 +371,7 @@ internal fun SimplePanel.renderCreateListingForm(
                                         ),
                                     sellerDisclaimerVersion = current.sellerDisclaimerVersion,
                                     sellerDisclaimerSha256 = current.sellerDisclaimerSha256,
+                                    offersEnabled = offersEnabled,
                                 ),
                             )
                         } catch (e: AuctionPaymentDetailsInvalidException) {

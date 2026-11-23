@@ -8,6 +8,7 @@ import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.AuctionBidTable
 import network.lapis.cloud.server.db.generated.AuctionComplianceAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.AuctionFiatAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.AuctionOfferTable
 import network.lapis.cloud.server.db.generated.AuctionPaymentDetailsTable
 import network.lapis.cloud.server.db.generated.AuctionTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -32,7 +33,7 @@ class AuctionSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the five auction entities plus the Member stub") {
+        test("model declares exactly the six auction entities plus the Member stub") {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
@@ -41,6 +42,7 @@ class AuctionSchemaDriftTest :
                     "auction_compliance_acknowledgment",
                     "auction_payment_details",
                     "auction_fiat_acknowledgment",
+                    "auction_offer",
                 )
         }
 
@@ -84,6 +86,7 @@ class AuctionSchemaDriftTest :
                 "payment_confirmed_at",
                 "delivery_confirmed_at",
             ).forEach { entity.attributeByName(it)?.nullable shouldBe true }
+            entity.attributeByName("offers_enabled")?.nullable shouldBe false
             entity.attributeByName("status")?.type shouldBe
                 ErmDataType.Enum(
                     name = "AuctionStatus",
@@ -135,6 +138,34 @@ class AuctionSchemaDriftTest :
             entity.attributes.map { it.name } shouldContainExactlyInAnyOrder AuctionFiatAcknowledgmentTable.columns.map { it.name }
             real.foreignKeys["acknowledged_by_member_id"] shouldBe "member"
             entity.attributes.forEach { attr -> real.columns.getValue(attr.name!!).nullable shouldBe false }
+        }
+
+        // ── auction_offer (V1.9.321) ─────────────────────────────────────────────
+
+        test("auction_offer table shape matches the real migrated schema and AuctionOfferTable 1:1") {
+            val entity = model.entities.single { it.name == "auction_offer" }
+            val real = transaction { introspectAuctionTable("auction_offer") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder AuctionOfferTable.columns.map { it.name }
+            entity.attributes.forEach { attr ->
+                withClue(clue = "column '${attr.name}'") {
+                    real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable
+                }
+            }
+            real.primaryKeyColumns shouldBe setOf("id")
+            real.foreignKeys["auction_id"] shouldBe "auction"
+            real.foreignKeys["buyer_member_id"] shouldBe "member"
+            // parent_offer_id is a real self-referencing FK in V167 (the model keeps a plain nullable UUID, like document_folder.parent_folder_id).
+            real.foreignKeys["parent_offer_id"] shouldBe "auction_offer"
+            entity.attributeByName("parent_offer_id")?.nullable shouldBe true
+            entity.attributeByName("decided_at")?.nullable shouldBe true
+            entity.attributeByName("status")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "AuctionOfferStatus",
+                    values = listOf("OFFERED", "ACCEPTED", "DECLINED", "COUNTERED", "EXPIRED", "WITHDRAWN"),
+                    externalFqName = "network.lapis.cloud.shared.domain.AuctionOfferStatus",
+                )
         }
 
         // ── auction_compliance_acknowledgment ────────────────────────────────────

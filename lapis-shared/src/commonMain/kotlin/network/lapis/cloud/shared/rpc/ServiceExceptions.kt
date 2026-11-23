@@ -1325,3 +1325,47 @@ class AuctionAmountOutOfRangeException(
 class AuctionFiatEncryptionUnavailableException(
     override val message: String = "Auctions in Euro are unavailable: the server has no encryption key configured",
 ) : AbstractServiceException()
+
+// ── Welle V1.9.321 "Preisvorschlag" -- distinct types, constant messages (never an amount, an id or a name). ──
+
+/** A price offer is not possible here: LTR, offers not enabled, no Sofortkauf price, auction not open, the seller himself, or the wrong role. */
+@RpcServiceException
+class AuctionOfferNotAllowedException(
+    override val message: String = "A price offer is not possible for this auction",
+) : AbstractServiceException()
+
+/** The offered amount is outside the allowed range of this auction. */
+@RpcServiceException
+class AuctionOfferAmountInvalidException(
+    override val message: String = "The offered amount is outside the allowed range",
+) : AbstractServiceException()
+
+/** The buyer already has an open offer here, or the auction reached its limit of offers. */
+@RpcServiceException
+class AuctionOfferLimitReachedException(
+    override val message: String = "No further price offer is possible for this auction",
+) : AbstractServiceException()
+
+/** The buyer had three offers declined on this auction. */
+@RpcServiceException
+class AuctionOfferBlockedException(
+    override val message: String = "You cannot make further price offers on this auction",
+) : AbstractServiceException()
+
+/** The current price of the auction has overtaken the offered amount. */
+@RpcServiceException
+class AuctionOfferOutbidException(
+    override val message: String = "The offer was overtaken by the current price",
+) : AbstractServiceException()
+
+/** The offer is not open any more (decided, withdrawn, expired, or the auction ended). Also the answer to a double acceptance. */
+@RpcServiceException
+class AuctionOfferNotOpenException(
+    override val message: String = "This offer is not open any more",
+) : AbstractServiceException()
+
+/** Price offers are fixed at creation: the terms of this auction can no longer be changed. */
+@RpcServiceException
+class AuctionOffersImmutableException(
+    override val message: String = "The terms of this auction cannot be changed because of its price offers",
+) : AbstractServiceException()

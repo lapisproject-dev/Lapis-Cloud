@@ -124,6 +124,10 @@
 //  - `auction_bid.max_bid_ltr` of any member OTHER than the caller is never exposed by any DTO --
 //    proxy-auction integrity (`listAuctions`/`getAuction` only ever expose the DERIVED
 //    `currentPriceLtr`, never a raw maximum). Enforced at the service layer, not by this model.
+// **Price offers (V167, Fiat wave b).** A seller may allow `auction.offers_enabled` (only a Fiat auction with a Sofortkauf price, fixed at
+// creation). A buyer proposes a price below the Sofortkauf price (`auction_offer`, from_seller = false); the seller accepts (the auction is
+// awarded at that price: AWAITING_PAYMENT), declines or counters ONCE (a new row, from_seller = true, parent = the proposal); the buyer accepts or
+// declines the counter. A proposal never extends the auction and expires at the latest at the auction end. NOT legally reviewed.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -254,6 +258,11 @@ classDiagram(name = "Auction") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "delivery_confirmed_at" }
         }
+        // ---- V167 Price offers (wave b, see "Price offers" in the file header): fixed at creation, never changed. ----
+        attribute(name = "offersEnabled", type = "Boolean") {
+            defaultValue = "false"
+            stereotype("Column") { "columnName" to "offers_enabled" }
+        }
     }
 
     val auctionBid = classOf(name = "AuctionBid") {
@@ -376,6 +385,61 @@ classDiagram(name = "Auction") {
         }
         attribute(name = "disclaimerSha256", type = "String") {
             stereotype("Column") { "columnName" to "disclaimer_sha256"; "sqlType" to "VARCHAR(64)" }
+        }
+    }
+
+    // Literal order is load-bearing (AuctionSchemaDriftTest) and matches network.lapis.cloud.shared.domain.AuctionOfferStatus. Append only.
+    val auctionOfferStatus = enumOf(name = "AuctionOfferStatus") {
+        literal(name = "OFFERED")
+        literal(name = "ACCEPTED")
+        literal(name = "DECLINED")
+        literal(name = "COUNTERED")
+        literal(name = "EXPIRED")
+        literal(name = "WITHDRAWN")
+    }
+
+    // V167: ONE row per price proposal. A counter-offer is a NEW row (from_seller = true, parent = the buyer's proposal); the old row becomes
+    // COUNTERED. parent_offer_id is genuinely SELF-referential: plain nullable UUID column without fkEntity (same precedent as
+    // document_folder.parent_folder_id), the real FK exists only in V167.
+    val auctionOffer = classOf(name = "AuctionOffer") {
+        stereotype("Entity") { "tableName" to "auction_offer"; "kotlinObjectName" to "AuctionOfferTable" }
+        stereotype("Index") { "columns" to listOf("auction_id", "status"); "name" to "idx_auction_offer_auction_status" }
+        stereotype("Index") { "columns" to listOf("buyer_member_id", "status"); "name" to "idx_auction_offer_buyer_status" }
+        stereotype("Index") { "columns" to listOf("parent_offer_id"); "unique" to true; "name" to "uq_auction_offer_parent" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "auctionId", type = "UUID") {
+            stereotype("Column") { "columnName" to "auction_id"; "fkEntity" to "Auction" }
+        }
+        // The buyer of the negotiation: also on a counter-offer row (it is addressed to this member).
+        attribute(name = "buyerMemberId", type = "UUID") {
+            stereotype("Column") { "columnName" to "buyer_member_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "fromSeller", type = "Boolean") {
+            stereotype("Column") { "columnName" to "from_seller" }
+        }
+        attribute(name = "parentOfferId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "parent_offer_id" }
+        }
+        attribute(name = "amountMinor", type = "Long") {
+            stereotype("Column") { "columnName" to "amount_minor" }
+        }
+        attribute(name = "status", type = auctionOfferStatus) {
+            stereotype("Column") { "columnName" to "status"; "enumType" to "network.lapis.cloud.shared.domain.AuctionOfferStatus" }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+        attribute(name = "expiresAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "expires_at" }
+        }
+        attribute(name = "decidedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "decided_at" }
         }
     }
 }

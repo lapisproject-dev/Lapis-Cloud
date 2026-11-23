@@ -192,8 +192,10 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * loaded ahead or cached); `AuctionScreen.kt` gains two reads in the administrator's switch for euro auctions (`getAuctionSettings(` after each switch, and
  * `getAuctionFiatOperatorDisclaimer(` once on the click that opens the legal notice), both on demand inside `guarded`.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 211
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 72
+private const val READ_OUTSIDE_STATE_REGION_MAX = 215
+
+// +4 V1.9.321 (price offers: list reads on the auction card, its offer panels and the screen)
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 73
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

@@ -15,6 +15,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AttachedImageTable
 import network.lapis.cloud.server.db.generated.AuctionBidTable
+import network.lapis.cloud.server.db.generated.AuctionOfferTable
 import network.lapis.cloud.server.db.generated.AuctionTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.CrowdfundingProjectTable
@@ -351,6 +352,9 @@ internal class GalleryFixtures(
         transaction {
             AttachedImageTable.deleteWhere { AttachedImageTable.uploadedBy inList memberIds }
             AuditLogEntryTable.update({ AuditLogEntryTable.actorMemberId inList memberIds }) { it[actorMemberId] = null }
+            // V1.9.321: counter-offers reference their parent, so they go first.
+            AuctionOfferTable.deleteWhere { (AuctionOfferTable.auctionId inList auctionIds) and (AuctionOfferTable.fromSeller eq true) }
+            AuctionOfferTable.deleteWhere { AuctionOfferTable.auctionId inList auctionIds }
             AuctionBidTable.deleteWhere { AuctionBidTable.auctionId inList auctionIds }
             AuctionTable.deleteWhere { AuctionTable.id inList auctionIds }
             CrowdfundingProjectTable.deleteWhere { CrowdfundingProjectTable.id inList projectIds }

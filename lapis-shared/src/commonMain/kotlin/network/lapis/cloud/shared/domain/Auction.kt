@@ -3,6 +3,8 @@ package network.lapis.cloud.shared.domain
 import dev.kilua.rpc.types.Decimal
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
 
 /**
  * V0.6.2 LTR-Auktion (englische Proxy-Bid-Auktion, Second-Price-Zuschlag) -- see
@@ -116,6 +118,14 @@ data class AuctionDto(
     val callerIsWinner: Boolean = false,
     /** Fiat only, only for the seller and the winner: the seller stored a payment link (the link itself comes from `getAuctionPaymentDetails`). */
     val hasPaymentLink: Boolean = false,
+    /** V1.9.321 (wave b): the seller allows price offers (fixed at creation; always `false` on an LTR auction). Public: it is part of the listing. */
+    val offersEnabled: Boolean = false,
+    /** Only for the SELLER: the number of price offers waiting for his decision. Never filled for anybody else (that would be an oracle). */
+    val openOfferCountForSeller: Int? = null,
+    /** Only for the caller: he has an open offer of his own, or an open counter-offer addressed to him. */
+    val callerHasOpenOffer: Boolean = false,
+    /** Only for the caller: he cannot make a new offer any more (3 declines, or the auction reached its offer limit), so the button stays hidden. */
+    val callerOfferBlocked: Boolean = false,
 )
 
 /**
@@ -226,6 +236,8 @@ data class CreateFiatAuctionListingInput(
     val paymentDetails: AuctionPaymentDetailsInput,
     val sellerDisclaimerVersion: String,
     val sellerDisclaimerSha256: String,
+    /** V1.9.321: allow price offers. Needs [buyNowPriceMinor]; cannot be changed afterwards. */
+    val offersEnabled: Boolean = false,
 ) {
     override fun toString(): String = "CreateFiatAuctionListingInput(redacted)"
 }
@@ -281,3 +293,60 @@ data class UpdateAuctionTermsInput(
 ) {
     override fun toString(): String = "UpdateAuctionTermsInput(redacted)"
 }
+
+/**
+ * V1.9.321 (Fiat wave b "Preisvorschlag") -- the state of one price proposal. A counter-offer is a NEW row, so [COUNTERED] only ever marks the
+ * buyer's proposal that was answered by one. The order is persisted by name (no ordinal), new literals are appended only.
+ */
+@Serializable
+enum class AuctionOfferStatus { OFFERED, ACCEPTED, DECLINED, COUNTERED, EXPIRED, WITHDRAWN }
+
+/** Limits and defaults of the price offers, shared by the server and the UI texts. */
+object AuctionOfferRules {
+    /** An offer lives this long, but never longer than the auction itself. */
+    val OFFER_DEFAULT_VALIDITY: Duration = 48.hours
+    const val OFFER_DEFAULT_VALIDITY_HOURS: Int = 48
+
+    /** One open negotiation per buyer and auction. */
+    const val MAX_OPEN_OFFERS_PER_BUYER_PER_AUCTION: Int = 1
+
+    /** All NOT withdrawn offers and counter-offers of one auction (DoS guard). Withdrawn rows do not count, so make+withdraw cannot fill it. */
+    const val MAX_OFFERS_PER_AUCTION: Int = 20
+
+    /** All proposals of ONE buyer on one auction, withdrawn ones included (a make+withdraw loop is bounded by this). */
+    const val MAX_PROPOSALS_PER_BUYER_PER_AUCTION: Int = 5
+
+    /** After this many declined offers of one buyer on one auction he can make no more. */
+    const val MAX_DECLINES_PER_BUYER_PER_AUCTION: Int = 3
+
+    /** Cap of `listMyOffers`. */
+    const val MAX_MY_OFFERS: Int = 200
+}
+
+/**
+ * One price proposal (or counter-offer) as the CALLER may see it. [status] is the EFFECTIVE status: an OFFERED row whose [expiresAt] has passed
+ * is shown as EXPIRED even if no write happened yet. [endedByAuction] distinguishes "the auction ended" from "the time ran out".
+ * [buyerDisplayName] is filled only for the seller of the auction. The `callerCan*` flags tell the UI which buttons to show; the server checks again.
+ */
+@Serializable
+data class AuctionOfferDto(
+    val id: String,
+    val auctionId: String,
+    val auctionTitle: String,
+    val fromSeller: Boolean,
+    val parentOfferId: String?,
+    val amountMinor: Long,
+    val currency: String,
+    val status: AuctionOfferStatus,
+    val endedByAuction: Boolean,
+    val createdAt: LocalDateTime,
+    val expiresAt: LocalDateTime,
+    val decidedAt: LocalDateTime?,
+    val buyerDisplayName: String?,
+    /** Only meaningful for the seller: the amount is below the current price of the auction. */
+    val belowCurrentPrice: Boolean,
+    val callerCanAccept: Boolean,
+    val callerCanDecline: Boolean,
+    val callerCanCounter: Boolean,
+    val callerCanWithdraw: Boolean,
+)
