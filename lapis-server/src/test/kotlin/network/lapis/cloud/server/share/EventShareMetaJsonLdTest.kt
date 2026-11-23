@@ -96,11 +96,12 @@ class EventShareMetaJsonLdTest :
             parse(ld(view = view(fee = BigDecimal("1E+1"))))["offers"]!!.jsonObject["price"]!!.jsonPrimitive.content shouldBe "10"
         }
 
-        test("availability: full is SoldOut, ended or closed has no offer, deadline becomes validThrough") {
+        test("availability: full or closed is SoldOut, ended has no offer, deadline becomes validThrough") {
             parse(ld(view = view(full = true)))["offers"]!!.jsonObject["availability"]!!.jsonPrimitive.content shouldBe
                 "https://schema.org/SoldOut"
             parse(ld(view = view(ended = true))).containsKey("offers") shouldBe false
-            parse(ld(view = view(open = false))).containsKey("offers") shouldBe false
+            parse(ld(view = view(open = false)))["offers"]!!.jsonObject["availability"]!!.jsonPrimitive.content shouldBe
+                "https://schema.org/SoldOut"
             val vt =
                 parse(
                     ld(view = view(closes = LocalDateTime(2030, 11, 10, 12, 0))),
@@ -196,10 +197,10 @@ class EventShareMetaJsonLdTest :
             (from <= java.time.OffsetDateTime.parse(c["startDate"]!!.jsonPrimitive.content)) shouldBe true
         }
 
-        test("validFrom: ended or closed events have no offer; paid and full events still carry it") {
+        test("validFrom: ended events have no offer; closed, paid and full events still carry it") {
             val opens = LocalDateTime(2030, 11, 1, 8, 0)
             parse(ld(view = view(ended = true, opens = opens))).containsKey("offers") shouldBe false
-            parse(ld(view = view(open = false, opens = opens))).containsKey("offers") shouldBe false
+            offers(view(open = false, opens = opens))["availability"]!!.jsonPrimitive.content shouldBe "https://schema.org/SoldOut"
             offers(view(fee = BigDecimal("12.50"), opens = opens)).containsKey("validFrom") shouldBe true
             offers(view(full = true, opens = opens)).containsKey("validFrom") shouldBe true
         }

@@ -143,7 +143,7 @@ internal object EventShareMeta {
     }
 
     /**
-     * The schema.org Offer, or `null` when no honest statement is possible (event over, or registration closed).
+     * The schema.org Offer, or `null` when the event is over. Closed registration is stated as `SoldOut` (no ticket available), so Google's recommended `offers` field is present on every upcoming event.
      * `validFrom` is the creation moment of the event (organisation wall time), clamped to at most `validThrough` and
      * `startDate`. The data model has no publication timestamp, so for a draft published later it can precede the real
      * publication. For structured data this is acceptable (the time from which the offer exists at the earliest). It is
@@ -154,14 +154,14 @@ internal object EventShareMeta {
         shareUrl: String,
         orgZone: TimeZone,
     ): JsonObject? {
-        if (view.hasEnded || !view.registrationOpen) return null
+        if (view.hasEnded) return null
         val free = view.feeAmount.compareTo(java.math.BigDecimal.ZERO) == 0
         return buildJsonObject {
             put("@type", "Offer")
             put("url", shareUrl)
             put("price", if (free) "0" else view.feeAmount.toPlainString())
             put("priceCurrency", view.feeCurrency.takeIf { CURRENCY.matches(it) } ?: "EUR")
-            put("availability", if (view.full) "https://schema.org/SoldOut" else "https://schema.org/InStock")
+            put("availability", if (view.full || !view.registrationOpen) "https://schema.org/SoldOut" else "https://schema.org/InStock")
             view.registrationOpensAt?.let { opens ->
                 val upper = listOfNotNull(view.registrationClosesAt, view.startsAt).min()
                 put("validFrom", iso(dt = minOf(opens, upper), zone = orgZone))
