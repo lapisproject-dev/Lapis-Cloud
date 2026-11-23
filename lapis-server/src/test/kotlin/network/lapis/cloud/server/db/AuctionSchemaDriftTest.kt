@@ -7,6 +7,8 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.AuctionBidTable
 import network.lapis.cloud.server.db.generated.AuctionComplianceAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.AuctionFiatAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.AuctionPaymentDetailsTable
 import network.lapis.cloud.server.db.generated.AuctionTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -30,13 +32,15 @@ class AuctionSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the three auction entities plus the Member stub") {
+        test("model declares exactly the five auction entities plus the Member stub") {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
                     "auction",
                     "auction_bid",
                     "auction_compliance_acknowledgment",
+                    "auction_payment_details",
+                    "auction_fiat_acknowledgment",
                 )
         }
 
@@ -69,10 +73,21 @@ class AuctionSchemaDriftTest :
             entity.attributeByName("settled_at")?.nullable shouldBe true
 
             entity.attributeByName("starting_bid_ltr")?.type shouldBe ErmDataType.Decimal(18, 2)
+            // V1.9.320 (V166): the LTR amount is nullable (a Fiat row carries the minor-unit columns), the Fiat columns exist.
+            entity.attributeByName("starting_bid_ltr")?.nullable shouldBe true
+            entity.attributeByName("currency")?.nullable shouldBe false
+            listOf(
+                "starting_price_minor",
+                "buy_now_price_minor",
+                "final_price_minor",
+                "seller_disclaimer_version",
+                "payment_confirmed_at",
+                "delivery_confirmed_at",
+            ).forEach { entity.attributeByName(it)?.nullable shouldBe true }
             entity.attributeByName("status")?.type shouldBe
                 ErmDataType.Enum(
                     name = "AuctionStatus",
-                    values = listOf("OPEN", "SETTLED", "CLOSED_NO_SALE"),
+                    values = listOf("OPEN", "SETTLED", "CLOSED_NO_SALE", "AWAITING_PAYMENT", "PAID", "COMPLETED"),
                     externalFqName = "network.lapis.cloud.shared.domain.AuctionStatus",
                 )
         }
@@ -94,6 +109,32 @@ class AuctionSchemaDriftTest :
             model.entityNameOf(entity.attributeByName("bidder_member_id")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
 
             real.uniqueConstraints shouldContainExactlyInAnyOrder listOf(setOf("auction_id", "bidder_member_id"))
+            // V1.9.320 (V166): exactly one of the two amount columns is set per row (CHECK), so both are nullable.
+            entity.attributeByName("max_bid_ltr")?.nullable shouldBe true
+            entity.attributeByName("max_bid_minor")?.nullable shouldBe true
+        }
+
+        // ── auction_payment_details / auction_fiat_acknowledgment (V1.9.320) ───────────────
+
+        test("auction_payment_details table shape matches the real migrated schema and AuctionPaymentDetailsTable 1:1") {
+            val entity = model.entities.single { it.name == "auction_payment_details" }
+            val real = transaction { introspectAuctionTable("auction_payment_details") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder AuctionPaymentDetailsTable.columns.map { it.name }
+            real.primaryKeyColumns shouldBe setOf("auction_id")
+            real.foreignKeys["auction_id"] shouldBe "auction"
+            entity.attributes.forEach { attr -> real.columns.getValue(attr.name!!).nullable shouldBe false }
+        }
+
+        test("auction_fiat_acknowledgment table shape matches the real migrated schema and AuctionFiatAcknowledgmentTable 1:1") {
+            val entity = model.entities.single { it.name == "auction_fiat_acknowledgment" }
+            val real = transaction { introspectAuctionTable("auction_fiat_acknowledgment") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder AuctionFiatAcknowledgmentTable.columns.map { it.name }
+            real.foreignKeys["acknowledged_by_member_id"] shouldBe "member"
+            entity.attributes.forEach { attr -> real.columns.getValue(attr.name!!).nullable shouldBe false }
         }
 
         // ── auction_compliance_acknowledgment ────────────────────────────────────

@@ -50,6 +50,7 @@ import network.lapis.cloud.server.ai.qa.StatuteQaPipeline
 import network.lapis.cloud.server.ai.ratelimit.AiQuestionRateLimiter
 import network.lapis.cloud.server.ai.retrieval.KnowledgeRetrievers
 import network.lapis.cloud.server.ai.retrieval.PostgresFullTextIndexInitializer
+import network.lapis.cloud.server.auction.AuctionPaymentDetailsRetentionPoller
 import network.lapis.cloud.server.backup.BackupAssetRoots
 import network.lapis.cloud.server.bootstrap.DonorRoleDowngrade
 import network.lapis.cloud.server.branding.BrandConfig
@@ -1695,6 +1696,11 @@ internal fun Application.module(
     val noticeRetentionPoller = NoticeRetentionPoller(storage = attachedImageStorage)
     noticeRetentionPoller.start()
     monitor.subscribe(ApplicationStopping) { noticeRetentionPoller.stop() }
+    // V1.9.320 Fiat auctions: deletes the sealed payment details of finished/abandoned auctions (CLOSED_NO_SALE at once, COMPLETED +30 days, an
+    // award that never completes +180 days). The read path also purges lazily, this poller only guarantees it for auctions nobody opens again.
+    val auctionPaymentDetailsRetentionPoller = AuctionPaymentDetailsRetentionPoller()
+    auctionPaymentDetailsRetentionPoller.start()
+    monitor.subscribe(ApplicationStopping) { auctionPaymentDetailsRetentionPoller.stop() }
     // V1.9.144 member finder: hourly housekeeping (expiry, detaching, deletion, once-a-day band evaluation); idle while the instance switch is off.
     val memberFinderPoller = MemberFinderPoller()
     memberFinderPoller.start()
@@ -2746,7 +2752,10 @@ internal fun Application.module(
         registerService(IPeerTransferService::class) { call -> PeerTransferService(call = call) }
         registerService(IPriceOracleService::class) { call -> PriceOracleService(call = call, orchestrator = priceOracleOrchestrator) }
         registerService(IPoliticianService::class) { call -> PoliticianService(call = call) }
-        registerService(IAuctionService::class) { call -> AuctionService(call = call) }
+        // V1.9.320: Fiat (EUR) auctions seal the seller's payment details with the same LAPIS_SECRET_ENCRYPTION_KEY as the SEPA/travel IBANs.
+        registerService(
+            IAuctionService::class,
+        ) { call -> AuctionService(call = call, secretEncryptionKey = sepaConfig.secretEncryptionKey) }
         registerService(
             ISepaService::class,
         ) { call ->

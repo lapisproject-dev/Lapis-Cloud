@@ -46,7 +46,8 @@ private const val DECIMAL_FIELDS =
         "periodResult|postedTotalInThisOrganization|priorPostedTotalThisYear|priorTotalSnapshot|" +
         "priorYearVatBalance|rateSnapshot|receivableOpenAmountAfter|receivableOpenTotal|" +
         "remainingInThisOrganization|result|returnFee|runningBalance|secondPriceLtr|settledLtr|" +
-        "stakeLtr|startingBidLtr|taxableGrossTotal|timelyUseObligationRemaining|totalAmount|" +
+        "stakeLtr|startingBidLtr|startingPriceMinor|buyNowPriceMinor|currentPriceMinor|finalPriceMinor|maxBidMinor|yourMaxBidMinor|" +
+        "amountMinor|taxableGrossTotal|timelyUseObligationRemaining|totalAmount|" +
         "totalAssets|totalCurrentWeightLtr|totalDue|totalEquityAndLiabilities|totalExpense|" +
         "totalFeesCharged|totalFundsAllocatedToReserves|totalFundsReceived|totalFundsUsed|" +
         "totalGross|totalIncome|totalInputVat|totalLiabilities|totalOpen|totalOutputVat|totalPaid|" +

@@ -33540,3 +33540,299 @@ msgstr "Nu accepteren"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
 msgid "Sperre jetzt aufheben"
 msgstr "Blokkade nu opheffen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:1
+msgid "Direktzahlung"
+msgstr "Directe betaling"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:1
+msgid "Zuschlag an %1 für %2. Die Bezahlung erfolgt direkt zwischen Verkäufer und Käufer."
+msgstr "Toegewezen aan %1 voor %2. De betaling verloopt rechtstreeks tussen verkoper en koper."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:1
+msgid "Ihr Höchstgebot ist verbindlich. Bei Zuschlag bezahlen Sie den Betrag direkt an den Verkäufer."
+msgstr "Uw maximale bod is bindend. Bij toewijzing betaalt u het bedrag rechtstreeks aan de verkoper."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:1
+msgid "Lapis nimmt kein Geld an, hält keines und vermittelt bei Streit nicht. Es gibt keinen Käuferschutz."
+msgstr "Lapis neemt geen geld aan, houdt geen geld vast en bemiddelt niet bij geschillen. Er is geen kopersbescherming."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:1
+msgid "Sie bezahlen den Betrag danach direkt an den Verkäufer. Lapis nimmt kein Geld an und vermittelt bei Streit nicht."
+msgstr "Daarna betaalt u het bedrag rechtstreeks aan de verkoper. Lapis neemt geen geld aan en bemiddelt niet bij geschillen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:1
+msgid "Ihr Höchstgebot (%1)"
+msgstr "Uw maximale bod (%1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:1
+msgid "Bitte einen gültigen Betrag mit höchstens zwei Nachkommastellen angeben."
+msgstr "Voer een geldig bedrag in met hoogstens twee decimalen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "LTR (Libertaler)"
+msgstr "LTR (Libertaler)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Euro (Direktzahlung)"
+msgstr "Euro (directe betaling)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Bezahlung"
+msgstr "Betaling"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "IBAN (deutsches Konto)"
+msgstr "IBAN (Duitse rekening)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Zahlungslink (https, optional, wenn eine IBAN angegeben ist)"
+msgstr "Betaallink (https, optioneel als een IBAN is opgegeven)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Mindestens IBAN oder Zahlungslink ist nötig. Die Angaben werden verschlüsselt gespeichert und nur dem Höchstbietenden nach dem Zuschlag gezeigt. Danach können Sie sie nicht mehr ändern."
+msgstr "Minstens een IBAN of een betaallink is nodig. De gegevens worden versleuteld opgeslagen en na de toewijzing alleen aan de hoogste bieder getoond. Daarna kunt u ze niet meer wijzigen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Die Zahlung erfolgt direkt zwischen Ihnen und dem Höchstbietenden. Lapis nimmt kein Geld an und vermittelt bei Streit nicht."
+msgstr "De betaling verloopt rechtstreeks tussen u en de hoogste bieder. Lapis neemt geen geld aan en bemiddelt niet bij geschillen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Startpreis (EUR)"
+msgstr "Startprijs (EUR)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Sofortkaufpreis (EUR, optional -- muss über dem Startpreis liegen)"
+msgstr "Direct-koopprijs (EUR, optioneel -- moet boven de startprijs liggen)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Hinweis für Verkäufer bestätigt am %1"
+msgstr "Verkopersbericht bevestigd op %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Hinweis für Verkäufer lesen"
+msgstr "Verkopersbericht lezen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Ich habe den Hinweis für Verkäufer gelesen und verstanden."
+msgstr "Ik heb het verkopersbericht gelezen en begrepen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Bitte Titel, Beschreibung und einen positiven Startpreis (EUR) mit höchstens zwei Nachkommastellen angeben."
+msgstr "Voer een titel, een beschrijving en een positieve startprijs (EUR) met hoogstens twee decimalen in."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Der Startpreis muss zwischen %1 und %2 liegen."
+msgstr "De startprijs moet tussen %1 en %2 liggen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Der Sofortkaufpreis muss, falls angegeben, ein gültiger EUR-Betrag sein."
+msgstr "De direct-koopprijs moet, indien opgegeven, een geldig EUR-bedrag zijn."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Auktionen in Euro sind auf dieser Plattform derzeit nicht verfügbar."
+msgstr "Veilingen in euro zijn momenteel niet beschikbaar op dit platform."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Bitte bestätigen Sie, dass Sie den Hinweis für Verkäufer gelesen haben."
+msgstr "Bevestig dat u het verkopersbericht hebt gelezen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Angebot in Euro erstellen"
+msgstr "Een aanbod in euro maken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Es wird ein Angebot \"%1\" mit Startpreis %2%3 und %4 Laufzeit erstellt. Es fällt keine Gebühr an. Die Zahlung erfolgt direkt zwischen Ihnen und dem Höchstbietenden; Lapis nimmt kein Geld an."
+msgstr "Er wordt een aanbod \"%1\" gemaakt met startprijs %2%3 en een looptijd van %4. Er worden geen kosten in rekening gebracht. De betaling verloopt rechtstreeks tussen u en de hoogste bieder; Lapis neemt geen geld aan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Die Zahlungsangaben können nach dem Zuschlag nicht mehr geändert werden."
+msgstr "De betaalgegevens kunnen na de toewijzing niet meer worden gewijzigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Bitte einen Kontoinhaber mit 2 bis 70 Zeichen angeben."
+msgstr "Voer een rekeninghouder van 2 tot 70 tekens in."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Die IBAN ist ungültig. Bitte eine deutsche IBAN angeben."
+msgstr "De IBAN is ongeldig. Voer een Duitse IBAN in."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Der Zahlungslink muss mit https:// beginnen, darf höchstens 500 Zeichen lang sein und keine Zugangsdaten enthalten."
+msgstr "De betaallink moet met https:// beginnen, hoogstens 500 tekens lang zijn en geen inloggegevens bevatten."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Bitte eine IBAN oder einen Zahlungslink angeben."
+msgstr "Voer een IBAN of een betaallink in."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:1
+msgid "Auktionen in Euro (Direktzahlung)"
+msgstr "Veilingen in euro (directe betaling)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:1
+msgid "Lapis nimmt bei Euro-Auktionen kein Geld an: Käufer und Verkäufer zahlen direkt untereinander."
+msgstr "Bij euroveilingen neemt Lapis geen geld aan: koper en verkoper betalen rechtstreeks aan elkaar."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:1
+msgid "Euro-Auktionen deaktivieren"
+msgstr "Euroveilingen uitschakelen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:1
+msgid "Neue Angebote in Euro können dann nicht mehr erstellt werden."
+msgstr "Er kunnen dan geen nieuwe aanbiedingen in euro meer worden gemaakt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:1
+msgid "Bereits laufende Euro-Auktionen können weiter abgewickelt werden."
+msgstr "Lopende euroveilingen kunnen nog gewoon worden afgehandeld."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:1
+msgid "Euro-Auktionen deaktiviert."
+msgstr "Euroveilingen uitgeschakeld."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:1
+msgid "Euro-Auktionen aktivieren …"
+msgstr "Euroveilingen inschakelen …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:1
+msgid "Euro-Auktionen aktiviert."
+msgstr "Euroveilingen ingeschakeld."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:1
+msgid "Euro-Auktionen aktivieren -- rechtlicher Hinweis (Version %1)"
+msgstr "Euroveilingen inschakelen -- juridische kennisgeving (versie %1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:1
+msgid "Bitte lesen Sie den folgenden rechtlichen Hinweistext vollständig, bevor Sie Euro-Auktionen aktivieren. Diese Plattform führt keine automatisierte Rechtsberatung durch -- die rechtliche Einordnung liegt bei Ihrer Organisation."
+msgstr "Lees de volgende juridische kennisgeving volledig door voordat u euroveilingen inschakelt. Dit platform geeft geen geautomatiseerd juridisch advies -- de juridische beoordeling ligt bij uw organisatie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:1
+msgid "Zuschlag erteilt, Zahlung offen"
+msgstr "Toegewezen, betaling open"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:1
+msgid "Zahlung bestätigt"
+msgstr "Betaling bevestigd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:1
+msgid "Abgeschlossen (bezahlt und geliefert)"
+msgstr "Afgerond (betaald en geleverd)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Abwicklung der Zahlung"
+msgstr "Afhandeling van de betaling"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Zuschlag erteilt am %1"
+msgstr "Toegewezen op %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Zahlungseingang vom Verkäufer bestätigt am %1"
+msgstr "Betalingsontvangst door de verkoper bevestigd op %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Zahlungseingang noch nicht bestätigt"
+msgstr "Betalingsontvangst nog niet bevestigd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Wareneingang vom Käufer bestätigt am %1"
+msgstr "Goederenontvangst door de koper bevestigd op %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Wareneingang noch nicht bestätigt"
+msgstr "Goederenontvangst nog niet bevestigd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Diese Auktion ist vollständig abgewickelt."
+msgstr "Deze veiling is volledig afgehandeld."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Zahlungseingang bestätigen"
+msgstr "Betalingsontvangst bevestigen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Bestätigen Sie nur, wenn das Geld tatsächlich bei Ihnen eingegangen ist."
+msgstr "Bevestig alleen als het geld daadwerkelijk bij u is binnengekomen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Diese Bestätigung ist endgültig."
+msgstr "Deze bevestiging is definitief."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Zahlungseingang bestätigt."
+msgstr "Betalingsontvangst bevestigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Wareneingang bestätigen"
+msgstr "Goederenontvangst bevestigen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Bestätigen Sie nur, wenn die Ware bei Ihnen angekommen ist."
+msgstr "Bevestig alleen als de goederen daadwerkelijk bij u zijn aangekomen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Wareneingang bestätigt."
+msgstr "Goederenontvangst bevestigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Lapis nimmt kein Geld an, hält keines und vermittelt bei Streit nicht. Es gibt keinen Käuferschutz. Klären Sie Zahlungsprobleme direkt mit der Gegenseite."
+msgstr "Lapis neemt geen geld aan, houdt geen geld vast en bemiddelt niet bij geschillen. Er is geen kopersbescherming. Los betalingsproblemen rechtstreeks met de andere partij op."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Zahlungsangaben anzeigen"
+msgstr "Betaalgegevens tonen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Zu zahlender Betrag: %1"
+msgstr "Te betalen bedrag: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "IBAN kopieren"
+msgstr "IBAN kopiëren"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Verwendungszweck kopieren"
+msgstr "Betalingskenmerk kopiëren"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Zahlungslink"
+msgstr "Betaallink"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Link öffnen"
+msgstr "Link openen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:1
+msgid "Führt zu: %1"
+msgstr "Leidt naar: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Diese Währung wird für Auktionen nicht unterstützt."
+msgstr "Deze valuta wordt voor veilingen niet ondersteund."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Auktionen in Euro sind auf dieser Plattform nicht freigeschaltet."
+msgstr "Veilingen in euro zijn op dit platform niet ingeschakeld."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Bitte bestätigen Sie zuerst den aktuellen Hinweis für Auktionen in Euro."
+msgstr "Bevestig eerst de actuele kennisgeving voor veilingen in euro."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Nach dem ersten Gebot können Währung und Preise nicht mehr geändert werden."
+msgstr "Na het eerste bod kunnen valuta en prijzen niet meer worden gewijzigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Diese Aktion passt nicht zur Währung der Auktion."
+msgstr "Deze actie past niet bij de valuta van de veiling."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Diese Bestätigung wurde bereits gegeben."
+msgstr "Deze bevestiging is al gegeven."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Auktionen in Euro sind auf diesem Server derzeit nicht verfügbar."
+msgstr "Veilingen in euro zijn momenteel niet beschikbaar op deze server."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Auktion in Euro"
+msgstr "Veiling in euro"

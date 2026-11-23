@@ -32,6 +32,8 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     public val politicianRankingEnabled: Column<Boolean> = bool("politician_ranking_enabled")
     public val auctionEnabled: Column<Boolean> = bool("auction_enabled")
     public val auctionMaxValueLtr: Column<BigDecimal?> = decimal("auction_max_value_ltr", 18, 2).nullable()
+    public val auctionFiatEnabled: Column<Boolean> = bool("auction_fiat_enabled")
+    // TODO default = "FALSE"
     public val sepaDebitEnabled: Column<Boolean> = bool("sepa_debit_enabled")
     // TODO default = "FALSE"
     public val paymentGatewayEnabled: Column<Boolean> = bool("payment_gateway_enabled")

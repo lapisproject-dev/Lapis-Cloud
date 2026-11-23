@@ -7,9 +7,14 @@ import network.lapis.cloud.shared.domain.AuctionBidResultDto
 import network.lapis.cloud.shared.domain.AuctionComplianceAcknowledgmentInput
 import network.lapis.cloud.shared.domain.AuctionComplianceDisclaimerDto
 import network.lapis.cloud.shared.domain.AuctionDto
+import network.lapis.cloud.shared.domain.AuctionFiatAvailabilityDto
+import network.lapis.cloud.shared.domain.AuctionPaymentDetailsDto
+import network.lapis.cloud.shared.domain.AuctionPaymentDetailsInput
 import network.lapis.cloud.shared.domain.AuctionSettingsDto
 import network.lapis.cloud.shared.domain.AuctionStatus
 import network.lapis.cloud.shared.domain.CreateAuctionListingInput
+import network.lapis.cloud.shared.domain.CreateFiatAuctionListingInput
+import network.lapis.cloud.shared.domain.UpdateAuctionTermsInput
 
 /**
  * V0.6.2 LTR-Auktion -- englische Proxy-Bid-Auktion mit Second-Price-Zuschlag, reines
@@ -85,6 +90,9 @@ import network.lapis.cloud.shared.domain.CreateAuctionListingInput
  * - **No automatic EUR/Fiat conversion for the value cap** -- see "The `auctionMaxValueLtr` cap"
  *   above.
  * - **No Politiker-Profile/Price-Oracle coupling** of any kind.
+ * - **EUR means direct payment, never a conversion (V1.9.320).** An auction may be listed in EUR (opt-in, OFF by default, see
+ *   [setAuctionFiatEnabled]); Lapis then only brokers the contract -- seller and winner settle the money directly between themselves, outside the
+ *   platform, and no LTR ledger row is ever written for it. The "No automatic EUR/Fiat conversion" cut above still holds.
  */
 @RpcService
 interface IAuctionService {
@@ -150,4 +158,54 @@ interface IAuctionService {
 
     /** Role: ADMIN. */
     suspend fun getAuctionSettings(): AuctionSettingsDto
+    // ── V1.9.320 Auktionen in Euro mit Direktzahlung (Fiat W1) -- methods are APPENDED (the Kilua method order is load-bearing). ──
+    // A Fiat auction never touches the LTR ledger; seller and winner settle the money directly. See `21-auction.kuml.kts` file header "Fiat path".
+
+    /** Role: MEMBER+ (`auctionEnabled` gate). Whether "Euro" may be offered, the CURRENT seller disclaimer and whether the caller acknowledged it. */
+    suspend fun getAuctionFiatAvailability(): AuctionFiatAvailabilityDto
+
+    /** Role: MEMBER+ (ACTIVE). Records that the caller acknowledged the CURRENT seller disclaimer (version and hash must match). Idempotent per version. */
+    suspend fun acknowledgeFiatSellerDisclaimer(input: AuctionComplianceAcknowledgmentInput): AuctionFiatAvailabilityDto
+
+    /** Role: MEMBER+ (ACTIVE). Needs the instance switch, the seller acknowledgment and valid payment details. Writes NO ledger row. */
+    suspend fun createFiatListing(input: CreateFiatAuctionListingInput): AuctionDto
+
+    /** Role: MEMBER+ (ACTIVE). Bid on a Fiat auction (minor units); no coverage check, no reservation. */
+    suspend fun placeFiatBid(
+        auctionId: String,
+        maxBidMinor: Long,
+    ): AuctionBidResultDto
+
+    /** Role: the SELLER of an OPEN Fiat auction. Replaces the sealed payment details; frozen from the award on. */
+    suspend fun updateAuctionPaymentDetails(
+        auctionId: String,
+        input: AuctionPaymentDetailsInput,
+    ): AuctionDto
+
+    /** Role: the SELLER of an OPEN auction WITHOUT any bid. Changes currency and prices; once a bid exists the currency is locked. */
+    suspend fun updateAuctionTerms(
+        auctionId: String,
+        input: UpdateAuctionTermsInput,
+    ): AuctionDto
+
+    /**
+     * Role: the WINNER or the SELLER of an awarded Fiat auction (AWAITING_PAYMENT, PAID, COMPLETED). Everybody else, an unawarded or an LTR auction and
+     * a missing row all answer the SAME [NotFoundException] (no existence leak).
+     */
+    suspend fun getAuctionPaymentDetails(auctionId: String): AuctionPaymentDetailsDto
+
+    /** Role: the SELLER. The money arrived. AWAITING_PAYMENT -> PAID (or COMPLETED when the winner already confirmed the goods). One-shot. */
+    suspend fun confirmPaymentReceived(auctionId: String): AuctionDto
+
+    /** Role: the WINNER. The goods arrived. One-shot; COMPLETED once both confirmations exist. */
+    suspend fun confirmDeliveryReceived(auctionId: String): AuctionDto
+
+    /** Role: ADMIN. The OPERATOR disclaimer to acknowledge before switching Fiat auctions on. */
+    suspend fun getAuctionFiatOperatorDisclaimer(): AuctionComplianceDisclaimerDto
+
+    /** Role: ADMIN. Switching ON needs [input] (version and hash of the CURRENT operator disclaimer); switching OFF needs none. Running Fiat auctions stay settleable. */
+    suspend fun setAuctionFiatEnabled(
+        enabled: Boolean,
+        input: AuctionComplianceAcknowledgmentInput?,
+    ): AuctionSettingsDto
 }

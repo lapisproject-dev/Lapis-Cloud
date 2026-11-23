@@ -96,3 +96,62 @@ fun computeAuctionOutcome(
         bidCount = bids.size,
     )
 }
+
+// ── V1.9.320 Fiat (minor-unit) variant ────────────────────────────────────────────────────────────
+
+/** One bidder's CURRENT standing maximum on one FIAT auction, in minor units. Same contract as [AuctionBidView] (at most one per bidder). */
+data class FiatBidView(
+    val bidId: Uuid,
+    val bidderMemberId: Uuid,
+    val maxBidMinor: Long,
+    val createdAt: LocalDateTime,
+)
+
+/** Result of [computeFiatAuctionOutcome]; all three values are `null` together iff there is no bid. */
+data class FiatAuctionOutcome(
+    val leaderMemberId: Uuid?,
+    val leaderMaxBidMinor: Long?,
+    val currentPriceMinor: Long?,
+    val bidCount: Int,
+)
+
+/**
+ * The proxy-bid / second-price settlement math of [computeAuctionOutcome] for a Fiat auction, in exact `Long` minor units (no decimal scale at
+ * all, so no rounding path exists). Identical rules: the leader has the strictly highest maximum, a tie goes to the EARLIEST
+ * [FiatBidView.createdAt], then to the smallest bid id; the price is the starting price without a competitor, otherwise
+ * `min(leaderMax, secondMax + minIncrement)` floored at the starting price. `Math.addExact` keeps an absurd input from wrapping silently.
+ * Property-tested against [computeAuctionOutcome] (`AuctionFiatOutcomeTest`): the two must always agree.
+ */
+fun computeFiatAuctionOutcome(
+    startingMinor: Long,
+    minIncrementMinor: Long,
+    bids: List<FiatBidView>,
+): FiatAuctionOutcome {
+    if (bids.isEmpty()) return FiatAuctionOutcome(leaderMemberId = null, leaderMaxBidMinor = null, currentPriceMinor = null, bidCount = 0)
+
+    val leader =
+        bids
+            .sortedWith(
+                compareByDescending<FiatBidView> { it.maxBidMinor }
+                    .thenBy { it.createdAt }
+                    .thenBy { it.bidId.toString() },
+            ).first()
+
+    val secondMax = bids.filter { it.bidderMemberId != leader.bidderMemberId }.maxOfOrNull { it.maxBidMinor }
+
+    val currentPrice =
+        if (secondMax == null) {
+            startingMinor
+        } else {
+            val bumped = Math.addExact(secondMax, minIncrementMinor)
+            val capped = if (bumped > leader.maxBidMinor) leader.maxBidMinor else bumped
+            if (capped < startingMinor) startingMinor else capped
+        }
+
+    return FiatAuctionOutcome(
+        leaderMemberId = leader.bidderMemberId,
+        leaderMaxBidMinor = leader.maxBidMinor,
+        currentPriceMinor = currentPrice,
+        bidCount = bids.size,
+    )
+}

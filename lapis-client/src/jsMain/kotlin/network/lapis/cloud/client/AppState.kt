@@ -18,6 +18,15 @@ import network.lapis.cloud.shared.rpc.AgreementTextInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextLayoutInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextOutdatedException
 import network.lapis.cloud.shared.rpc.AgreementTextVersionLabelTakenException
+import network.lapis.cloud.shared.rpc.AuctionAlreadyConfirmedException
+import network.lapis.cloud.shared.rpc.AuctionAmountOutOfRangeException
+import network.lapis.cloud.shared.rpc.AuctionCurrencyLockedException
+import network.lapis.cloud.shared.rpc.AuctionCurrencyMismatchException
+import network.lapis.cloud.shared.rpc.AuctionCurrencyUnsupportedException
+import network.lapis.cloud.shared.rpc.AuctionFiatDisabledException
+import network.lapis.cloud.shared.rpc.AuctionFiatDisclaimerRequiredException
+import network.lapis.cloud.shared.rpc.AuctionFiatEncryptionUnavailableException
+import network.lapis.cloud.shared.rpc.AuctionPaymentDetailsInvalidException
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ChapterDonationFederalOnlyException
 import network.lapis.cloud.shared.rpc.ConferenceRecordingAlreadyActiveException
@@ -253,6 +262,16 @@ internal fun typedRefusalText(e: Throwable): String? =
         // pictures.
         is GalleryLockedException -> tr("Die Bilder können nicht mehr geändert werden.")
         is GalleryOrderMismatchException -> tr("Die Bilder wurden inzwischen geändert -- bitte die Ansicht aktualisieren.")
+        // V1.9.320 auctions in Euro with direct payment: fixed texts of its typed refusals.
+        is AuctionCurrencyUnsupportedException -> tr("Diese Währung wird für Auktionen nicht unterstützt.")
+        is AuctionFiatDisabledException -> tr("Auktionen in Euro sind auf dieser Plattform nicht freigeschaltet.")
+        is AuctionFiatDisclaimerRequiredException -> tr("Bitte bestätigen Sie zuerst den aktuellen Hinweis für Auktionen in Euro.")
+        is AuctionCurrencyLockedException -> tr("Nach dem ersten Gebot können Währung und Preise nicht mehr geändert werden.")
+        is AuctionCurrencyMismatchException -> tr("Diese Aktion passt nicht zur Währung der Auktion.")
+        is AuctionPaymentDetailsInvalidException -> paymentDetailsErrorText(e.field)
+        is AuctionAlreadyConfirmedException -> tr("Diese Bestätigung wurde bereits gegeben.")
+        is AuctionAmountOutOfRangeException -> tr("Der Betrag liegt außerhalb des erlaubten Bereichs.")
+        is AuctionFiatEncryptionUnavailableException -> tr("Auktionen in Euro sind auf diesem Server derzeit nicht verfügbar.")
         // V1.9.225 party report: the fixed texts of its typed refusals (Kilua RPC transmits only the exception type).
         is PartyReportNotEnabledException -> tr("Der Rechenschaftsbericht ist nur für politische Parteien verfügbar.")
         is PartyReportRevisionConflictException ->

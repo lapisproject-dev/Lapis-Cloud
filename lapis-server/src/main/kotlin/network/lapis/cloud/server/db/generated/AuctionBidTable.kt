@@ -13,7 +13,8 @@ public object AuctionBidTable : Table("auction_bid") {
     public val id: Column<Uuid> = uuid("id")
     public val auctionId: Column<Uuid> = reference("auction_id", AuctionTable.id)
     public val bidderMemberId: Column<Uuid> = reference("bidder_member_id", MemberTable.id)
-    public val maxBidLtr: Column<BigDecimal> = decimal("max_bid_ltr", 18, 2)
+    public val maxBidLtr: Column<BigDecimal?> = decimal("max_bid_ltr", 18, 2).nullable()
+    public val maxBidMinor: Column<Long?> = long("max_bid_minor").nullable()
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)

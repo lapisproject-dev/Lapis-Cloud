@@ -6,6 +6,36 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+Wave V1.9.320 "Auctions in euros with direct payment" (fiat wave a), **schema V165 -> V166**. A backup taken before V166 cannot be restored on V166 (schema checksum), as after every schema change.
+
+**For operators:** the feature is **off by default**. An ADMIN switches it on (Administration, Auction, *Auctions in euros*) after reading and acknowledging an operator notice; the acknowledgment is recorded. It needs `LAPIS_SECRET_ENCRYPTION_KEY` (the key of the SEPA and travel-expense IBANs): without it no euro auction can be created. Release 0.56.0 cannot read a euro auction (its `starting_bid_ltr` was `NOT NULL`): roll back only from a backup taken before V166.
+
+**Behaviour first:**
+
+1. An auction can be listed in **EUR** (`currency`, default `LTR` for every existing auction). **Lapis Cloud receives, holds, forwards and refunds no money and writes no LTR ledger row for such an auction** (no listing fee, no reservation, no sale booking). The winner pays the seller directly.
+2. The award follows the same second-price proxy-bid rule as LTR, in exact minor units (1.00 EUR minimum raise, 1.00 to 100,000.00 EUR per auction, at most 20 open euro auctions per seller). Buy now works in EUR through the same `buyNow` RPC.
+3. New statuses `AWAITING_PAYMENT`, `PAID`, `COMPLETED`. The **seller** confirms "money arrived", the **winner** confirms "goods arrived"; both are final and independent. An award that is never paid stays `AWAITING_PAYMENT` (no cancellation, deadline or reminder, by design).
+4. The seller's **payment details** (account holder, German IBAN and/or `https` link) are stored sealed in their own table, shown only to the winner and the seller of an awarded auction, and deleted when the auction closes without a sale (at once), 30 days after the later confirmation, 180 days after an award that never completes, and when the seller is erased. They appear in no DTO, list, audit entry, log or exception message.
+5. Two acknowledged, versioned and hashed notices: the operator notice (instance switch) and the seller notice (once per version before listing in EUR). Currency and prices can be changed only before the first bid (`updateAuctionTerms`). **Server API only, no UI yet:** neither `updateAuctionTerms` nor `updateAuctionPaymentDetails` is called by the client; a seller cannot change the currency, the prices or the payment details from the app.
+6. The outbid and ending-soon dashboard signals stay LTR-only; the "won" and "sold" signals also cover a euro auction that awaits payment (`AWAITING_PAYMENT`).
+7. **The payment progress is private.** Everybody sees that an auction was awarded (and the winner's name, as for LTR), but only the seller and the winner see `AWAITING_PAYMENT`, `PAID` or `COMPLETED`; a stranger gets plain `SETTLED` in every DTO and the list filter for those three statuses returns only the caller's own auctions.
+8. The limit of 20 open euro auctions is enforced under a lock on the seller's member row and also when an LTR auction is switched to EUR. The LTR listing fee of one auction is charged once, however often the currency is switched (an earlier fee row stays, there is no refund).
+9. The retention poller selects the due payment details in SQL (not from an unordered window of 500 rows), so a due row is deleted however many other rows exist.
+
+**Technique:** migration `V166__auction_fiat_direct_payment.sql` (widens `auction.status` to `VARCHAR(16)` and replaces its unnamed CHECK, `auction.currency` and the minor-unit/confirmation columns, `starting_bid_ltr`/`max_bid_ltr` nullable, `auction_bid.max_bid_minor`, tables `auction_payment_details` and `auction_fiat_acknowledgment`, `organization_settings.auction_fiat_enabled`, `AUCTION` in the audit entity types); `AuctionService` Fiat path (`createFiatListing`, `placeFiatBid`, `updateAuctionPaymentDetails`, `updateAuctionTerms`, `getAuctionPaymentDetails`, `confirmPaymentReceived`, `confirmDeliveryReceived`, `getAuctionFiatAvailability`, `acknowledgeFiatSellerDisclaimer`, `getAuctionFiatOperatorDisclaimer`, `setAuctionFiatEnabled`, appended at the end of `IAuctionService`); `computeFiatAuctionOutcome` (property-tested against the BigDecimal variant); `AuctionPaymentDetailsStore`/`Validator`/`Retention`; nine typed exceptions; new client panel `AuctionFiatSettlementPanel` and a euro choice in the listing form; 74 new i18n msgids in all eight catalogs.
+
+**Tests:** `AuctionFiatServiceScenarios` (17, H2 and PostgreSQL), `AuctionFiatRaceScenarios` (4 races, repeated eight times, H2 and PostgreSQL with the deadlock counter), `AuctionStatusMigrationScenarios` (H2 and PostgreSQL), `AuctionFiatLedgerTripwireTest`, `AuctionFiatOutcomeTest`, `AuctionFiatDisclaimerTest`, `AuctionPaymentDetailsValidatorTest`, client `AuctionFiatSettlementPanelDomTest`, `AuctionMinorAmountTest`; the existing LTR auction tests are unchanged.
+
+**Not verified / not done:**
+
+* **No legal review.** Both notices are the authors' proposal; payment services supervision (ZAG), money laundering (GwG), tax, consumer law, platform reporting (DAC7) and PartG are open questions (see `docs/architecture/auction-fiat-and-federation.adoc`).
+* Never run against a real payment, a real seller and a real winner on a real instance; the UI was seen in DOM tests only.
+* Not built: price offers, appearance on partner servers, tenders in EUR, a second currency, a "sale withdrawn" status, EUR dashboard signals.
+* The sealed payment blob travels in an organisation backup; a restore on an instance with another key leaves it unreadable (the winner sees "not available").
+* The export of a seller names only that sealed details exist (never the ciphertext, the IBAN or the link).
+* Translations (en, es, fr, it, nl, pl, ru) are written by a model and not reviewed by a native speaker.
+* The older notice `AuctionComplianceDisclaimer` still contains one slash gender form; changing it needs a new version and is not part of this wave.
+
 ## [0.56.0] — 2026-11-21
 
 Feature release on `[0.55.0]` (waves V1.9.308 to V1.9.319; the database schema goes from `V156` to `V165`, nine additive migrations). **For operators:** backups made before `V165` cannot be restored (schema checksum); one new optional environment variable `LAPIS_CARPOOL_RETENTION_INTERVAL_HOURS` (1 to 24, default 24; an invalid value logs a warning and uses 24), which reaches the container only if the compose file passes it through; no new switch is on except *Mitglied werden* (on, today's behaviour); the carpool exchange and the LTR recognition are off, but three things are available at once without a switch: tender payout (TREASURER, BOARD, ADMIN; it issues new LTR and changes the public figure "Insgesamt ausgegebene LTR"), auditor invitations (board) and the full-screen button in the guest call. A restore switches the carpool exchange off and clears every consent.

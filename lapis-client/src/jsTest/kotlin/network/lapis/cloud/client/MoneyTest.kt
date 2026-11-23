@@ -201,3 +201,50 @@ class MoneyTest {
         assertEquals("1.234", formatValueTokenIn("de", count))
     }
 }
+
+/** V1.9.320 -- auction amounts in minor units: [formatAuctionAmount] and [parseMinorAmountInput]. */
+class AuctionMinorAmountTest {
+    @Test
+    fun parseMinorAmountInput_acceptsCommaPointAndWholeNumbers() {
+        assertEquals(1250L, parseMinorAmountInput("12,50"))
+        assertEquals(1250L, parseMinorAmountInput("12.50"))
+        assertEquals(1200L, parseMinorAmountInput("12"))
+        assertEquals(1250L, parseMinorAmountInput("12,5"))
+        assertEquals(1L, parseMinorAmountInput("0,01"))
+        assertEquals(1250L, parseMinorAmountInput("  12,50 "))
+        assertEquals(10_000_000L, parseMinorAmountInput("100000"))
+    }
+
+    @Test
+    fun parseMinorAmountInput_refusesAThirdDecimalAndEverythingElse() {
+        listOf(
+            "12,505",
+            "12.505",
+            "",
+            "  ",
+            "0",
+            "0,00",
+            "-5",
+            "+5",
+            "12,",
+            ",50",
+            "1 000",
+            "1,000.00",
+            "abc",
+            "12€",
+            "1e3",
+            "123456789",
+        ).forEach {
+            assertEquals(null, parseMinorAmountInput(it), "'$it' must be refused")
+        }
+    }
+
+    @Test
+    fun formatAuctionAmount_showsEuroFromMinorUnitsAndLtrFromTheDecimal_andDashWhenMissing() {
+        assertEquals(formatMoney(centsToDecimal(1250)), formatAuctionAmount("EUR", null, 1250))
+        assertEquals(formatLtr(5.0.toDecimal()), formatAuctionAmount("LTR", 5.0.toDecimal(), null))
+        assertEquals("--", formatAuctionAmount("EUR", null, null))
+        assertEquals("--", formatAuctionAmount("LTR", null, 1250))
+        assertTrue(formatAuctionAmount("EUR", null, 5).contains("0,05") || formatAuctionAmount("EUR", null, 5).contains("0.05"))
+    }
+}

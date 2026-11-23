@@ -1,0 +1,47 @@
+= Auctions in euros with direct payment
+:description: How a member lists an auction in euros, how the winner pays the seller directly, what the administrator switches on, and what Lapis Cloud does and does not do.
+:toc:
+:icons: font
+
+NOTE: Wave V1.9.320. **Off by default and not legally reviewed.** An administrator must switch it on after reading a legal notice; recommended only for a small pilot. The technical background is in xref:../architecture/auction-fiat-and-federation.adoc[auction-fiat-and-federation.adoc].
+
+== What it is
+
+An auction can run in **euros** instead of LTR. Lapis Cloud then only establishes *who* won and *at which price*. **It does not receive, hold, forward or refund any money, and it never books LTR for such an auction.** The winner pays the seller directly (bank transfer or the seller's own payment link). Lapis Cloud offers no escrow, no buyer protection and no dispute handling.
+
+== For members
+
+*Listing.* In the form "Neues Angebot" a choice *Bezahlung* appears when the administrator has switched euro auctions on. Choose *Euro (Direktzahlung)*:
+
+. Enter the starting price (1.00 to 100,000.00 EUR, at most two decimals) and optionally a buy-now price above it.
+. Enter your **payment details**: account holder, a German IBAN and/or an `https` payment link (at least one of them). They are stored encrypted and shown only to the highest bidder after the award. The server can replace them before the award, but the app has no screen for it yet.
+. The first time, read and acknowledge the *notice for sellers*. A new version of the notice has to be acknowledged again before the next listing.
+. There is **no listing fee** in LTR. At most 20 euro auctions of one seller can be open at the same time.
+
+*Bidding.* A bid is a maximum in euros. Nothing is reserved; the highest bidder wins at the second-highest maximum plus 1.00 EUR (or at the starting price without competition). *Buy now* works as for LTR.
+
+*After the award* the auction shows a settlement panel to the seller and the winner only:
+
+* The **winner** opens the payment details ("Zahlungsangaben anzeigen"), copies the IBAN and the payment reference or opens the payment link (the host of the link is shown next to the button) and, once the goods arrived, confirms "Wareneingang".
+* The **seller** confirms "Zahlungseingang" when the money arrived.
+* Each confirmation is final. After both, the auction is *Abgeschlossen (bezahlt und geliefert)*. If the winner never pays, the auction stays *Zuschlag erteilt, Zahlung offen*: there is no cancellation, no deadline and no reminder.
+
+The server allows changing the currency and the prices of an own auction **before the first bid** (euro to LTR charges the usual LTR listing fee, once per auction). **Server API only: the app has no screen for it yet.**
+
+*Privacy of the progress.* Everybody sees that an auction was awarded; whether it is already paid or completed is visible only to the seller and the winner (others see "awarded").
+
+== For administrators
+
+*Administration > Auction > Auctions in euros (direct payment).* *Euro-Auktionen aktivieren* shows the operator notice (version and hash are echoed back unchanged) and needs the explicit confirmation; the acknowledgment (who, when, which version) is recorded. *Deaktivieren* blocks only new euro listings; running euro auctions can still be bid on, awarded and confirmed.
+
+The feature needs `LAPIS_SECRET_ENCRYPTION_KEY` (the key that also protects the SEPA and travel-expense IBANs): without it no euro auction can be created. Backups taken before schema V166 cannot be restored.
+
+== Data protection
+
+The payment details of the seller are deleted at once when the auction closes without a sale, 30 days after the later confirmation, 180 days after the award if it never completes, and when the seller is erased. They are in no list, no audit entry and no log. See xref:../architecture/dsgvo.adoc[dsgvo.adoc].
+
+== Limits
+
+* EUR only; Germany first (a German IBAN is required).
+* No price offers, no appearance on partner servers, no outbid or ending-soon dashboard signals for euro auctions (the won and sold signals exist).
+* The wording of both notices is the proposal of the authors and has **not** been checked by a lawyer.

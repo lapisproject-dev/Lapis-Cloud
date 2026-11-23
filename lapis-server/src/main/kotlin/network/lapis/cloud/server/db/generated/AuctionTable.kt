@@ -14,9 +14,9 @@ public object AuctionTable : Table("auction") {
     public val id: Column<Uuid> = uuid("id")
     public val title: Column<String> = varchar("title", 200)
     public val description: Column<String> = varchar("description", 4000)
-    public val startingBidLtr: Column<BigDecimal> = decimal("starting_bid_ltr", 18, 2)
+    public val startingBidLtr: Column<BigDecimal?> = decimal("starting_bid_ltr", 18, 2).nullable()
     public val buyNowPriceLtr: Column<BigDecimal?> = decimal("buy_now_price_ltr", 18, 2).nullable()
-    public val status: Column<AuctionStatus> = enumerationByName<AuctionStatus>("status", 14)
+    public val status: Column<AuctionStatus> = enumerationByName<AuctionStatus>("status", 16)
     // TODO default = "OPEN"
     public val sellerMemberId: Column<Uuid> = reference("seller_member_id", MemberTable.id)
     public val winnerMemberId: Column<Uuid?> = optReference("winner_member_id", MemberTable.id)
@@ -25,6 +25,13 @@ public object AuctionTable : Table("auction") {
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
     public val endsAt: Column<LocalDateTime> = datetime("ends_at")
     public val settledAt: Column<LocalDateTime?> = datetime("settled_at").nullable()
+    public val currency: Column<String> = varchar("currency", 3).default("LTR")
+    public val startingPriceMinor: Column<Long?> = long("starting_price_minor").nullable()
+    public val buyNowPriceMinor: Column<Long?> = long("buy_now_price_minor").nullable()
+    public val finalPriceMinor: Column<Long?> = long("final_price_minor").nullable()
+    public val sellerDisclaimerVersion: Column<String?> = varchar("seller_disclaimer_version", 50).nullable()
+    public val paymentConfirmedAt: Column<LocalDateTime?> = datetime("payment_confirmed_at").nullable()
+    public val deliveryConfirmedAt: Column<LocalDateTime?> = datetime("delivery_confirmed_at").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

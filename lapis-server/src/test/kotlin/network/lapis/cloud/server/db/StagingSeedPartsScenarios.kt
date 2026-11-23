@@ -382,13 +382,13 @@ abstract class StagingSeedPartsScenarios(
                                 AuctionBidView(
                                     bidId = it[AuctionBidTable.id],
                                     bidderMemberId = it[AuctionBidTable.bidderMemberId],
-                                    maxBidLtr = it[AuctionBidTable.maxBidLtr],
+                                    maxBidLtr = it[AuctionBidTable.maxBidLtr]!!,
                                     createdAt = it[AuctionBidTable.createdAt],
                                 )
                             }
                         val outcome =
                             computeAuctionOutcome(
-                                startingBidLtr = row[AuctionTable.startingBidLtr],
+                                startingBidLtr = row[AuctionTable.startingBidLtr]!!,
                                 minIncrementLtr = BigDecimal("0.01"),
                                 bids = views,
                             )

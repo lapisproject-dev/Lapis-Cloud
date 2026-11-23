@@ -30,6 +30,8 @@ class BackupSecretColumnTripwireTest :
                 "fints_pin_ciphertext" to "bank account: sealed FinTS PIN (open: decide on its own)",
                 "secret_sealed" to "webhook endpoint: sealed signing secret (open: decide on its own)",
                 "token_ciphertext" to "accounting export connection: sealed API token (open: decide on its own)",
+                "details_ciphertext" to
+                    "auction: sealed seller payment details (holder, IBAN, link); transient, deleted by the retention poller",
             )
 
         test("every exported *_ciphertext / *_sealed / *_fingerprint column is redacted or deliberately allowed") {

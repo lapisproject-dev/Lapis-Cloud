@@ -1,6 +1,5 @@
 package network.lapis.cloud.client
 
-import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDouble
 import io.kvision.form.text.text
 import io.kvision.html.Button
@@ -17,6 +16,7 @@ import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AttachedImageOwnerType
 import network.lapis.cloud.shared.domain.AuctionBidDto
+import network.lapis.cloud.shared.domain.AuctionCurrencies
 import network.lapis.cloud.shared.domain.AuctionDto
 import network.lapis.cloud.shared.domain.AuctionStatus
 import network.lapis.cloud.shared.rpc.IAuctionService
@@ -39,6 +39,10 @@ internal fun renderAuctionCard(
     // Security audit W6b follow-up round 3 (major finding A): auction title/description are seller-controlled
     // free text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
     headerRow.div(sanitizeUntrustedI18nText(auction.title)) { addCssClasses("flex-grow-1 fw-bold") }
+    // V1.9.320: the currency is always named (a second, non-colour channel); a Fiat auction also says how it is paid.
+    val isFiat = auction.currency != AuctionCurrencies.LTR
+    headerRow.statusBadge(auction.currency, if (isFiat) "dark" else "primary")
+    if (isFiat) headerRow.statusBadge(tr("Direktzahlung"), "secondary")
     headerRow.statusBadge(auctionStatusLabel(auction.status), auctionStatusColor(auction.status))
     if (auction.status != auction.effectiveStatus) {
         headerRow.statusBadge(
@@ -71,25 +75,25 @@ internal fun renderAuctionCard(
     val priceRow = card.hPanel(spacing = 16) { addCssClasses("align-items-center flex-wrap") }
     val startCell = priceRow.vPanel(spacing = 2)
     startCell.div(tr("Startpreis")) { addCssClasses("text-muted small") }
-    startCell.ltrSpan(auction.startingBidLtr)
-    val currentPriceForDisplay = auction.currentPriceLtr
+    startCell.auctionAmountSpan(auction.currency, auction.startingBidLtr, auction.startingPriceMinor)
+    val currentPriceForDisplay = if (isFiat) auction.currentPriceMinor else auction.currentPriceLtr
     if (currentPriceForDisplay != null) {
         val currentCell = priceRow.vPanel(spacing = 2)
         currentCell.div(if (auction.leaderIsMe) tr("Aktueller Preis (Sie führen)") else tr("Aktueller Preis")) {
             addCssClasses("text-muted small")
         }
-        currentCell.ltrSpan(currentPriceForDisplay)
+        currentCell.auctionAmountSpan(auction.currency, auction.currentPriceLtr, auction.currentPriceMinor)
         auction.currentLeaderDisplayName?.let { leader ->
             currentCell.div(if (auction.leaderIsMe) tr("Führend: Sie") else gettext("Führend: %1", leader)) {
                 addCssClasses("text-muted small")
             }
         }
     }
-    val buyNowPriceForDisplay = auction.buyNowPriceLtr
+    val buyNowPriceForDisplay = if (isFiat) auction.buyNowPriceMinor else auction.buyNowPriceLtr
     if (buyNowPriceForDisplay != null) {
         val buyNowCell = priceRow.vPanel(spacing = 2)
         buyNowCell.div(tr("Sofortkaufpreis")) { addCssClasses("text-muted small") }
-        buyNowCell.ltrSpan(buyNowPriceForDisplay)
+        buyNowCell.auctionAmountSpan(auction.currency, auction.buyNowPriceLtr, auction.buyNowPriceMinor)
     }
 
     if (auction.effectiveStatus == AuctionStatus.SETTLED) {
@@ -97,9 +101,20 @@ internal fun renderAuctionCard(
             gettext(
                 "Verkauft an %1 für %2.",
                 auction.winnerDisplayName ?: "--",
-                auction.finalPriceLtr?.let { formatLtr(it) } ?: "--",
+                formatAuctionAmount(auction.currency, auction.finalPriceLtr, auction.finalPriceMinor),
             ),
         ) { addCssClasses("small") }
+    }
+
+    if (isFiat && auction.status in FIAT_AWARDED_STATUSES) {
+        card.div(
+            gettext(
+                "Zuschlag an %1 für %2. Die Bezahlung erfolgt direkt zwischen Verkäufer und Käufer.",
+                auction.winnerDisplayName ?: "--",
+                formatAuctionAmount(auction.currency, null, auction.finalPriceMinor),
+            ),
+        ) { addCssClasses("small") }
+        if (auction.callerIsSeller || auction.callerIsWinner) renderFiatSettlementPanel(card, auction, onChanged)
     }
 
     val isSeller = currentMemberId != null && auction.sellerMemberId == currentMemberId
@@ -155,6 +170,10 @@ private fun renderBidAndBuyNowControls(
     onChanged: () -> Unit,
 ) {
     val controlsPanel = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-1") }
+    if (auction.currency != AuctionCurrencies.LTR) {
+        renderFiatBidAndBuyNowControls(controlsPanel, auction, onChanged)
+        return
+    }
     val bidRow = controlsPanel.lapisToolbar()
     val bidInput = bidRow.text(label = tr("Ihr Höchstgebot (LTR)")) { placeholder = "LTR" }
     bidInput.input.setAttribute("inputmode", "decimal")
@@ -177,16 +196,17 @@ private fun renderBidAndBuyNowControls(
             return@onClick
         }
         val bidAmount = bidParsed.value
-        if (bidAmount.toDouble() < auction.startingBidLtr.toDouble()) {
+        val startingBid = auction.startingBidLtr ?: return@onClick
+        if (bidAmount.toDouble() < startingBid.toDouble()) {
             errorBox.content =
-                gettext("Ihr Höchstgebot muss mindestens dem Startpreis (%1) entsprechen.", formatLtr(auction.startingBidLtr))
+                gettext("Ihr Höchstgebot muss mindestens dem Startpreis (%1) entsprechen.", formatLtr(startingBid))
             errorBox.show()
             return@onClick
         }
         val lastFetchedPriceText =
             auction.currentPriceLtr?.let { gettext("zuletzt abgerufener Preis: %1", formatLtr(it)) }
-                ?: gettext("noch keine Gebote, Startpreis: %1", formatLtr(auction.startingBidLtr))
-        placeBidConfirmDialog(auction.title, bidAmount, lastFetchedPriceText) {
+                ?: gettext("noch keine Gebote, Startpreis: %1", formatLtr(startingBid))
+        placeBidConfirmDialog(auction.title, formatLtr(bidAmount), lastFetchedPriceText, reservesLtr = true) {
             bidButton.disabled = true
             bidBusyLabel.show()
             AppScope.launch {
@@ -195,7 +215,13 @@ private fun renderBidAndBuyNowControls(
                 bidBusyLabel.hide()
                 if (result != null) {
                     val leadCopy = if (result.youAreLeader) gettext("Sie führen jetzt.") else gettext("Ein anderes Gebot führt weiterhin.")
-                    notifySuccess(gettext("Gebot angenommen. Aktueller Preis: %1. %2", formatLtr(result.currentPriceLtr), leadCopy))
+                    notifySuccess(
+                        gettext(
+                            "Gebot angenommen. Aktueller Preis: %1. %2",
+                            formatAuctionAmount(AuctionCurrencies.LTR, result.currentPriceLtr, null),
+                            leadCopy,
+                        ),
+                    )
                     bidInput.value = null
                     onChanged()
                 }
@@ -211,7 +237,7 @@ private fun renderBidAndBuyNowControls(
         val buyNowBusyLabel = buyNowRow.div(tr("Wird ausgeführt …")) { addCssClasses("text-muted small") }
         buyNowBusyLabel.hide()
         buyNowButton.onClick {
-            buyNowConfirmDialog(auction.title, buyNowPrice) {
+            buyNowConfirmDialog(auction.title, formatLtr(buyNowPrice), fiat = false) {
                 buyNowButton.disabled = true
                 buyNowBusyLabel.show()
                 AppScope.launch {
@@ -234,20 +260,29 @@ private fun renderBidAndBuyNowControls(
  * the bid is evaluated against the live price at confirmation time, not the one shown here. */
 private fun placeBidConfirmDialog(
     auctionTitle: String,
-    maxBid: Decimal,
+    maxBidText: String,
     lastFetchedPriceText: String,
+    reservesLtr: Boolean,
     onConfirm: () -> Unit,
 ) {
     val modal = Modal(caption = tr("Gebot bestätigen"))
-    modal.div(tr("Ihr Höchstgebot ist verbindlich und reserviert LTR aus Ihrem freien Guthaben.")) {
-        addCssClasses("fw-bold text-danger")
+    if (reservesLtr) {
+        modal.div(tr("Ihr Höchstgebot ist verbindlich und reserviert LTR aus Ihrem freien Guthaben.")) {
+            addCssClasses("fw-bold text-danger")
+        }
+    } else {
+        // V1.9.320: a Fiat bid reserves nothing; the contract and the payment run directly between the two people.
+        modal.div(tr("Ihr Höchstgebot ist verbindlich. Bei Zuschlag bezahlen Sie den Betrag direkt an den Verkäufer.")) {
+            addCssClasses("fw-bold text-danger")
+        }
+        modal.div(tr("Lapis nimmt kein Geld an, hält keines und vermittelt bei Streit nicht. Es gibt keinen Käuferschutz."))
     }
     modal.div(
         gettext(
             "Sie bieten %1 auf \"%2\" (%3). Ihr Gebot wird gegen den " +
                 "aktuellen Preis zum Zeitpunkt der Bestätigung ausgewertet, nicht den hier angezeigten -- der Preis kann " +
                 "sich seit dem letzten Abruf geändert haben.",
-            formatLtr(maxBid),
+            maxBidText,
             auctionTitle,
             lastFetchedPriceText,
         ),
@@ -267,12 +302,16 @@ private fun placeBidConfirmDialog(
 /** Tier 2 "Endgültig" (D4): bespoke modal, same shape as [placeBidConfirmDialog]. */
 private fun buyNowConfirmDialog(
     auctionTitle: String,
-    buyNowPrice: Decimal,
+    buyNowPriceText: String,
+    fiat: Boolean,
     onConfirm: () -> Unit,
 ) {
     val modal = Modal(caption = tr("Sofortkauf bestätigen"))
     modal.div(tr("Sofortkauf ist verbindlich -- kann nicht rückgängig gemacht werden.")) { addCssClasses("fw-bold text-danger") }
-    modal.div(gettext("Sie kaufen \"%1\" sofort für %2.", auctionTitle, formatLtr(buyNowPrice)))
+    modal.div(gettext("Sie kaufen \"%1\" sofort für %2.", auctionTitle, buyNowPriceText))
+    if (fiat) {
+        modal.div(tr("Sie bezahlen den Betrag danach direkt an den Verkäufer. Lapis nimmt kein Geld an und vermittelt bei Streit nicht."))
+    }
     modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Sofort kaufen"), style = ButtonStyle.DANGER).apply {
@@ -300,7 +339,11 @@ internal fun renderMyBidsTable(
         columns =
             listOf(
                 textColumn<AuctionBidDto>(title = tr("Auktion"), primary = true) { it.auctionTitle },
-                DataColumn(title = tr("Ihr Höchstgebot"), numeric = true, cell = { cell, bid -> cell.ltrSpan(bid.maxBidLtr) }),
+                DataColumn(
+                    title = tr("Ihr Höchstgebot"),
+                    numeric = true,
+                    cell = { cell, bid -> cell.auctionAmountSpan(bid.currency, bid.maxBidLtr, bid.maxBidMinor) },
+                ),
                 // Security audit W6b, round 7 (major finding 2): trusted(...) keeps both branches live-translatable
                 // instead of losing their marker to textColumn's unconditional untrusted-text sanitizer.
                 textColumn<AuctionBidDto>(title = tr("Führend")) {
@@ -320,4 +363,109 @@ internal fun renderMyBidsTable(
         viewport = viewport,
         label = gettext("Meine Gebote"),
     )
+}
+
+/** The statuses of an awarded Fiat auction (the settlement panel is shown to the seller and the winner). */
+internal val FIAT_AWARDED_STATUSES = setOf(AuctionStatus.AWAITING_PAYMENT, AuctionStatus.PAID, AuctionStatus.COMPLETED)
+
+/**
+ * V1.9.320: bid and Sofortkauf controls of a FIAT (EUR) auction. Same shape as the LTR controls above, but the amounts are minor units
+ * ([parseMinorAmountInput]) and nothing is reserved: the dialogs say that the money is paid directly to the seller after the award.
+ */
+private fun renderFiatBidAndBuyNowControls(
+    controlsPanel: SimplePanel,
+    auction: AuctionDto,
+    onChanged: () -> Unit,
+) {
+    val bidRow = controlsPanel.lapisToolbar()
+    val bidInput = bidRow.text(label = gettext("Ihr Höchstgebot (%1)", auction.currency)) { placeholder = auction.currency }
+    bidInput.input.setAttribute("inputmode", "decimal")
+    val bidButton = bidRow.button(tr("Bieten"), style = ButtonStyle.OUTLINEDANGER)
+    val bidBusyLabel = bidRow.div(tr("Wird ausgeführt …")) { addCssClasses("text-muted small") }
+    bidBusyLabel.hide()
+    val errorBox =
+        controlsPanel.div().apply {
+            addCssClass("text-danger")
+            hide()
+        }
+    val startingMinor = auction.startingPriceMinor ?: return
+
+    bidButton.onClick {
+        errorBox.hide()
+        val bidMinor = parseMinorAmountInput(bidInput.value.orEmpty())
+        if (bidMinor == null || bidMinor < AuctionCurrencies.MIN_MINOR || bidMinor > AuctionCurrencies.MAX_MINOR) {
+            errorBox.content = tr("Bitte einen gültigen Betrag mit höchstens zwei Nachkommastellen angeben.")
+            errorBox.show()
+            return@onClick
+        }
+        if (bidMinor < startingMinor) {
+            errorBox.content =
+                gettext(
+                    "Ihr Höchstgebot muss mindestens dem Startpreis (%1) entsprechen.",
+                    formatAuctionAmount(auction.currency, null, startingMinor),
+                )
+            errorBox.show()
+            return@onClick
+        }
+        val lastFetchedPriceText =
+            auction.currentPriceMinor?.let { gettext("zuletzt abgerufener Preis: %1", formatAuctionAmount(auction.currency, null, it)) }
+                ?: gettext("noch keine Gebote, Startpreis: %1", formatAuctionAmount(auction.currency, null, startingMinor))
+        placeBidConfirmDialog(
+            auction.title,
+            formatAuctionAmount(auction.currency, null, bidMinor),
+            lastFetchedPriceText,
+            reservesLtr = false,
+        ) {
+            bidButton.disabled = true
+            bidBusyLabel.show()
+            AppScope.launch {
+                val result = guarded { rpcService<IAuctionService>().placeFiatBid(auction.id, bidMinor) }
+                bidButton.disabled = false
+                bidBusyLabel.hide()
+                if (result != null) {
+                    val leadCopy = if (result.youAreLeader) gettext("Sie führen jetzt.") else gettext("Ein anderes Gebot führt weiterhin.")
+                    notifySuccess(
+                        gettext(
+                            "Gebot angenommen. Aktueller Preis: %1. %2",
+                            formatAuctionAmount(result.currency, null, result.currentPriceMinor),
+                            leadCopy,
+                        ),
+                    )
+                    bidInput.value = null
+                    onChanged()
+                }
+            }
+        }
+    }
+
+    val buyNowMinor = auction.buyNowPriceMinor
+    val currentMinor = auction.currentPriceMinor
+    if (buyNowMinor != null && (currentMinor == null || currentMinor < buyNowMinor)) {
+        val buyNowRow = controlsPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+        val buyNowText = formatAuctionAmount(auction.currency, null, buyNowMinor)
+        val buyNowButton = buyNowRow.button(gettext("Sofort kaufen für %1", buyNowText), style = ButtonStyle.DANGER)
+        val buyNowBusyLabel = buyNowRow.div(tr("Wird ausgeführt …")) { addCssClasses("text-muted small") }
+        buyNowBusyLabel.hide()
+        buyNowButton.onClick {
+            buyNowConfirmDialog(auction.title, buyNowText, fiat = true) {
+                buyNowButton.disabled = true
+                buyNowBusyLabel.show()
+                AppScope.launch {
+                    val result = guarded { rpcService<IAuctionService>().buyNow(auction.id) }
+                    buyNowButton.disabled = false
+                    buyNowBusyLabel.hide()
+                    if (result != null) {
+                        notifySuccess(
+                            gettext(
+                                "Sofortkauf abgeschlossen: \"%1\" für %2.",
+                                result.title,
+                                formatAuctionAmount(result.currency, null, result.finalPriceMinor ?: buyNowMinor),
+                            ),
+                        )
+                        onChanged()
+                    }
+                }
+            }
+        }
+    }
 }

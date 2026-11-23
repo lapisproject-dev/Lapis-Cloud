@@ -714,7 +714,30 @@ enum class AuditEntityType {
      * discarded one, whose row is gone). Snapshot [MeetingRewardSettlementAuditSnapshot]. 25 chars. Appended LAST.
      */
     MEETING_REWARD_SETTLEMENT,
+
+    /**
+     * Welle V1.9.320 -- a Fiat (EUR, direct payment) auction: created, awarded, payment details replaced, payment/goods confirmed; `entityId` = the
+     * `auction` id. Snapshot [AuctionFiatAuditSnapshot]: the event name, currency, status and time only -- NEVER an amount, an IBAN, a link or a holder
+     * name. The instance switch is audited as [ORGANIZATION_SETTINGS]. 7 chars. Appended LAST.
+     */
+    AUCTION,
 }
+
+/** V1.9.320 -- after-snapshot of an [AuditEntityType.AUCTION] entry. No amount, no payment data, no name. */
+@Serializable
+data class AuctionFiatAuditSnapshot(
+    val event: String,
+    val currency: String,
+    val status: AuctionStatus,
+    val occurredAt: LocalDateTime,
+)
+
+/** V1.9.320 -- after-snapshot of the instance switch for Fiat auctions ([AuditEntityType.ORGANIZATION_SETTINGS]). */
+@Serializable
+data class AuctionFiatSwitchAuditSnapshot(
+    val auctionFiatEnabled: Boolean,
+    val disclaimerVersion: String?,
+)
 
 /** V1.9.304 -- after-snapshot of an [AuditEntityType.CONFERENCE_ROOM_POLL] entry. */
 @Serializable

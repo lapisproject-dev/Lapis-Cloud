@@ -240,6 +240,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // V1.9.316 -- the rules of the LTR recognition for Sitzungen (proposal, confirmation, withdrawal, switch-off) and the settlement of one Sitzung.
         AuditEntityType.MEETING_REWARD_POLICY -> gettext("LTR-Anerkennung (Ordnung)")
         AuditEntityType.MEETING_REWARD_SETTLEMENT -> gettext("LTR-Anerkennung (Abrechnung)")
+        // V1.9.320 -- an auction in Euro with direct payment (create, award, confirmations); the entry carries no amount and no payment data.
+        AuditEntityType.AUCTION -> gettext("Auktion in Euro")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -404,6 +406,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // "warning" -- an issuance of LTR is a consequential act; the label says it too, never colour alone.
         AuditEntityType.MEETING_REWARD_POLICY -> "warning"
         AuditEntityType.MEETING_REWARD_SETTLEMENT -> "warning"
+        // V1.9.320 -- no LTR and no money moves through Lapis for a Fiat auction: neutral hue.
+        AuditEntityType.AUCTION -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
+import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
@@ -14,12 +15,21 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AttachedImageOwnerType
+import network.lapis.cloud.shared.domain.AuctionComplianceAcknowledgmentInput
+import network.lapis.cloud.shared.domain.AuctionCurrencies
+import network.lapis.cloud.shared.domain.AuctionDto
+import network.lapis.cloud.shared.domain.AuctionFiatAvailabilityDto
+import network.lapis.cloud.shared.domain.AuctionPaymentDetailsInput
 import network.lapis.cloud.shared.domain.CreateAuctionListingInput
+import network.lapis.cloud.shared.domain.CreateFiatAuctionListingInput
 import network.lapis.cloud.shared.domain.DurationUnit
 import network.lapis.cloud.shared.domain.durationToHours
 import network.lapis.cloud.shared.domain.maxAmount
+import network.lapis.cloud.shared.rpc.AuctionPaymentDetailsField
+import network.lapis.cloud.shared.rpc.AuctionPaymentDetailsInvalidException
 import network.lapis.cloud.shared.rpc.IAuctionService
 
 /**
@@ -38,6 +48,11 @@ import network.lapis.cloud.shared.rpc.IAuctionService
  * picture gallery ([ImageGalleryEditor], buffer mode). After `createListing` the form STAYS OPEN until every picture is uploaded: the
  * listing
  * already exists then, so a failed picture is retried without losing it; only a clean finish (or "Fertig") folds the form back.
+ *
+ * V1.9.320: when the instance has switched Fiat auctions on ([IAuctionService.getAuctionFiatAvailability]) a "Bezahlung" choice (LTR or
+ * Euro) appears. Euro replaces the fee line with the three payment-detail inputs (holder, IBAN, link; at least one of IBAN/link), a
+ * reminder that the money moves directly between the two people, and -- until the member has acknowledged the CURRENT seller notice -- the
+ * notice itself with a mandatory checkbox. The default stays LTR; without the switch the form is exactly the LTR form.
  */
 internal fun SimplePanel.renderCreateListingForm(
     collapse: (Boolean) -> Unit,
@@ -45,13 +60,43 @@ internal fun SimplePanel.renderCreateListingForm(
 ): FormSnapshot {
     val panel = vPanel(spacing = 6)
     panel.renderMyLtrBalanceInline()
-    panel.div(gettext("Beim Einstellen wird eine feste Gebühr von %1 fällig.", formatLtr(0.01.toDecimal()))) {
-        addCssClasses("text-muted small")
-    }
+    val feeLine =
+        panel.div(gettext("Beim Einstellen wird eine feste Gebühr von %1 fällig.", formatLtr(0.01.toDecimal()))) {
+            addCssClasses("text-muted small")
+        }
     val titleInput = panel.text(label = tr("Titel"))
     val descriptionInput = panel.textArea(label = tr("Beschreibung"), rows = 3)
+    // V1.9.320: only offered when the instance switched Fiat auctions on; stays hidden (and out of the DOM) otherwise.
+    val currencySelect =
+        panel.select(
+            options =
+                listOf(
+                    AuctionCurrencies.LTR to tr("LTR (Libertaler)"),
+                    AuctionCurrencies.EUR to tr("Euro (Direktzahlung)"),
+                ),
+            value = AuctionCurrencies.LTR,
+            label = tr("Bezahlung"),
+        )
+    currencySelect.hide()
     val startingBidInput = panel.text(label = tr("Startpreis (LTR)"))
     val buyNowInput = panel.text(label = tr("Sofortkaufpreis (LTR, optional -- muss über dem Startpreis liegen)"))
+    val fiatSection = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-2") }
+    val holderInput = fiatSection.text(label = tr("Kontoinhaber"))
+    val ibanInput = fiatSection.text(label = tr("IBAN (deutsches Konto)"))
+    val linkInput = fiatSection.text(label = tr("Zahlungslink (https, optional, wenn eine IBAN angegeben ist)"))
+    fiatSection.div(
+        tr(
+            "Mindestens IBAN oder Zahlungslink ist nötig. Die Angaben werden verschlüsselt gespeichert und nur dem " +
+                "Höchstbietenden nach dem Zuschlag gezeigt. Danach können Sie sie nicht mehr ändern.",
+        ),
+    ) { addCssClasses("text-muted small") }
+    fiatSection.div(
+        tr("Die Zahlung erfolgt direkt zwischen Ihnen und dem Höchstbietenden. Lapis nimmt kein Geld an und vermittelt bei Streit nicht."),
+    ) { addCssClasses("small fw-bold") }
+    val noticeHost = fiatSection.vPanel(spacing = 4)
+    fiatSection.hide()
+    var availability: AuctionFiatAvailabilityDto? = null
+    var acknowledgeBox: io.kvision.form.check.CheckBox? = null
     // V1.9.222: number + unit. The bound is the server's (AuctionDurationRules), converted by durationToHours -- one source for both
     // sides.
     val durationRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-end flex-wrap") }
@@ -93,6 +138,59 @@ internal fun SimplePanel.renderCreateListingForm(
     refreshDurationHint(invalid = false)
     unitSelect.subscribe { refreshDurationHint(invalid = false) }
 
+    fun isEuro(): Boolean = currencySelect.value == AuctionCurrencies.EUR
+
+    // V1.9.320: the labels and the visible blocks follow the chosen currency; LTR (the default) is the form as it always was.
+    fun applyCurrency() {
+        val euro = isEuro()
+        startingBidInput.label = if (euro) tr("Startpreis (EUR)") else tr("Startpreis (LTR)")
+        buyNowInput.label =
+            if (euro) {
+                tr("Sofortkaufpreis (EUR, optional -- muss über dem Startpreis liegen)")
+            } else {
+                tr("Sofortkaufpreis (LTR, optional -- muss über dem Startpreis liegen)")
+            }
+        if (euro) {
+            feeLine.hide()
+            fiatSection.show()
+        } else {
+            feeLine.show()
+            fiatSection.hide()
+        }
+    }
+    currencySelect.subscribe { applyCurrency() }
+
+    AppScope.launch {
+        val loaded =
+            try {
+                rpcService<IAuctionService>().getAuctionFiatAvailability()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // Quiet by design: without the Euro offer the form is the plain LTR form; nothing the person did failed.
+                null
+            }
+        if (loaded != null && loaded.fiatEnabled) {
+            availability = loaded
+            currencySelect.show()
+            val acknowledgedAt = loaded.sellerAcknowledgedAt
+            if (loaded.sellerAcknowledgedCurrentVersion && acknowledgedAt != null) {
+                noticeHost.div(gettext("Hinweis für Verkäufer bestätigt am %1", formatSystemDateTime(acknowledgedAt))) {
+                    addCssClasses("text-muted small")
+                }
+            } else {
+                noticeHost.disclosure(tr("Hinweis für Verkäufer lesen"), bodyId = "lapis-auction-fiat-notice") {
+                    div {
+                        addCssClasses("border rounded p-2 small lapis-pre-line")
+                        content = sanitizeUntrustedI18nText(loaded.sellerDisclaimerText)
+                    }
+                }
+                val acknowledgeLabel = tr("Ich habe den Hinweis für Verkäufer gelesen und verstanden.")
+                acknowledgeBox = noticeHost.checkBox(value = false, label = acknowledgeLabel)
+            }
+        }
+    }
+
     // The listing is created before its pictures are uploaded; the form folds back only when nothing is left to upload or retry.
     var createdId: String? = null
     var finished = false
@@ -122,6 +220,161 @@ internal fun SimplePanel.renderCreateListingForm(
     buttons.add(submitButton)
     doneButton.onClick { finish() }
 
+    // The listing exists now: it must not be created twice, so the button stays off. The pictures follow; the form stays open for a retry
+    // of a failed one. Shared by the LTR and the Euro submit.
+    suspend fun onListingCreated(result: AuctionDto) {
+        notifySuccess(gettext("Angebot \"%1\" erstellt.", result.title))
+        createdId = result.id
+        if (galleryEditor.pendingCount() == 0 || galleryEditor.uploadPending(result.id)) {
+            finish()
+        } else {
+            errorBox.content = tr("Angebot wurde erstellt; einzelne Bilder fehlen noch.")
+            errorBox.show()
+            buttons.removeAll()
+            buttons.add(doneButton)
+        }
+    }
+
+    // V1.9.320: the Euro (direct payment) listing. No fee, no LTR booking; the notice is acknowledged first when the member has not yet.
+    fun submitEuro(
+        title: String,
+        description: String,
+        startingText: String,
+        buyNowText: String,
+        durationAmount: Int?,
+        durationHours: Int?,
+        unit: DurationUnit,
+    ) {
+        fun fail(message: String) {
+            errorBox.content = message
+            errorBox.show()
+        }
+        val startingMinor = parseMinorAmountInput(startingText)
+        if (!Validation.isNonBlank(title) || !Validation.isNonBlank(description) || startingMinor == null) {
+            fail(tr("Bitte Titel, Beschreibung und einen positiven Startpreis (EUR) mit höchstens zwei Nachkommastellen angeben."))
+            return
+        }
+        val range = AuctionCurrencies.MIN_MINOR..AuctionCurrencies.MAX_MINOR
+        if (startingMinor !in range) {
+            fail(
+                gettext(
+                    "Der Startpreis muss zwischen %1 und %2 liegen.",
+                    formatAuctionAmount(AuctionCurrencies.EUR, null, AuctionCurrencies.MIN_MINOR),
+                    formatAuctionAmount(AuctionCurrencies.EUR, null, AuctionCurrencies.MAX_MINOR),
+                ),
+            )
+            return
+        }
+        if (durationAmount == null || durationHours == null) {
+            refreshDurationHint(invalid = true)
+            fail(tr("Bitte eine Laufzeit im angegebenen Bereich wählen."))
+            return
+        }
+        refreshDurationHint(invalid = false)
+        var buyNowMinor: Long? = null
+        if (buyNowText.isNotBlank()) {
+            val parsed = parseMinorAmountInput(buyNowText)
+            if (parsed == null || parsed !in range) {
+                fail(tr("Der Sofortkaufpreis muss, falls angegeben, ein gültiger EUR-Betrag sein."))
+                return
+            }
+            if (parsed <= startingMinor) {
+                fail(tr("Der Sofortkaufpreis muss über dem Startpreis liegen."))
+                return
+            }
+            buyNowMinor = parsed
+        }
+        val holder = holderInput.value.orEmpty().trim()
+        val iban = ibanInput.value.orEmpty().trim()
+        val link = linkInput.value.orEmpty().trim()
+        if (holder.length < 2) {
+            fail(paymentDetailsErrorText(AuctionPaymentDetailsField.ACCOUNT_HOLDER))
+            return
+        }
+        if (iban.isEmpty() && link.isEmpty()) {
+            fail(paymentDetailsErrorText(AuctionPaymentDetailsField.MISSING))
+            return
+        }
+        val current = availability
+        if (current == null) {
+            fail(tr("Auktionen in Euro sind auf dieser Plattform derzeit nicht verfügbar."))
+            return
+        }
+        val needsAcknowledgment = !current.sellerAcknowledgedCurrentVersion
+        if (needsAcknowledgment && acknowledgeBox?.value != true) {
+            fail(tr("Bitte bestätigen Sie, dass Sie den Hinweis für Verkäufer gelesen haben."))
+            return
+        }
+        val buyNowSummary = buyNowMinor?.let { gettext(", Sofortkaufpreis %1", formatAuctionAmount(AuctionCurrencies.EUR, null, it)) } ?: ""
+        confirmDialog(
+            title = tr("Angebot in Euro erstellen"),
+            message =
+                gettext(
+                    "Es wird ein Angebot \"%1\" mit Startpreis %2%3 und %4 Laufzeit erstellt. Es fällt keine Gebühr an. " +
+                        "Die Zahlung erfolgt direkt zwischen Ihnen und dem Höchstbietenden; Lapis nimmt kein Geld an.",
+                    title,
+                    formatAuctionAmount(AuctionCurrencies.EUR, null, startingMinor),
+                    buyNowSummary,
+                    durationLabel(durationAmount, unit),
+                ),
+            confirmLabel = tr("Erstellen"),
+            dangerNote = tr("Die Zahlungsangaben können nach dem Zuschlag nicht mehr geändert werden."),
+        ) {
+            submitButton.disabled = true
+            AppScope.launch {
+                if (needsAcknowledgment) {
+                    val acknowledged =
+                        guarded {
+                            rpcService<IAuctionService>().acknowledgeFiatSellerDisclaimer(
+                                AuctionComplianceAcknowledgmentInput(
+                                    disclaimerVersion = current.sellerDisclaimerVersion,
+                                    disclaimerSha256 = current.sellerDisclaimerSha256,
+                                ),
+                            )
+                        }
+                    if (acknowledged == null) {
+                        submitButton.disabled = false
+                        return@launch
+                    }
+                    availability = acknowledged
+                }
+                var invalid: AuctionPaymentDetailsInvalidException? = null
+                val result =
+                    guarded {
+                        try {
+                            rpcService<IAuctionService>().createFiatListing(
+                                CreateFiatAuctionListingInput(
+                                    title = title,
+                                    description = description,
+                                    currency = AuctionCurrencies.EUR,
+                                    startingPriceMinor = startingMinor,
+                                    buyNowPriceMinor = buyNowMinor,
+                                    durationHours = durationHours,
+                                    paymentDetails =
+                                        AuctionPaymentDetailsInput(
+                                            accountHolder = holder,
+                                            iban = iban.ifEmpty { null },
+                                            paymentLink = link.ifEmpty { null },
+                                        ),
+                                    sellerDisclaimerVersion = current.sellerDisclaimerVersion,
+                                    sellerDisclaimerSha256 = current.sellerDisclaimerSha256,
+                                ),
+                            )
+                        } catch (e: AuctionPaymentDetailsInvalidException) {
+                            invalid = e
+                            null
+                        }
+                    }
+                if (result == null) {
+                    submitButton.disabled = false
+                    invalid?.let { fail(paymentDetailsErrorText(it.field)) }
+                    return@launch
+                }
+                onListingCreated(result)
+            }
+        }
+    }
+
     submitButton.onClick {
         errorBox.hide()
         val title = titleInput.value.orEmpty().trim()
@@ -136,6 +389,10 @@ internal fun SimplePanel.renderCreateListingForm(
         val unit = selectedUnit()
         val durationHours = durationAmount?.let { durationToHours(it, unit) }
 
+        if (isEuro()) {
+            submitEuro(title, description, startingBidText, buyNowText, durationAmount, durationHours, unit)
+            return@onClick
+        }
         val startingBidParsed = parseLtrAmountInput(startingBidText)
         if (!Validation.isNonBlank(title) || !Validation.isNonBlank(description) || startingBidParsed !is AmountInput.Valid) {
             errorBox.content =
@@ -204,25 +461,13 @@ internal fun SimplePanel.renderCreateListingForm(
                     submitButton.disabled = false
                     return@launch
                 }
-                notifySuccess(gettext("Angebot \"%1\" erstellt.", result.title))
-                // The listing exists now: it must not be created twice, so the button stays off. The pictures follow; the form stays
-                // open
-                // for
-                // a retry of a failed one.
-                createdId = result.id
-                if (galleryEditor.pendingCount() == 0 || galleryEditor.uploadPending(result.id)) {
-                    finish()
-                } else {
-                    errorBox.content = tr("Angebot wurde erstellt; einzelne Bilder fehlen noch.")
-                    errorBox.show()
-                    buttons.removeAll()
-                    buttons.add(doneButton)
-                }
+                onListingCreated(result)
             }
         }
     }
     return FormSnapshot {
-        listOf(titleInput, descriptionInput, startingBidInput, buyNowInput, durationInput).map { it.value.orEmpty() } +
+        listOf(titleInput, descriptionInput, startingBidInput, buyNowInput, durationInput, holderInput, ibanInput, linkInput)
+            .map { it.value.orEmpty() } +
             listOf(unitSelect.value.orEmpty(), galleryEditor.pendingCount().toString())
     }
 }
@@ -236,4 +481,14 @@ internal fun durationLabel(
         DurationUnit.HOURS -> ngettext("%1 Stunde", "%1 Stunden", amount, amount)
         DurationUnit.DAYS -> ngettext("%1 Tag", "%1 Tage", amount, amount)
         DurationUnit.WEEKS -> ngettext("%1 Woche", "%1 Wochen", amount, amount)
+    }
+
+/** The fixed text of a refused payment-detail input (Kilua RPC transmits only the exception type and its [AuctionPaymentDetailsField]). */
+internal fun paymentDetailsErrorText(field: AuctionPaymentDetailsField): String =
+    when (field) {
+        AuctionPaymentDetailsField.ACCOUNT_HOLDER -> tr("Bitte einen Kontoinhaber mit 2 bis 70 Zeichen angeben.")
+        AuctionPaymentDetailsField.IBAN -> tr("Die IBAN ist ungültig. Bitte eine deutsche IBAN angeben.")
+        AuctionPaymentDetailsField.PAYMENT_LINK ->
+            tr("Der Zahlungslink muss mit https:// beginnen, darf höchstens 500 Zeichen lang sein und keine Zugangsdaten enthalten.")
+        AuctionPaymentDetailsField.MISSING -> tr("Bitte eine IBAN oder einen Zahlungslink angeben.")
     }

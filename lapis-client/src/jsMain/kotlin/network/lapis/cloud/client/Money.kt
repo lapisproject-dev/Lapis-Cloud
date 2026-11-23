@@ -407,6 +407,52 @@ internal fun sumExact(amounts: List<Decimal>): Decimal {
     return unitsToDecimal(sum, scale)
 }
 
+/**
+ * V1.9.320 -- an auction amount as plain text: an LTR auction shows [ltr] through [formatLtr], a Fiat (EUR) auction its [minor] units (cents)
+ * through [formatMoney] (cents -> [Decimal] via [centsToDecimal], exact, no floating-point division). `"--"` when the matching value is missing.
+ * Plain text, NOT a live token: use it as a [gettext] argument or a text cell, never concatenated with other text.
+ */
+internal fun formatAuctionAmount(
+    currency: String,
+    ltr: Decimal?,
+    minor: Long?,
+): String =
+    if (currency == network.lapis.cloud.shared.domain.AuctionCurrencies.LTR) {
+        ltr?.let { formatLtr(it) } ?: "--"
+    } else {
+        minor?.let { formatMoney(centsToDecimal(it)) } ?: "--"
+    }
+
+/**
+ * V1.9.320 -- the amount cell of an auction: the LTR pill ([ltrSpan]) for an LTR auction, the euro text ([moneySpan], a live token that
+ * follows a language switch) for a Fiat one. `null` when the matching value is missing.
+ */
+internal fun Container.auctionAmountSpan(
+    currency: String,
+    ltr: Decimal?,
+    minor: Long?,
+): Span? =
+    if (currency == network.lapis.cloud.shared.domain.AuctionCurrencies.LTR) {
+        ltr?.let { ltrSpan(it) }
+    } else {
+        minor?.let { moneySpan(centsToDecimal(it)) }
+    }
+
+private val MINOR_AMOUNT_INPUT = Regex("""^(\d{1,8})(?:[.,](\d{1,2}))?$""")
+
+/**
+ * V1.9.320 -- parses what a person types as an amount of a two-decimal currency into minor units: `12,50`, `12.50`, `12`, `12,5` -> 1250.
+ * Refuses a third decimal place (never rounds silently), a sign, a blank, any other character and zero. `null` = not a valid amount. The
+ * server re-checks the allowed range.
+ */
+internal fun parseMinorAmountInput(text: String): Long? {
+    val match = MINOR_AMOUNT_INPUT.matchEntire(text.trim()) ?: return null
+    val whole = match.groupValues[1].toLong()
+    val fraction = match.groupValues[2].padEnd(2, '0').toLong()
+    val minor = whole * 100 + fraction
+    return if (minor > 0) minor else null
+}
+
 /** [cents] as a [Decimal]; the sole bridge from `Long` cents back to a [Decimal]. */
 internal fun centsToDecimal(cents: Long): Decimal = unitsToDecimal(cents, 2)
 

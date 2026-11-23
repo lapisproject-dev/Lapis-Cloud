@@ -611,6 +611,8 @@ fun decodeAuditSnapshot(
             // V1.9.316 -- MeetingRewardPolicyAuditSnapshot / MeetingRewardSettlementAuditSnapshot (ids, enums and amounts; never a name), raw-text display.
             AuditEntityType.MEETING_REWARD_POLICY -> null
             AuditEntityType.MEETING_REWARD_SETTLEMENT -> null
+            // V1.9.320 -- AuctionFiatAuditSnapshot (event, currency, status and time only; never an amount or payment data), raw-text display.
+            AuditEntityType.AUCTION -> null
             // V1.9.225 -- PartgValueAuditSnapshot / PartgImportAuditSnapshot / PartgPositionHintSnapshot (year, unit key, position code, cents;
             // never a file name beyond the shortened import entry), raw-text display like the other backend-written snapshots.
             AuditEntityType.PARTG_REPORT_SHEET -> null

@@ -252,13 +252,20 @@ internal object DashboardFixtures {
         winner: Uuid? = null,
         settledAt: LocalDateTime? = null,
         startingBid: String = "1.00",
+        euro: Boolean = false,
     ): Uuid {
         val auctionId = Uuid.random()
         AuctionTable.insert {
             it[AuctionTable.id] = auctionId
             it[title] = "$SECRET-Auktion"
             it[description] = "x"
-            it[startingBidLtr] = BigDecimal(startingBid)
+            if (euro) {
+                it[currency] = "EUR"
+                it[startingPriceMinor] = 1000
+                it[sellerDisclaimerVersion] = "test"
+            } else {
+                it[startingBidLtr] = BigDecimal(startingBid)
+            }
             it[buyNowPriceLtr] = null
             it[AuctionTable.status] = status
             it[sellerMemberId] = seller

@@ -10,6 +10,7 @@ import network.lapis.cloud.server.db.generated.AuctionTable
 import network.lapis.cloud.server.rpc.AuctionBidView
 import network.lapis.cloud.server.rpc.MIN_INCREMENT_LTR
 import network.lapis.cloud.server.rpc.computeAuctionOutcome
+import network.lapis.cloud.shared.domain.AuctionCurrencies
 import network.lapis.cloud.shared.domain.AuctionStatus
 import network.lapis.cloud.shared.domain.DashboardModuleKeys
 import network.lapis.cloud.shared.domain.DashboardPriority
@@ -40,6 +41,9 @@ internal object AuctionSignals : DashboardSignalSource {
     private const val MAX_AUCTIONS = 50
     private const val SETTLE_LAG_DAYS = 14
 
+    /** SETTLED (LTR) and AWAITING_PAYMENT (euro: awarded, payment due) -- the award prompts of winner and seller. */
+    private val AWARDED_STATUSES = listOf(AuctionStatus.SETTLED, AuctionStatus.AWAITING_PAYMENT)
+
     private data class RunningAuction(
         val id: Uuid,
         val startingBid: BigDecimal,
@@ -59,13 +63,15 @@ internal object AuctionSignals : DashboardSignalSource {
                 .where {
                     (AuctionBidTable.bidderMemberId eq ctx.memberId) and
                         (AuctionTable.status eq AuctionStatus.OPEN) and
+                        // V1.9.320: the outbid/ending-soon signals are LTR-only for now (a Fiat auction has no LTR amounts).
+                        (AuctionTable.currency eq AuctionCurrencies.LTR) and
                         (AuctionTable.endsAt greater ctx.nowSystem)
                 }.orderBy(AuctionTable.endsAt to SortOrder.ASC, AuctionTable.id to SortOrder.ASC)
                 .limit(MAX_AUCTIONS)
                 .map {
                     RunningAuction(
                         id = it[AuctionTable.id],
-                        startingBid = it[AuctionTable.startingBidLtr],
+                        startingBid = it[AuctionTable.startingBidLtr]!!,
                         endsAt = it[AuctionTable.endsAt],
                     )
                 }
@@ -78,7 +84,7 @@ internal object AuctionSignals : DashboardSignalSource {
                     AuctionBidView(
                         bidId = it[AuctionBidTable.id],
                         bidderMemberId = it[AuctionBidTable.bidderMemberId],
-                        maxBidLtr = it[AuctionBidTable.maxBidLtr],
+                        maxBidLtr = it[AuctionBidTable.maxBidLtr]!!,
                         createdAt = it[AuctionBidTable.createdAt],
                     )
                 }
@@ -158,7 +164,7 @@ internal object AuctionSignals : DashboardSignalSource {
                 .select(AuctionTable.id)
                 .where {
                     (AuctionTable.endsAt greaterEq ctx.systemPlus((-(7 + SETTLE_LAG_DAYS)).days)) and
-                        (AuctionTable.status eq AuctionStatus.SETTLED) and
+                        (AuctionTable.status inList AWARDED_STATUSES) and
                         (AuctionTable.winnerMemberId eq ctx.memberId) and
                         (AuctionTable.settledAt greaterEq since)
                 }.orderBy(AuctionTable.id to SortOrder.ASC)
@@ -180,7 +186,7 @@ internal object AuctionSignals : DashboardSignalSource {
                 .select(AuctionTable.id)
                 .where {
                     (AuctionTable.sellerMemberId eq ctx.memberId) and
-                        (AuctionTable.status eq AuctionStatus.SETTLED) and
+                        (AuctionTable.status inList AWARDED_STATUSES) and
                         (AuctionTable.settledAt greaterEq since)
                 }.orderBy(AuctionTable.id to SortOrder.ASC)
                 .limit(MAX_AUCTIONS)

@@ -449,7 +449,125 @@ private fun renderAdminSection(
         }
     }
 
+    renderFiatAdminSection(root)
     toggle.load()
+}
+
+/**
+ * V1.9.320 -- the ADMIN switch for auctions in Euro with direct payment (OFF by default). Switching ON shows the OPERATOR notice and needs its
+ * explicit confirmation (the version and hash of the JUST-fetched notice go back unchanged, like [auctionEnableDisclaimerModal]); switching OFF
+ * needs only a confirmation and leaves running Euro auctions settleable.
+ */
+private fun renderFiatAdminSection(root: SimplePanel) {
+    root.h2(tr("Auktionen in Euro (Direktzahlung)")) { addCssClass("h6") }
+    val host = root.vPanel(spacing = 4)
+
+    fun load() {
+        AppScope.launch {
+            val settings = guarded { rpcService<IAuctionService>().getAuctionSettings() }
+            host.removeAll()
+            if (settings == null) return@launch
+            val statusRow = host.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+            statusRow.div(tr("Status:")) { addCssClasses("text-muted small") }
+            statusRow.statusBadge(
+                if (settings.auctionFiatEnabled) tr("Aktiviert") else tr("Deaktiviert"),
+                if (settings.auctionFiatEnabled) "success" else "secondary",
+            )
+            settings.fiatLastAcknowledgedAt?.let { at ->
+                host.div(
+                    gettext(
+                        "Zuletzt bestätigt von %1 am %2 (Hinweistext-Version %3).",
+                        settings.fiatLastAcknowledgedByDisplayName ?: "--",
+                        formatSystemDateTime(at),
+                        settings.fiatLastDisclaimerVersion ?: "--",
+                    ),
+                ) { addCssClasses("text-muted small") }
+            }
+            host.div(tr("Lapis nimmt bei Euro-Auktionen kein Geld an: Käufer und Verkäufer zahlen direkt untereinander.")) {
+                addCssClasses("text-muted small")
+            }
+            if (settings.auctionFiatEnabled) {
+                host.actionButton(ActionIcon.REVOKE, tr("Euro-Auktionen deaktivieren"), style = ButtonStyle.OUTLINEDANGER) {
+                    onClick {
+                        confirmDialog(
+                            title = tr("Euro-Auktionen deaktivieren"),
+                            message = tr("Neue Angebote in Euro können dann nicht mehr erstellt werden."),
+                            confirmLabel = tr("Deaktivieren"),
+                            confirmIcon = ActionIcon.REVOKE,
+                            extraLines = listOf(tr("Bereits laufende Euro-Auktionen können weiter abgewickelt werden.")),
+                        ) {
+                            runGuardedAction(this) {
+                                val result = guarded { rpcService<IAuctionService>().setAuctionFiatEnabled(false, null) }
+                                if (result != null) {
+                                    notifySuccess(tr("Euro-Auktionen deaktiviert."))
+                                    load()
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                host.button(tr("Euro-Auktionen aktivieren …"), style = ButtonStyle.PRIMARY).also { button ->
+                    button.onClick {
+                        button.disabled = true
+                        AppScope.launch {
+                            val disclaimer = guarded { rpcService<IAuctionService>().getAuctionFiatOperatorDisclaimer() }
+                            button.disabled = false
+                            if (disclaimer != null) {
+                                fiatEnableDisclaimerModal(disclaimer) {
+                                    AppScope.launch {
+                                        val result =
+                                            guarded {
+                                                rpcService<IAuctionService>().setAuctionFiatEnabled(
+                                                    true,
+                                                    AuctionComplianceAcknowledgmentInput(
+                                                        disclaimerVersion = disclaimer.version,
+                                                        disclaimerSha256 = disclaimer.sha256,
+                                                    ),
+                                                )
+                                            }
+                                        if (result != null) {
+                                            notifySuccess(tr("Euro-Auktionen aktiviert."))
+                                            load()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    load()
+}
+
+private fun fiatEnableDisclaimerModal(
+    disclaimer: AuctionComplianceDisclaimerDto,
+    onConfirm: () -> Unit,
+) {
+    val modal = Modal(caption = gettext("Euro-Auktionen aktivieren -- rechtlicher Hinweis (Version %1)", disclaimer.version))
+    modal.div(
+        tr(
+            "Bitte lesen Sie den folgenden rechtlichen Hinweistext vollständig, bevor Sie Euro-Auktionen aktivieren. Diese " +
+                "Plattform führt keine automatisierte Rechtsberatung durch -- die rechtliche Einordnung liegt bei Ihrer " +
+                "Organisation.",
+        ),
+    ) { addCssClasses("text-muted small mb-2") }
+    modal.div {
+        addCssClasses("border rounded p-2 mb-2 lapis-pre-line")
+        content = sanitizeUntrustedI18nText(disclaimer.text)
+    }
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(
+        Button(tr("Ich bestätige, den aktuellen Text gelesen zu haben"), style = ButtonStyle.PRIMARY).apply {
+            onClick {
+                modal.hide()
+                onConfirm()
+            }
+        },
+    )
+    modal.show()
 }
 
 private fun renderAuctionSettingsSummary(
@@ -559,6 +677,10 @@ fun auctionStatusLabel(status: AuctionStatus): String =
         AuctionStatus.OPEN -> gettext("Offen")
         AuctionStatus.SETTLED -> gettext("Abgeschlossen (verkauft)")
         AuctionStatus.CLOSED_NO_SALE -> gettext("Abgeschlossen (kein Verkauf)")
+        // V1.9.320 Fiat auctions: the money moves directly between seller and winner.
+        AuctionStatus.AWAITING_PAYMENT -> gettext("Zuschlag erteilt, Zahlung offen")
+        AuctionStatus.PAID -> gettext("Zahlung bestätigt")
+        AuctionStatus.COMPLETED -> gettext("Abgeschlossen (bezahlt und geliefert)")
     }
 
 fun auctionStatusColor(status: AuctionStatus): String =
@@ -566,4 +688,7 @@ fun auctionStatusColor(status: AuctionStatus): String =
         AuctionStatus.OPEN -> "primary"
         AuctionStatus.SETTLED -> "success"
         AuctionStatus.CLOSED_NO_SALE -> "secondary"
+        AuctionStatus.AWAITING_PAYMENT -> "warning"
+        AuctionStatus.PAID -> "info"
+        AuctionStatus.COMPLETED -> "success"
     }

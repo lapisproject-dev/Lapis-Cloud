@@ -247,6 +247,14 @@ classDiagram(name = "OrganizationSettings") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "auction_max_value_ltr"; "sqlType" to "DECIMAL(18,2)" }
         }
+        // V1.9.320 (V166) Auktionen in Euro mit Direktzahlung: instance switch, NOT NULL, defaults to FALSE. NOT part of the
+        // updateOrganizationSettings write set (same treatment as auctionEnabled above) -- settable ONLY via
+        // AuctionService.setAuctionFiatEnabled, which requires the OPERATOR disclaimer acknowledgment when switching ON. See
+        // 21-auction.kuml.kts file header "Fiat path".
+        attribute(name = "auctionFiatEnabled", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "auction_fiat_enabled" }
+        }
         // V1.2.1 Zahlungs-Fundament: opt-in gate, NOT NULL, defaults to FALSE. Same read-only-from-
         // OrganizationSettingsService treatment as auctionEnabled above -- see file header addendum.
         // Settable ONLY via ISepaService.enableSepaDebit (disclaimer-acknowledgment)/disableSepaDebit.

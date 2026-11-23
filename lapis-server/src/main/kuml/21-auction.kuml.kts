@@ -83,6 +83,21 @@
 // by the existing per-member `LtrBalanceProvider.lockForDebit` row lock -- no dedicated singleton
 // lock row is needed.
 //
+// **Fiat path (V166, Wave V1.9.320 "Auktionen in Euro mit Direktzahlung") -- do not "repair" any of these decisions**:
+//  - `auction.currency` is 'LTR' (default, every pre-V166 row) or a Fiat code ('EUR' is the only one the server accepts today). A Fiat auction
+//    carries its amounts as LONG MINOR UNITS (`*_minor`, cents) in `starting_price_minor`/`buy_now_price_minor`/`final_price_minor`, and its
+//    bidders' maxima in `auction_bid.max_bid_minor`; the LTR columns of such a row are NULL (CHECK `chk_auction_amount_columns` pins exactly one of
+//    the two shapes), which is why `starting_bid_ltr` and `auction_bid.max_bid_ltr` are nullable since V166.
+//  - A Fiat auction NEVER writes `ltr_ledger_entry`: no listing fee (`listing_fee_ltr` = 0.00), no reservation/hold, no sale booking. Lapis only
+//    brokers the contract; seller and winner settle the money directly between themselves, outside the platform.
+//  - Status flow: OPEN -> AWAITING_PAYMENT (an award, by time or by Sofortkauf) -> PAID (the seller confirmed the money arrived) -> COMPLETED (the
+//    winner also confirmed the goods arrived); OPEN -> CLOSED_NO_SALE without a bid. SETTLED is LTR-only (CHECK `chk_auction_status_by_currency`).
+//    The two confirmations are independent: `payment_confirmed_at` is set by the seller, `delivery_confirmed_at` by the winner; COMPLETED = both.
+//  - `auction_payment_details` holds the seller's holder name/IBAN/link as ONE SecretBox-sealed JSON blob in a SEPARATE table, so that no listing
+//    query can ever select it. Only the winner and the seller may open it, only after the award; the retention poller deletes it.
+//  - `auction_fiat_acknowledgment` is append-only: OPERATOR = an administrator switching `organization_settings.auction_fiat_enabled` on (OFF by
+//    default), SELLER = a member before listing in Euro. An auction keeps the `seller_disclaimer_version` it was created under.
+//
 // **FK-naming choice**: EVERY member-referencing and auction-referencing FK in this file
 // (`seller_member_id`, `winner_member_id`, `auction_id`, `bidder_member_id`,
 // `acknowledged_by_member_id`) is modelled as a plain «Column» UUID attribute with
@@ -104,7 +119,8 @@
 //    content-arbitration role from the platform here; reputation (LTR-balance visibility, social
 //    ratings) is the only protection. This is an intentional, permanent design decision, not a
 //    missing feature the reviewer should flag.
-//  - No automatic EUR/Fiat conversion anywhere in this domain (see `auction_max_value_ltr` above).
+//  - No automatic EUR/Fiat CONVERSION anywhere in this domain (see `auction_max_value_ltr` above). Since V166 (Wave V1.9.320) an auction may,
+//    however, be run in EUR with DIRECT PAYMENT between seller and winner -- see "Fiat path" below. Lapis never moves that money.
 //  - `auction_bid.max_bid_ltr` of any member OTHER than the caller is never exposed by any DTO --
 //    proxy-auction integrity (`listAuctions`/`getAuction` only ever expose the DERIVED
 //    `currentPriceLtr`, never a raw maximum). Enforced at the service layer, not by this model.
@@ -133,6 +149,9 @@ classDiagram(name = "Auction") {
         literal(name = "OPEN")
         literal(name = "SETTLED")
         literal(name = "CLOSED_NO_SALE")
+        literal(name = "AWAITING_PAYMENT")
+        literal(name = "PAID")
+        literal(name = "COMPLETED")
     }
 
     val auction = classOf(name = "Auction") {
@@ -151,7 +170,9 @@ classDiagram(name = "Auction") {
         attribute(name = "description", type = "String") {
             stereotype("Column") { "columnName" to "description"; "sqlType" to "VARCHAR(4000)" }
         }
+        // NULL on a Fiat auction (V166) -- see file header "Fiat path"; NOT NULL on an LTR auction (CHECK chk_auction_amount_columns).
         attribute(name = "startingBidLtr", type = "BigDecimal") {
+            multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "starting_bid_ltr"; "sqlType" to "DECIMAL(18,2)" }
         }
         // Nullable -- an auction may run to endsAt with no Sofortkauf option at all.
@@ -200,6 +221,39 @@ classDiagram(name = "Auction") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "settled_at" }
         }
+        // ---- V166 Fiat path (see file header) ----
+        // 'LTR' for every pre-V166 row; a Fiat code ('EUR') otherwise. The server whitelist (AuctionCurrencies.SUPPORTED) is the real gate.
+        attribute(name = "currency", type = "String") {
+            defaultValue = "LTR"
+            stereotype("Column") { "columnName" to "currency"; "sqlType" to "VARCHAR(3)" }
+        }
+        // Minor units (cents) of a Fiat auction; NULL on an LTR auction.
+        attribute(name = "startingPriceMinor", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "starting_price_minor" }
+        }
+        attribute(name = "buyNowPriceMinor", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "buy_now_price_minor" }
+        }
+        attribute(name = "finalPriceMinor", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "final_price_minor" }
+        }
+        // The auction_fiat_acknowledgment version the seller acknowledged when listing; NULL on an LTR auction.
+        attribute(name = "sellerDisclaimerVersion", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "seller_disclaimer_version"; "sqlType" to "VARCHAR(50)" }
+        }
+        // Set by the SELLER (money arrived) / by the WINNER (goods arrived); both set = COMPLETED.
+        attribute(name = "paymentConfirmedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "payment_confirmed_at" }
+        }
+        attribute(name = "deliveryConfirmedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "delivery_confirmed_at" }
+        }
     }
 
     val auctionBid = classOf(name = "AuctionBid") {
@@ -226,8 +280,14 @@ classDiagram(name = "Auction") {
         attribute(name = "bidderMemberId", type = "UUID") {
             stereotype("Column") { "columnName" to "bidder_member_id"; "fkEntity" to "Member" }
         }
+        // NULL on a bid of a Fiat auction (V166) -- exactly one of maxBidLtr/maxBidMinor is set (CHECK chk_auction_bid_amount_columns).
         attribute(name = "maxBidLtr", type = "BigDecimal") {
+            multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "max_bid_ltr"; "sqlType" to "DECIMAL(18,2)" }
+        }
+        attribute(name = "maxBidMinor", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "max_bid_minor" }
         }
         // This bidder's LAST bid time on this auction, re-stamped on every raise -- see file
         // header "auction_bid is an upsert table".
@@ -263,6 +323,57 @@ classDiagram(name = "Auction") {
         }
         // Echoes AuctionComplianceDisclaimer.SHA256 at the moment of acknowledgment -- a SHA-256
         // digest is always exactly 64 lowercase hex characters.
+        attribute(name = "disclaimerSha256", type = "String") {
+            stereotype("Column") { "columnName" to "disclaimer_sha256"; "sqlType" to "VARCHAR(64)" }
+        }
+    }
+    // V166: the seller's payment details, ONE sealed JSON blob in its own table (see file header "Fiat path"). PK = FK -> auction.
+    val auctionPaymentDetails = classOf(name = "AuctionPaymentDetails") {
+        stereotype("Entity") { "tableName" to "auction_payment_details"; "kotlinObjectName" to "AuctionPaymentDetailsTable" }
+
+        attribute(name = "auctionId", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "auction_id"; "fkEntity" to "Auction" }
+        }
+        // SecretBox "v1:<iv>:<ct>" over {accountHolder, iban, paymentLink}, aad = auction id. Never exported, never logged.
+        attribute(name = "detailsCiphertext", type = "String") {
+            stereotype("Column") { "columnName" to "details_ciphertext"; "sqlType" to "VARCHAR(2000)" }
+        }
+        attribute(name = "hasIban", type = "Boolean") {
+            stereotype("Column") { "columnName" to "has_iban" }
+        }
+        attribute(name = "hasPaymentLink", type = "Boolean") {
+            stereotype("Column") { "columnName" to "has_payment_link" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+    }
+
+    // V166: append-only record of who acknowledged which Fiat disclaimer version (OPERATOR = administrator, SELLER = listing member).
+    val auctionFiatAcknowledgment = classOf(name = "AuctionFiatAcknowledgment") {
+        stereotype("Entity") { "tableName" to "auction_fiat_acknowledgment"; "kotlinObjectName" to "AuctionFiatAcknowledgmentTable" }
+        stereotype("Index") {
+            "columns" to listOf("acknowledged_by_member_id", "kind", "disclaimer_version")
+            "name" to "idx_auction_fiat_ack_member_kind"
+        }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "kind", type = "String") {
+            stereotype("Column") { "columnName" to "kind"; "sqlType" to "VARCHAR(8)" }
+        }
+        attribute(name = "acknowledgedByMemberId", type = "UUID") {
+            stereotype("Column") { "columnName" to "acknowledged_by_member_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "acknowledgedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "acknowledged_at" }
+        }
+        attribute(name = "disclaimerVersion", type = "String") {
+            stereotype("Column") { "columnName" to "disclaimer_version"; "sqlType" to "VARCHAR(50)" }
+        }
         attribute(name = "disclaimerSha256", type = "String") {
             stereotype("Column") { "columnName" to "disclaimer_sha256"; "sqlType" to "VARCHAR(64)" }
         }

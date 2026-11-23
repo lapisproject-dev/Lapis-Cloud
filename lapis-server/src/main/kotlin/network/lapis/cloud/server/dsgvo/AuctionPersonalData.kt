@@ -5,11 +5,15 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import network.lapis.cloud.server.db.generated.AuctionBidTable
 import network.lapis.cloud.server.db.generated.AuctionComplianceAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.AuctionFiatAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.AuctionPaymentDetailsTable
 import network.lapis.cloud.server.db.generated.AuctionTable
 import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import kotlin.uuid.Uuid
 
@@ -33,6 +37,13 @@ import kotlin.uuid.Uuid
  * corresponding `ltr_ledger_entry` rows (AUCTION_LISTING_FEE/AUCTION_HOLD/AUCTION_HOLD_RELEASE/
  * AUCTION_SALE_OUT/AUCTION_SALE_IN) are already covered by [LtrPersonalData] and not duplicated
  * here.
+ *
+ * **V1.9.320 Fiat auctions.** Two more tables: `auction_payment_details` (the seller's SEALED holder/IBAN/link) and `auction_fiat_acknowledgment`
+ * (who acknowledged which Fiat disclaimer). The sealed ciphertext is NEVER exported (same rule as every other `*_ciphertext` column of this
+ * codebase, see [PaymentsPersonalData]); the export names only that details are stored (and whether an IBAN/link is part of them). On erasure of a
+ * SELLER the payment details of all his auctions are deleted at once -- they are only useful while the auction runs, and the retained auction row
+ * (shared transaction record) does not need them. The acknowledgments are retained like [AuctionComplianceAcknowledgmentTable]: accountability
+ * (Art. 5(2) DSGVO).
  */
 object AuctionPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "auction"
@@ -42,6 +53,8 @@ object AuctionPersonalData : MemberPersonalDataContributor {
             AuctionTable,
             AuctionBidTable,
             AuctionComplianceAcknowledgmentTable,
+            AuctionPaymentDetailsTable,
+            AuctionFiatAcknowledgmentTable,
         )
 
     override fun exportMember(memberId: Uuid) =
@@ -67,8 +80,40 @@ object AuctionPersonalData : MemberPersonalDataContributor {
                             buildJsonObject {
                                 put("id", row[AuctionBidTable.id].toString())
                                 put("auctionId", row[AuctionBidTable.auctionId].toString())
-                                put("maxBidLtr", row[AuctionBidTable.maxBidLtr].toPlainString())
+                                put("maxBidLtr", row[AuctionBidTable.maxBidLtr]?.toPlainString())
+                                put("maxBidMinor", row[AuctionBidTable.maxBidMinor])
                                 put("createdAt", row[AuctionBidTable.createdAt].toString())
+                            },
+                        )
+                    }
+            }
+            putJsonArray("paymentDetailsStored") {
+                // The sealed ciphertext is never exported -- only the fact that details exist for an own auction, and of which kind.
+                (AuctionPaymentDetailsTable innerJoin AuctionTable)
+                    .selectAll()
+                    .where { AuctionTable.sellerMemberId eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("auctionId", row[AuctionPaymentDetailsTable.auctionId].toString())
+                                put("hasIban", row[AuctionPaymentDetailsTable.hasIban])
+                                put("hasPaymentLink", row[AuctionPaymentDetailsTable.hasPaymentLink])
+                                put("storedSealed", true)
+                            },
+                        )
+                    }
+            }
+            putJsonArray("fiatAcknowledgments") {
+                AuctionFiatAcknowledgmentTable
+                    .selectAll()
+                    .where { AuctionFiatAcknowledgmentTable.acknowledgedByMemberId eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("id", row[AuctionFiatAcknowledgmentTable.id].toString())
+                                put("kind", row[AuctionFiatAcknowledgmentTable.kind])
+                                put("disclaimerVersion", row[AuctionFiatAcknowledgmentTable.disclaimerVersion])
+                                put("acknowledgedAt", row[AuctionFiatAcknowledgmentTable.acknowledgedAt].toString())
                             },
                         )
                     }
@@ -104,7 +149,32 @@ object AuctionPersonalData : MemberPersonalDataContributor {
                 .where { AuctionComplianceAcknowledgmentTable.acknowledgedByMemberId eq memberId }
                 .count()
 
+        // V1.9.320: the sealed payment details of every auction this member SOLD are deleted now.
+        val ownAuctionIds = AuctionTable.selectAll().where { AuctionTable.sellerMemberId eq memberId }.map { it[AuctionTable.id] }
+        val detailRows =
+            if (ownAuctionIds.isEmpty()) {
+                0
+            } else {
+                AuctionPaymentDetailsTable.deleteWhere { AuctionPaymentDetailsTable.auctionId inList ownAuctionIds }
+            }
+        val fiatAckCount =
+            AuctionFiatAcknowledgmentTable
+                .selectAll()
+                .where { AuctionFiatAcknowledgmentTable.acknowledgedByMemberId eq memberId }
+                .count()
+
         return listOf(
+            TableErasureOutcome(
+                table = "auction_payment_details",
+                rowsDeleted = detailRows,
+            ),
+            TableErasureOutcome(
+                table = "auction_fiat_acknowledgment",
+                rowsRetained = fiatAckCount.toInt(),
+                retentionReason =
+                    "Who acknowledged which Fiat-auction notice and when is the accountability record (Art. 5(2) DSGVO) " +
+                        "of the operator and of the seller.",
+            ),
             TableErasureOutcome(
                 table = "auction",
                 rowsRetained = auctionCount.toInt(),
@@ -138,5 +208,7 @@ private fun auctionSummaryJson(row: ResultRow) =
         put("sellerMemberId", row[AuctionTable.sellerMemberId].toString())
         put("winnerMemberId", row[AuctionTable.winnerMemberId]?.toString())
         put("finalPriceLtr", row[AuctionTable.finalPriceLtr]?.toPlainString())
+        put("currency", row[AuctionTable.currency])
+        put("finalPriceMinor", row[AuctionTable.finalPriceMinor])
         put("createdAt", row[AuctionTable.createdAt].toString())
     }

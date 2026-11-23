@@ -4,7 +4,7 @@
 :toc-placement: preamble
 :icons: font
 
-WARNING: **Concept only, nothing is built.** This document is a basis for a legal review and for a wave plan. **It is not legal advice and nothing in it has been reviewed by a lawyer.** Every legal statement below is a question for a lawyer, not a finding. The first country is **Germany**.
+WARNING: **Wave (a) "currency per auction and direct payment, including buy now in fiat" is implemented (V1.9.320, schema V166); everything else in this document is still concept.** The feature is **off by default** (instance switch) and **has not been legally reviewed**. **Nothing in it is legal advice and nothing has been reviewed by a lawyer.** Every legal statement below is a question for a lawyer, not a finding. The first country is **Germany**.
 
 == Decisions taken
 
@@ -15,12 +15,55 @@ WARNING: **Concept only, nothing is built.** This document is a basis for a lega
 . First country: **Germany**. Georgia later, checked separately.
 . Today (0.56.0) auctions and tenders are paid **only in LTR**. A buy-now price already exists (`buyNowPriceLtr`, RPC `buyNow`, LTR only). A **price offer does not exist**.
 
+== Implemented in wave (a) (V1.9.320)
+
+Status: implemented and tested (H2 and PostgreSQL lane, including the races); **not legally reviewed**; the texts of both notices are the proposal of the authors, not a lawyer's wording.
+
+*Scope.*
+
+* `auction.currency` is `LTR` (every existing auction) or `EUR` (the only accepted code, `AuctionCurrencies.SUPPORTED`). A EUR auction carries its amounts as `Long` minor units (`starting_price_minor`, `buy_now_price_minor`, `final_price_minor`, bids in `auction_bid.max_bid_minor`); the LTR columns of such a row are `NULL` (CHECK `chk_auction_amount_columns`). Allowed range per auction: 1.00 to 100,000.00 EUR, minimum raise 1.00 EUR, at most 20 open EUR auctions per seller (there is no listing fee to deter spam).
+* **A EUR auction never writes `ltr_ledger_entry`:** no new ledger row (no listing fee, no reservation, no sale booking); a listing-fee row from an earlier LTR phase of an auction switched to EUR stays. Creating a euro auction and switching LTR to EUR lock the member row (the open-auction limit), but never for a debit. `writeLedger` refuses a non-LTR auction (`check`), `AuctionFiatLedgerTripwireTest` scans the source, and the service test counts ledger rows around every operation.
+* The award is computed by the same second-price proxy-bid rule as for LTR, in exact `Long` arithmetic (`computeFiatAuctionOutcome`, property-tested against the BigDecimal variant). Buy now works in EUR through the same `buyNow` RPC.
+* Opt-in twice: the **instance switch** `organization_settings.auction_fiat_enabled` (off by default; an ADMIN switches it on only after acknowledging the *operator notice*, `AuctionFiatOperatorDisclaimer`; it is not part of `updateOrganizationSettings`) and a **seller notice** (`AuctionFiatSellerDisclaimer`) every member acknowledges once per version before listing in EUR. Both are versioned, SHA-256 hashed, echoed back unmodified and recorded append-only in `auction_fiat_acknowledgment` (kind `OPERATOR` / `SELLER`). An auction keeps the version it was created under.
+* Switching the instance switch off blocks only *new* EUR listings; running EUR auctions stay biddable and settleable.
+* Without `LAPIS_SECRET_ENCRYPTION_KEY` no EUR auction can be created (`AuctionFiatEncryptionUnavailableException`).
+
+*Status flow.* `OPEN` to `AWAITING_PAYMENT` (award by time or by buy now), then the **seller** confirms "payment received" (`PAID`), the **winner** confirms "goods received" (`COMPLETED` once both exist). The two confirmations are independent, one-shot and need no order. Without a bid: `CLOSED_NO_SALE`. Nobody can cancel, there are no deadlines and no reminders; an award that is never paid stays `AWAITING_PAYMENT` (deliberate: Lapis arbitrates nothing, the screen says so permanently).
+
+[kuml, auction-fiat-status-implemented, svg]
+----
+stateDiagram(name = "Status of a EUR auction (implemented)") {
+    val start = initialState()
+    val open = state(name = "OPEN")
+    val awaiting = state(name = "AWAITING_PAYMENT")
+    val paid = state(name = "PAID")
+    val completed = state(name = "COMPLETED")
+    val unsold = state(name = "CLOSED_NO_SALE")
+    transition(source = start, target = open)
+    transition(source = open, target = awaiting) { trigger = "end time with a bid, or buy now" }
+    transition(source = open, target = unsold) { trigger = "end time without a bid" }
+    transition(source = awaiting, target = paid) { trigger = "seller: payment received" }
+    transition(source = paid, target = completed) { trigger = "winner: goods received" }
+    transition(source = awaiting, target = completed) { trigger = "goods first, then payment" }
+}
+----
+
+*Payment details (personal data of the seller).*
+
+* Holder, IBAN (German, Mod-97 checked) and/or an `https` payment link are validated (`AuctionPaymentDetailsValidator`, a refusal names only the field, never the value) and stored as ONE `SecretBox`-sealed JSON blob (AES-256-GCM, `aad` = auction id) in the separate table `auction_payment_details`. They are in **no** `AuctionDto` (only the flag `hasPaymentLink`), in no list, no audit entry, no log and no exception message; `toString()` of every carrier is redacted.
+* Only the **winner and the seller of an awarded EUR auction** can open them (`getAuctionPaymentDetails`); a stranger, a loser, an unawarded or an LTR auction and a missing id all answer the same `NotFoundException` with a constant message (no existence leak). The seller may replace them while the auction is `OPEN`; they are frozen from the award on. The currency and prices can change only before the first bid (`updateAuctionTerms`).
+* Deletion: at once for `CLOSED_NO_SALE`; 30 days after the later confirmation for `COMPLETED`; 180 days after the award for an award that never completes; on erasure of a seller at once. `AuctionPaymentDetailsRetentionPoller` plus a lazy purge on read. The sealed blob travels in an organisation backup (`details_ciphertext`, listed in `BackupSecretColumnTripwireTest`); a restore on an instance with another key leaves it unreadable ("not available"), never an error with content.
+* Audit: entity type `AUCTION`, snapshot `{event, currency, status, occurredAt}` only; the instance switch is audited as `ORGANIZATION_SETTINGS`.
+* The client never caches the details, fetches them on a click, renders them as untrusted text and opens a link only when it still begins with `https://`, in a new tab with `rel="noopener noreferrer"`, naming its host.
+
+*Not part of wave (a):* price offers, federation visibility, tenders, a second currency, an LTR-denominated dashboard signal for EUR auctions (the outbid/ending-soon signals stay LTR-only), a "sale withdrawn" status, any legal review.
+
 == Model: direct payment outside Lapis Cloud
 
 . The seller creates the auction with a currency, a starting bid, an end and **their own payment details** (for example an IBAN or their own payment link).
 . The highest bidder wins. Lapis Cloud only establishes **who** won and **at which price**. Nothing is reserved or debited.
 . The buyer pays **the seller directly**, outside Lapis Cloud. Lapis Cloud shows the payment details to the winner only; it triggers nothing and forwards nothing.
-. Both confirm in Lapis Cloud: "payment received", then "delivered". Lapis Cloud records nothing else.
+. In Lapis Cloud the seller confirms "payment received" and the winner confirms "delivered" (independent of each other). Lapis Cloud records nothing else.
 . A dispute goes to the board or the arbitration body of the organisation. Lapis Cloud is not a party.
 
 Not recommended: a payment provider integrated into Lapis Cloud (marketplace model; extra review, fees, and the question whether Lapis Cloud then sits in the payment chain), and any escrow in the system (that is holding money).
@@ -37,8 +80,8 @@ stateDiagram(name = "Status of a fiat auction") {
     transition(source = start, target = open)
     transition(source = open, target = awaiting) { trigger = "winner, buy now or accepted offer" }
     transition(source = open, target = unsold) { trigger = "ended without bid" }
-    transition(source = awaiting, target = paid) { trigger = "both confirm: payment received" }
-    transition(source = paid, target = completed) { trigger = "both confirm: delivered" }
+    transition(source = awaiting, target = paid) { trigger = "seller confirms: payment received" }
+    transition(source = paid, target = completed) { trigger = "winner confirms: delivered" }
 }
 ----
 
@@ -75,7 +118,7 @@ stateDiagram(name = "Status of a price offer") {
 
 == Data model (sketch)
 
-* `auction.currency`: ISO 4217, mandatory, fixed after the first bid; amounts as integers in the smallest unit. LTR stays possible as its own "currency" `LTR` (today's behaviour, reservation only there).
+* `auction.currency`: ISO 4217, mandatory, fixed after the first bid; amounts as integers in the smallest unit. LTR stays possible as its own "currency" `LTR` (today's behaviour, reservation only there). *(Implemented in wave (a) as `currency` plus `*_minor` columns.)*
 * No `AUCTION_HOLD` and no entry in the LTR account for a fiat auction.
 * The seller's payment details are personal data of a third party (GDPR), visible only to the winner, with retention and erasure rules.
 * Confirmations "payment received" and "delivered" with a timestamp; the audit log holds no amount and no account number.
@@ -101,9 +144,9 @@ Template: the carpool exchange (`carpool-federation.adoc`): a signed teaser feed
 
 == Waves (proposal)
 
-. Currency per auction and the direct-payment flow, including buy now in fiat.
+. Currency per auction and the direct-payment flow, including buy now in fiat. **Done (V1.9.320), behind the instance switch, not legally reviewed.**
 . Price offer.
 . Visibility in the federation (carpool pattern).
 . Tenders analogously.
 
-Nothing is started before the legal review of the open questions.
+Wave (a) went ahead before the legal review as an opt-in, off by default and limited to a pilot (EUR, Germany, at most 100,000.00 EUR per auction); the operator and seller notices say so and recommend a lawyer. The other waves are not started before the legal review of the open questions.

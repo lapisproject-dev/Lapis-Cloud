@@ -184,9 +184,16 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  *
  * V1.9.307 (external member id) adds ONE read in ONE file (70 files, 207 reads): `MemberExternalIdCard.kt` holds `getExternalMemberIdSettings(` (asked once when the member
  * editor or "Meine Daten" opens; a failed call leaves the card out silently -- there is no list or section to show a loading/empty/error state for, and the rest of the dialog is unaffected).
+ *
+ * V1.9.320 (auctions in euros) adds FOUR reads in TWO new files and the (already counted) `AuctionScreen.kt` (70 -> 72 files, 207 -> 211 reads):
+ * `AuctionCreateListingForm.kt` holds `getAuctionFiatAvailability(` (asked once when the form opens; a failed call leaves the euro choice out silently and the form is
+ * the plain LTR form -- nothing the person did failed, there is no section to show a loading/error state for); `AuctionFiatSettlementPanel.kt` holds
+ * `getAuctionPaymentDetails(` (asked only on the winner's click inside `runGuardedAction`, a failure toasts through `guarded`; the details are deliberately never
+ * loaded ahead or cached); `AuctionScreen.kt` gains two reads in the administrator's switch for euro auctions (`getAuctionSettings(` after each switch, and
+ * `getAuctionFiatOperatorDisclaimer(` once on the click that opens the legal notice), both on demand inside `guarded`.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 207
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 70
+private const val READ_OUTSIDE_STATE_REGION_MAX = 211
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 72
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

@@ -175,6 +175,30 @@ abstract class DashboardSignalScenarios(
                 }
             }
 
+            test("a euro award (AWAITING_PAYMENT) produces won for the winner and sold for the seller, and nothing for a stranger") {
+                rolledBack {
+                    val winner = DashboardFixtures.member()
+                    val seller = DashboardFixtures.member()
+                    val stranger = DashboardFixtures.member()
+                    val recent = LocalDateTime(2030, 6, 4, 12, 0)
+                    DashboardFixtures.auction(
+                        seller = seller,
+                        endsAt = recent,
+                        status = AuctionStatus.AWAITING_PAYMENT,
+                        winner = winner,
+                        settledAt = recent,
+                        euro = true,
+                    )
+                    val winnerSignals = collect(dashboardContext(memberId = winner))
+                    winnerSignals.reason(DashboardReasonKeys.AUCTION_WON)!!.count shouldBe 1
+                    winnerSignals.reason(DashboardReasonKeys.AUCTION_SOLD) shouldBe null
+                    val sellerSignals = collect(dashboardContext(memberId = seller))
+                    sellerSignals.reason(DashboardReasonKeys.AUCTION_SOLD)!!.count shouldBe 1
+                    sellerSignals.reason(DashboardReasonKeys.AUCTION_WON) shouldBe null
+                    collect(dashboardContext(memberId = stranger)).shouldBeEmpty()
+                }
+            }
+
             test("nothing when the instance switch is off, for a friend, and nothing about other people's auctions") {
                 rolledBack {
                     val me = DashboardFixtures.member()

@@ -1263,3 +1263,65 @@ class MembershipApplicationClosedException(
 ) : AbstractServiceException()
 
 const val MEMBERSHIP_APPLICATION_CLOSED_MESSAGE = "Online membership applications are not available on this server."
+
+// ── Welle V1.9.320 "Auktionen in Euro mit Direktzahlung" -- distinct types (Kilua RPC transmits only the exception TYPE). Every message is a
+// CONSTANT: it never contains an amount, an IBAN, a link, a holder name or an id.
+
+/** The requested auction currency is not one of `AuctionCurrencies.SUPPORTED` (or an LTR call got a Fiat code). */
+@RpcServiceException
+class AuctionCurrencyUnsupportedException(
+    override val message: String = "This auction currency is not supported",
+) : AbstractServiceException()
+
+/** Auctions in Euro are switched off on this instance (new Fiat listings are refused; running ones stay settleable). */
+@RpcServiceException
+class AuctionFiatDisabledException(
+    override val message: String = "Auctions in Euro are not enabled on this server",
+) : AbstractServiceException()
+
+/** The seller has not acknowledged the CURRENT seller disclaimer (or echoed a stale version/hash). */
+@RpcServiceException
+class AuctionFiatDisclaimerRequiredException(
+    override val message: String = "The current seller notice for auctions in Euro must be acknowledged first",
+) : AbstractServiceException()
+
+/** The currency/prices of an auction cannot be changed any more because a bid exists. */
+@RpcServiceException
+class AuctionCurrencyLockedException(
+    override val message: String = "The currency cannot be changed after the first bid",
+) : AbstractServiceException()
+
+/** An LTR operation was called on a Fiat auction, or the other way round. */
+@RpcServiceException
+class AuctionCurrencyMismatchException(
+    override val message: String = "This operation does not match the currency of the auction",
+) : AbstractServiceException()
+
+/** Which input of the seller's payment details was rejected -- never the value itself. */
+@kotlinx.serialization.Serializable
+enum class AuctionPaymentDetailsField { ACCOUNT_HOLDER, IBAN, PAYMENT_LINK, MISSING }
+
+/** The seller's payment details were rejected; [field] names the input, the message is constant. */
+@RpcServiceException
+class AuctionPaymentDetailsInvalidException(
+    val field: AuctionPaymentDetailsField = AuctionPaymentDetailsField.MISSING,
+    override val message: String = "The payment details are invalid",
+) : AbstractServiceException()
+
+/** The payment or goods confirmation was already given (or the auction is already COMPLETED). */
+@RpcServiceException
+class AuctionAlreadyConfirmedException(
+    override val message: String = "This confirmation was already given",
+) : AbstractServiceException()
+
+/** An amount is outside of `AuctionCurrencies.MIN_MINOR`..`MAX_MINOR`. */
+@RpcServiceException
+class AuctionAmountOutOfRangeException(
+    override val message: String = "The amount is outside of the allowed range",
+) : AbstractServiceException()
+
+/** `LAPIS_SECRET_ENCRYPTION_KEY` is not configured, so payment details cannot be stored sealed: no Fiat auction can be created. */
+@RpcServiceException
+class AuctionFiatEncryptionUnavailableException(
+    override val message: String = "Auctions in Euro are unavailable: the server has no encryption key configured",
+) : AbstractServiceException()

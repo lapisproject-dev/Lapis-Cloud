@@ -75,6 +75,12 @@ class OrganizationSettingsSchemaDriftTest :
             entity.attributeByName("auction_max_value_ltr")?.nullable shouldBe true
         }
 
+        test("auction_fiat_enabled is NOT NULL in the model and in the migrated schema -- V1.9.320 addendum") {
+            val entity = model.entities.single { it.name == "organization_settings" }
+            entity.attributeByName("auction_fiat_enabled")?.nullable shouldBe false
+            transaction { introspectOrganizationSettingsTable() }.columns.getValue("auction_fiat_enabled").nullable shouldBe false
+        }
+
         test(
             "sepa_debit_enabled/payment_gateway_enabled are NOT NULL, provider/account-mapping fields are nullable -- V1.2.1 addendum",
         ) {
