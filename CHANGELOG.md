@@ -6,6 +6,13 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+Wave V1.9.322 "Federation visibility for auctions" (fiat wave c), step c1 "foundation", **schema V168 -> V169** (V169 may still be corrected on the feature branch until the release; a backup taken before V169 cannot be restored on V169 and the other way round). **Not legally reviewed**; the legal-review gate of `docs/architecture/auction-fiat-and-federation.adoc` is not lifted by this code and needs the project owner's decision before a release. **Everything is OFF by default and nothing is visible yet**: this step contains no feed, no pull and no screen.
+
+* **Added (shared):** `AuctionFederation.kt` with the ten-field wire type `AuctionTeaser` (pinned by `AuctionTeaserTripwireTest`: no seller, bidder, offer, payment, description, image or URL), the title rules, the eligibility rule `isAuctionTeaserEligible` (an ended auction that is still `OPEN` because settlement is lazy is never eligible), the consent rule `mayConsentToAuctionFederation`, the only link builder `buildAuctionHintLink` (`https://<host>/app#/auction/hint/<teaserId>`, the id in the fragment) and the DTOs of the later steps. Hop limit 1..2 (default 1).
+* **Migration `V169__auction_federation.sql`:** `auction.federation_opt_in/_at`, `organization_settings.auction_federation_enabled/_hop_limit`, `partner_server.auction_sharing` and the `auction_feed_*`/`auction_pull_*` columns, the tables `auction_teaser_snapshot`, `auction_teaser_tombstone`, `auction_received_hint`, `auction_received_tombstone`, and `AUCTION_FEDERATION_FEED` in the audit entity-type CHECK. No backfill.
+* **Added (server):** `AuctionFederationStore` (settings, consent flag with its moment, restore reset). The three received/snapshot tables are excluded from the organization backup; the tombstone table stays in it.
+* **Not done yet (steps c2 to c4):** origin side (teaser ids, signature, feed route, throttled snapshot, withdrawals, landing route), receiving side (pull, store, relay, display, admin hiding, retention), RPC methods, client screens, DSGVO export/erasure, restore tombstones, tripwires, i18n, documentation.
+
 Fix wave "Bank reconciliation: journal link and booking date", **schema V167 -> V168** (V168 may still be corrected on the feature branch until the release; a backup taken before V168 cannot be restored on V168 and the other way round).
 
 * **Fixed:** the three bank-statement booking paths (manual contribution, manual donation, import auto-post) now write `payment_transaction.journal_entry_id` in the same transaction as the posting. Before, such payments looked "not booked" in the payment list and appeared in the `unreconciledOnly` filter although the journal entry existed.

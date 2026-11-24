@@ -242,6 +242,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.MEETING_REWARD_SETTLEMENT -> gettext("LTR-Anerkennung (Abrechnung)")
         // V1.9.320 -- an auction in Euro with direct payment (create, award, confirmations); the entry carries no amount and no payment data.
         AuditEntityType.AUCTION -> gettext("Auktion in Euro")
+        // V1.9.322 -- a partner pulled the auction hint feed (counts only).
+        AuditEntityType.AUCTION_FEDERATION_FEED -> gettext("Auktionshinweise abgerufen")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -408,6 +410,7 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.MEETING_REWARD_SETTLEMENT -> "warning"
         // V1.9.320 -- no LTR and no money moves through Lapis for a Fiat auction: neutral hue.
         AuditEntityType.AUCTION -> "secondary"
+        AuditEntityType.AUCTION_FEDERATION_FEED -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

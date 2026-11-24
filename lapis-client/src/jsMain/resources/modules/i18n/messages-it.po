@@ -33939,3 +33939,8 @@ msgstr "Questa proposta di prezzo non è più aperta."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
 msgid "Die Bedingungen dieser Auktion können wegen der Preisvorschläge nicht mehr geändert werden."
 msgstr "Le condizioni di questa asta non possono più essere modificate a causa delle proposte di prezzo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Auktionshinweise abgerufen"
+msgstr "Avvisi di aste recuperati"
+

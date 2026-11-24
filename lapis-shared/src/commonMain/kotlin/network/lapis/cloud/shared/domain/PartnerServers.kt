@@ -98,6 +98,17 @@ data class PartnerServerDto(
     val signingKeyFingerprint: String? = null,
     val signingKeyPendingFingerprint: String? = null,
     val signingKeyChangedAt: LocalDateTime? = null,
+    /** V1.9.322 (wave c): this DIRECT partner may receive/send auction hints, plus the feed/pull state (same shape as the carpool fields). */
+    val auctionSharing: Boolean = false,
+    val auctionFeedServedAt: LocalDateTime? = null,
+    val auctionFeedServedCount: Long = 0,
+    val auctionFeedLastItemCount: Int? = null,
+    val auctionPullAt: LocalDateTime? = null,
+    val auctionPullOkAt: LocalDateTime? = null,
+    val auctionPullStatus: CarpoolPullStatus? = null,
+    val auctionPullError: CarpoolPullErrorCode? = null,
+    val auctionPullFailures: Int = 0,
+    val auctionReceivedFromPartner: Int = 0,
 )
 
 @Serializable
@@ -158,6 +169,15 @@ enum class PartnerAuditKind {
 
     /** V1.9.319: a restore switched the carpool exchange off and cleared every consent (subject = the number of consents cleared). */
     CARPOOL_RESET_BY_RESTORE,
+
+    /** V1.9.322 (wave c): auction exchange switched on/off, hop limit changed (subject = the number), per-partner sharing, restore reset, admin hid a hint. */
+    AUCTION_EXCHANGE_ENABLED,
+    AUCTION_EXCHANGE_DISABLED,
+    AUCTION_HOP_LIMIT_CHANGED,
+    PARTNER_AUCTION_SHARING_ON,
+    PARTNER_AUCTION_SHARING_OFF,
+    AUCTION_RESET_BY_RESTORE,
+    AUCTION_RECEIVED_HINT_HIDDEN,
 }
 
 /** After-snapshot: a host or pattern (the admin's own input, normalised) and the kind. Never a name from a foreign feed. */

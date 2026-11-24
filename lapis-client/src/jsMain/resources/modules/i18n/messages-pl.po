@@ -33916,3 +33916,8 @@ msgstr "Ta propozycja ceny nie jest już otwarta."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
 msgid "Die Bedingungen dieser Auktion können wegen der Preisvorschläge nicht mehr geändert werden."
 msgstr "Warunków tej aukcji nie można już zmienić z powodu propozycji ceny."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Auktionshinweise abgerufen"
+msgstr "Pobrano zapowiedzi aukcji"
+

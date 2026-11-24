@@ -33,6 +33,8 @@ public object AuctionTable : Table("auction") {
     public val paymentConfirmedAt: Column<LocalDateTime?> = datetime("payment_confirmed_at").nullable()
     public val deliveryConfirmedAt: Column<LocalDateTime?> = datetime("delivery_confirmed_at").nullable()
     public val offersEnabled: Column<Boolean> = bool("offers_enabled").default(false)
+    public val federationOptIn: Column<Boolean> = bool("federation_opt_in").default(false)
+    public val federationOptInAt: Column<LocalDateTime?> = datetime("federation_opt_in_at").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
+import network.lapis.cloud.server.auction.federation.AuctionFederationStore
 import network.lapis.cloud.server.backup.OrganizationSchemaCatalog.TableMetadata
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
 import network.lapis.cloud.server.security.CurrentMember
@@ -187,6 +188,9 @@ class OrganizationRestoreService(
         val carpoolNeutralized =
             java.util.concurrent.atomic
                 .AtomicLong()
+        val auctionNeutralized =
+            java.util.concurrent.atomic
+                .AtomicLong()
         var blobsRestored = 0
         var blobBytesRestored = 0L
         var assetsRestored = 0
@@ -256,6 +260,7 @@ class OrganizationRestoreService(
                             manifestEntry = manifestEntry,
                             referencedAssetIds = referencedAssetIds,
                             carpoolNeutralized = carpoolNeutralized,
+                            auctionNeutralized = auctionNeutralized,
                         )
                     totalRowCount += rowCount
                     restored += manifestEntry.copy(rowCount = rowCount)
@@ -306,6 +311,11 @@ class OrganizationRestoreService(
             if (!didReset && carpoolNeutralized.get() > 0) {
                 transaction(database) { CarpoolFederationStore.auditResetByRestore(consents = carpoolNeutralized.get(), now = resetNow) }
             }
+            // The auction hint exchange gets the same safety net: switched off, every consent cleared, one audit entry without an actor.
+            val didResetAuction = transaction(database) { AuctionFederationStore.resetAfterRestore(resetNow) }
+            if (!didResetAuction && auctionNeutralized.get() > 0) {
+                transaction(database) { AuctionFederationStore.auditResetByRestore(consents = auctionNeutralized.get(), now = resetNow) }
+            }
             status = BackupOperationStatus.SUCCEEDED
         } catch (e: IncompatibleBundleException) {
             errorMessage = e.message
@@ -324,6 +334,7 @@ class OrganizationRestoreService(
                 // Tables written before a failure stay in the target (documented partial-write tradeoff): never leave the exchange on there.
                 try {
                     transaction(database) { CarpoolFederationStore.resetAfterRestore(nowLocalDateTime()) }
+                    transaction(database) { AuctionFederationStore.resetAfterRestore(nowLocalDateTime()) }
                 } catch (resetFailure: Exception) {
                     if (errorMessage == null) throw resetFailure
                 }
@@ -391,6 +402,7 @@ class OrganizationRestoreService(
         manifestEntry: TableManifestEntry,
         referencedAssetIds: Map<BackupAssetKind, MutableSet<String>>,
         carpoolNeutralized: java.util.concurrent.atomic.AtomicLong,
+        auctionNeutralized: java.util.concurrent.atomic.AtomicLong,
     ): Long {
         val assetKinds = BACKUP_ASSET_KINDS.filter { it.tableName == table.tableName }
         val digest = MessageDigest.getInstance("SHA-256")
@@ -407,6 +419,7 @@ class OrganizationRestoreService(
                                 table = table,
                                 row = Json.parseToJsonElement(line).jsonObject,
                                 counter = carpoolNeutralized,
+                                auctionCounter = auctionNeutralized,
                             )
                         upsertRow(connection = connection, table = table, row = row)
                         for (kind in assetKinds) {
@@ -441,15 +454,30 @@ class OrganizationRestoreService(
         table: TableMetadata,
         row: JsonObject,
         counter: java.util.concurrent.atomic.AtomicLong,
+        auctionCounter: java.util.concurrent.atomic.AtomicLong,
     ): JsonObject =
         when (table.tableName) {
-            "organization_settings" ->
-                if ((row["carpool_federation_enabled"] as? JsonPrimitive)?.contentOrNull == "true") {
+            "organization_settings" -> {
+                var result = row
+                if ((result["carpool_federation_enabled"] as? JsonPrimitive)?.contentOrNull == "true") {
                     counter.incrementAndGet()
-                    JsonObject(row + ("carpool_federation_enabled" to JsonPrimitive(false)))
+                    result = JsonObject(result + ("carpool_federation_enabled" to JsonPrimitive(false)))
+                }
+                // The auction exchange switch is written already off as well (same transaction as the row).
+                if ((result["auction_federation_enabled"] as? JsonPrimitive)?.contentOrNull == "true") {
+                    result = JsonObject(result + ("auction_federation_enabled" to JsonPrimitive(false)))
+                }
+                result
+            }
+            "auction" -> {
+                val consented = (row["federation_opt_in"] as? JsonPrimitive)?.contentOrNull == "true"
+                if (consented) auctionCounter.incrementAndGet()
+                if (consented || (row["federation_opt_in_at"] != null && row["federation_opt_in_at"] != JsonNull)) {
+                    JsonObject(row + mapOf("federation_opt_in" to JsonPrimitive(false), "federation_opt_in_at" to JsonNull))
                 } else {
                     row
                 }
+            }
             "carpool_posting" -> {
                 val consented = (row["federation_opt_in"] as? JsonPrimitive)?.contentOrNull == "true"
                 if (consented) counter.incrementAndGet()

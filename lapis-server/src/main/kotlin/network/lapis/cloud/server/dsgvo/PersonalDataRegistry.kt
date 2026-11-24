@@ -228,6 +228,19 @@ object PersonalDataRegistry {
                 "an agreement between the organisations (Art. 26 GDPR) is NOT clarified (see docs/architecture/dsgvo.adoc).",
             "carpool_received_tombstone" to
                 "A local block against re-importing a withdrawn foreign hint: pseudonym and origin host only, until two days after the departure.",
+            "auction_teaser_snapshot" to
+                "The last published state of a shared auction: the keyed HMAC pseudonym of the hint, a revision counter " +
+                "and the shown price. " +
+                "No member id, no bidder, no text (see AuctionPersonalData).",
+            "auction_teaser_tombstone" to
+                "A withdrawn auction hint: only the keyed HMAC pseudonym (not derivable or linkable without the server " +
+                "key), the partner scope and a short life. No member id, no auction id, no title, no amount. " +
+                "Written before the auction is erased (see AuctionPersonalData).",
+            "auction_received_hint" to
+                "A pseudonymous FOREIGN auction hint (title, price, end, the HMAC pseudonym of its origin, the " +
+                "signature of the origin): no member, no bidder, no payment data, no contact. Life until the auction ends.",
+            "auction_received_tombstone" to
+                "A local block against re-importing a withdrawn or hidden foreign hint: pseudonym and origin host only.",
             "document_folder" to "Pure organizational structure, no personal data.",
             "committee" to "Pure organizational structure, no personal data.",
             "vote_option" to

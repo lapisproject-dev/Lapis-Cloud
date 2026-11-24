@@ -10,7 +10,11 @@ import network.lapis.cloud.server.db.generated.AuctionComplianceAcknowledgmentTa
 import network.lapis.cloud.server.db.generated.AuctionFiatAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.AuctionOfferTable
 import network.lapis.cloud.server.db.generated.AuctionPaymentDetailsTable
+import network.lapis.cloud.server.db.generated.AuctionReceivedHintTable
+import network.lapis.cloud.server.db.generated.AuctionReceivedTombstoneTable
 import network.lapis.cloud.server.db.generated.AuctionTable
+import network.lapis.cloud.server.db.generated.AuctionTeaserSnapshotTable
+import network.lapis.cloud.server.db.generated.AuctionTeaserTombstoneTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
@@ -33,7 +37,7 @@ class AuctionSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the six auction entities plus the Member stub") {
+        test("model declares exactly the auction entities plus the Member and PartnerServer stubs") {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
@@ -43,6 +47,11 @@ class AuctionSchemaDriftTest :
                     "auction_payment_details",
                     "auction_fiat_acknowledgment",
                     "auction_offer",
+                    "partner_server",
+                    "auction_teaser_snapshot",
+                    "auction_teaser_tombstone",
+                    "auction_received_hint",
+                    "auction_received_tombstone",
                 )
         }
 
@@ -183,6 +192,42 @@ class AuctionSchemaDriftTest :
             model.entityNameOf(entity.attributeByName("acknowledged_by_member_id")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
 
             entity.attributeByName("disclaimer_sha256")?.nullable shouldBe false
+        }
+
+        // ── V169 federation visibility (wave c) ──────────────────────────────────
+
+        listOf(
+            "auction_teaser_snapshot" to AuctionTeaserSnapshotTable.columns.map { it.name },
+            "auction_teaser_tombstone" to AuctionTeaserTombstoneTable.columns.map { it.name },
+            "auction_received_hint" to AuctionReceivedHintTable.columns.map { it.name },
+            "auction_received_tombstone" to AuctionReceivedTombstoneTable.columns.map { it.name },
+        ).forEach { (table, exposedColumns) ->
+            test("$table matches the real migrated schema (columns, nullability) and its Exposed object 1:1") {
+                val entity = model.entities.single { it.name == table }
+                val real = transaction { introspectAuctionTable(table) }
+                entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+                entity.attributes.map { it.name } shouldContainExactlyInAnyOrder exposedColumns
+                entity.attributes.forEach { attr -> real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable }
+            }
+        }
+
+        test("the federation foreign keys point at auction and partner_server") {
+            transaction { introspectAuctionTable("auction_teaser_snapshot").foreignKeys["auction_id"] } shouldBe "auction"
+            transaction { introspectAuctionTable("auction_teaser_tombstone").foreignKeys["partner_id"] } shouldBe "partner_server"
+            transaction { introspectAuctionTable("auction_received_hint").foreignKeys["source_partner_id"] } shouldBe "partner_server"
+            transaction {
+                introspectAuctionTable("auction_received_tombstone").foreignKeys["reported_by_partner_id"]
+            } shouldBe "partner_server"
+        }
+
+        test("the new columns of auction match the model and its Exposed object") {
+            val auction =
+                model.entities
+                    .single { it.name == "auction" }
+                    .attributes
+                    .map { it.name }
+            auction shouldContainExactlyInAnyOrder AuctionTable.columns.map { it.name }
+            (auction.containsAll(listOf("federation_opt_in", "federation_opt_in_at"))) shouldBe true
         }
     })
 

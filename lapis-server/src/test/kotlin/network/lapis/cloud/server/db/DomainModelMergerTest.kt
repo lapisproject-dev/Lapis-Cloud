@@ -616,7 +616,9 @@ class DomainModelMergerTest :
             // 79-partner-servers.kuml.kts (V1.9.319, W7) adds ONE real table (partner_signing_key_hold), 284 -> 285.
             // 21-auction.kuml.kts (V1.9.320, Fiat wave a) adds TWO real tables (auction_payment_details, auction_fiat_acknowledgment), 285 -> 287.
             // 21-auction.kuml.kts (V1.9.321, Fiat wave b) adds ONE real table (auction_offer), 287 -> 288.
-            val distinctTableNames = 288
+            // 21-auction.kuml.kts (V1.9.322, Fiat wave c) adds FOUR real tables (auction_teaser_snapshot, auction_teaser_tombstone,
+            // auction_received_hint, auction_received_tombstone); its PartnerServer stub is a duplicate name and adds none, 288 -> 292.
+            val distinctTableNames = 292
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -938,6 +940,11 @@ class DomainModelMergerTest :
                     "CarpoolTeaserTombstoneTable.kt",
                     "CarpoolReceivedHintTable.kt",
                     "CarpoolReceivedTombstoneTable.kt",
+                    // Welle V1.9.322 "Auktionen auf Partnerservern" -- FOUR real tables in 21-auction.kuml.kts.
+                    "AuctionTeaserSnapshotTable.kt",
+                    "AuctionTeaserTombstoneTable.kt",
+                    "AuctionReceivedHintTable.kt",
+                    "AuctionReceivedTombstoneTable.kt",
                     // Welle V1.9.139 "Mitfahr-Nachrichten" -- TWO more real tables in the same script.
                     "CarpoolMessageThreadTable.kt",
                     "CarpoolMessageTable.kt",

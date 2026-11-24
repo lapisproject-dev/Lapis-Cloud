@@ -721,7 +721,21 @@ enum class AuditEntityType {
      * name. The instance switch is audited as [ORGANIZATION_SETTINGS]. 7 chars. Appended LAST.
      */
     AUCTION,
+
+    /**
+     * V1.9.322 (wave c) -- a partner pulled this server's auction teaser feed and got a 200; Snapshot [AuctionFederationFeedAuditSnapshot]: counts only.
+     * 23 chars. Appended LAST. Switch and consent events reuse [PARTNER_SERVER] and [AUCTION].
+     */
+    AUCTION_FEDERATION_FEED,
 }
+
+/** V1.9.322 -- after-snapshot of an [AuditEntityType.AUCTION_FEDERATION_FEED] entry: numbers only, never a title, price or id. */
+@Serializable
+data class AuctionFederationFeedAuditSnapshot(
+    val itemCount: Int,
+    val complete: Boolean,
+    val withdrawnCount: Int,
+)
 
 /** V1.9.320 -- after-snapshot of an [AuditEntityType.AUCTION] entry. No amount, no payment data, no name. */
 @Serializable

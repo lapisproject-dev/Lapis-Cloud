@@ -126,6 +126,9 @@ data class AuctionDto(
     val callerHasOpenOffer: Boolean = false,
     /** Only for the caller: he cannot make a new offer any more (3 declines, or the auction reached its offer limit), so the button stays hidden. */
     val callerOfferBlocked: Boolean = false,
+    /** V1.9.322 (wave c): the seller shows this auction to partner servers. Only filled for the SELLER (else `false`/`null`). */
+    val federationOptIn: Boolean = false,
+    val federationOptInAt: LocalDateTime? = null,
 )
 
 /**
@@ -238,6 +241,7 @@ data class CreateFiatAuctionListingInput(
     val sellerDisclaimerSha256: String,
     /** V1.9.321: allow price offers. Needs [buyNowPriceMinor]; cannot be changed afterwards. */
     val offersEnabled: Boolean = false,
+    // The federation consent is NOT part of the creation input: it is a separate step on the existing auction (added with its handling in step c2).
 ) {
     override fun toString(): String = "CreateFiatAuctionListingInput(redacted)"
 }

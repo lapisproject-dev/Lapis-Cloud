@@ -43,7 +43,10 @@ class CarpoolFederationTripwireTest :
                     .filter {
                         it.name != "CarpoolFederationStore.kt" &&
                             it.name != "CarpoolPostingTable.kt" &&
-                            it.name != "OrganizationSettingsTable.kt"
+                            it.name != "OrganizationSettingsTable.kt" &&
+                            // V1.9.322: the auction exchange has its OWN `federationOptIn` column (table `auction`); its writer monopoly is
+                            // pinned by AuctionFederationTripwireTest, not here.
+                            it.name != "AuctionFederationStore.kt"
                     }.filter { writer.containsMatchIn(SourceScan.blank(it.readText())) }
                     .map { it.name }
             offenders.shouldBeEmpty()
@@ -54,8 +57,11 @@ class CarpoolFederationTripwireTest :
         test("(a) CarpoolPostingTable inserts and updates elsewhere never set the consent (the default FALSE applies)") {
             val offenders =
                 main
-                    .filter { it.name != "CarpoolFederationStore.kt" }
-                    .filter { Regex("""\bfederationOptIn\b""").containsMatchIn(SourceScan.blank(it.readText())) }
+                    .filter {
+                        it.name != "CarpoolFederationStore.kt" &&
+                            it.name != "AuctionFederationStore.kt" &&
+                            it.name != "AuctionTable.kt"
+                    }.filter { Regex("""\bfederationOptIn\b""").containsMatchIn(SourceScan.blank(it.readText())) }
                     .map { it.name }
                     .toSet()
             // Reads are fine (DTO building, export); the table object itself, the service (DTO read) and the export may mention the column.
@@ -308,7 +314,7 @@ class CarpoolFederationTripwireTest :
                 .shouldBeEmpty()
             // ...and nobody else writes the moment of the consent.
             main
-                .filter { it.name !in setOf("CarpoolFederationStore.kt", "CarpoolPostingTable.kt") }
+                .filter { it.name !in setOf("CarpoolFederationStore.kt", "CarpoolPostingTable.kt", "AuctionFederationStore.kt") }
                 .filter { Regex("""\bfederationOptInAt\s*\]\s*=[^=]""").containsMatchIn(SourceScan.blank(it.readText())) }
                 .map { it.name }
                 .shouldBeEmpty()

@@ -263,6 +263,15 @@ classDiagram(name = "Auction") {
             defaultValue = "false"
             stereotype("Column") { "columnName" to "offers_enabled" }
         }
+        // ---- V169 Federation visibility (wave c): written ONLY by AuctionFederationStore. ----
+        attribute(name = "federationOptIn", type = "Boolean") {
+            defaultValue = "false"
+            stereotype("Column") { "columnName" to "federation_opt_in" }
+        }
+        attribute(name = "federationOptInAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "federation_opt_in_at" }
+        }
     }
 
     val auctionBid = classOf(name = "AuctionBid") {
@@ -442,4 +451,186 @@ classDiagram(name = "Auction") {
             stereotype("Column") { "columnName" to "decided_at" }
         }
     }
+
+    // ---- V169 Federation visibility (wave c). id-only stub so the received/tombstone tables can name their partner foreign keys. ----
+    val partnerServer =
+        classOf(name = "PartnerServer") {
+            stereotype("Entity") { "tableName" to "partner_server"; "kotlinObjectName" to "PartnerServerTable" }
+            attribute(name = "id", type = "UUID") {
+                stereotype("Id")
+                stereotype("Column") { "columnName" to "id" }
+            }
+        }
+
+    // What THIS server last told its partners about one shared auction (revision + the throttled price). Written ONLY by AuctionFederationStore.
+    // Excluded from the organization backup (a restore resets it).
+    val auctionTeaserSnapshot =
+        classOf(name = "AuctionTeaserSnapshot") {
+            stereotype("Entity") { "tableName" to "auction_teaser_snapshot"; "kotlinObjectName" to "AuctionTeaserSnapshotTable" }
+            attribute(name = "auctionId", type = "UUID") {
+                stereotype("Id")
+                stereotype("Column") { "columnName" to "auction_id"; "fkEntity" to "Auction" }
+            }
+            attribute(name = "teaserId", type = "String") {
+                stereotype("Column") { "columnName" to "teaser_id"; "sqlType" to "VARCHAR(64)" }
+            }
+            attribute(name = "revision", type = "Long") {
+                stereotype("Column") { "columnName" to "revision" }
+            }
+            attribute(name = "priceKind", type = "String") {
+                stereotype("Column") { "columnName" to "price_kind"; "sqlType" to "VARCHAR(8)" }
+            }
+            attribute(name = "priceMinor", type = "Long") {
+                stereotype("Column") { "columnName" to "price_minor" }
+            }
+            attribute(name = "priceAsOf", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "price_as_of" }
+            }
+            attribute(name = "contentSha256", type = "String") {
+                stereotype("Column") { "columnName" to "content_sha256"; "sqlType" to "CHAR(64)" }
+            }
+            attribute(name = "updatedAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "updated_at" }
+            }
+        }
+
+    // The tombstone of a withdrawn hint (own or passed on). Written ONLY by AuctionFederationStore. Stays in the backup. The FK to partner_server is
+    // ON DELETE CASCADE in the real schema; the generated table cannot express that, so the store deletes the rows of a removed partner explicitly.
+    val auctionTeaserTombstone =
+        classOf(name = "AuctionTeaserTombstone") {
+            stereotype("Entity") { "tableName" to "auction_teaser_tombstone"; "kotlinObjectName" to "AuctionTeaserTombstoneTable" }
+            stereotype("Index") { "columns" to listOf("teaser_id"); "name" to "idx_auction_teaser_tombstone_teaser" }
+            stereotype("Index") { "columns" to listOf("expires_at"); "name" to "idx_auction_teaser_tombstone_expires" }
+            stereotype("Index") { "columns" to listOf("partner_id"); "name" to "idx_auction_teaser_tombstone_partner" }
+            stereotype("Index") { "columns" to listOf("relay_reporter_partner_id"); "name" to "idx_auction_teaser_tombstone_relay_reporter" }
+            attribute(name = "id", type = "UUID") {
+                stereotype("Id")
+                stereotype("Column") { "columnName" to "id" }
+            }
+            attribute(name = "teaserId", type = "String") {
+                stereotype("Column") { "columnName" to "teaser_id"; "sqlType" to "VARCHAR(64)" }
+            }
+            attribute(name = "partnerId", type = "UUID") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "partner_id"; "fkEntity" to "PartnerServer" }
+            }
+            attribute(name = "createdAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "created_at" }
+            }
+            attribute(name = "expiresAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "expires_at" }
+            }
+            attribute(name = "relayOriginHost", type = "String") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "relay_origin_host"; "sqlType" to "VARCHAR(253)" }
+            }
+            attribute(name = "relayReporterPartnerId", type = "UUID") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "relay_reporter_partner_id" }
+            }
+        }
+
+    // A hint of ANOTHER server. Written and read ONLY by AuctionReceivedStore. Excluded from the backup. FK ON DELETE CASCADE in the real schema.
+    val auctionReceivedHint =
+        classOf(name = "AuctionReceivedHint") {
+            stereotype("Entity") { "tableName" to "auction_received_hint"; "kotlinObjectName" to "AuctionReceivedHintTable" }
+            stereotype("Index") { "columns" to listOf("origin_host", "teaser_id"); "unique" to true; "name" to "uq_auction_received_hint_origin_teaser" }
+            stereotype("Index") { "columns" to listOf("source_partner_id"); "name" to "idx_auction_received_hint_source" }
+            stereotype("Index") { "columns" to listOf("expires_at"); "name" to "idx_auction_received_hint_expires" }
+            stereotype("Index") { "columns" to listOf("teaser_id"); "name" to "idx_auction_received_hint_teaser" }
+            attribute(name = "id", type = "UUID") {
+                stereotype("Id")
+                stereotype("Column") { "columnName" to "id" }
+            }
+            attribute(name = "teaserId", type = "String") {
+                stereotype("Column") { "columnName" to "teaser_id"; "sqlType" to "VARCHAR(64)" }
+            }
+            attribute(name = "originHost", type = "String") {
+                stereotype("Column") { "columnName" to "origin_host"; "sqlType" to "VARCHAR(253)" }
+            }
+            attribute(name = "hops", type = "Int") {
+                stereotype("Column") { "columnName" to "hops"; "sqlType" to "SMALLINT" }
+            }
+            attribute(name = "maxHops", type = "Int") {
+                stereotype("Column") { "columnName" to "max_hops"; "sqlType" to "SMALLINT" }
+            }
+            attribute(name = "viaHosts", type = "String") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "via_hosts"; "sqlType" to "VARCHAR(800)" }
+            }
+            attribute(name = "sourcePartnerId", type = "UUID") {
+                stereotype("Column") { "columnName" to "source_partner_id"; "fkEntity" to "PartnerServer" }
+            }
+            attribute(name = "revision", type = "Long") {
+                stereotype("Column") { "columnName" to "revision" }
+            }
+            attribute(name = "title", type = "String") {
+                stereotype("Column") { "columnName" to "title"; "sqlType" to "VARCHAR(80)" }
+            }
+            attribute(name = "currency", type = "String") {
+                stereotype("Column") { "columnName" to "currency"; "sqlType" to "VARCHAR(3)" }
+            }
+            attribute(name = "priceKind", type = "String") {
+                stereotype("Column") { "columnName" to "price_kind"; "sqlType" to "VARCHAR(8)" }
+            }
+            attribute(name = "priceMinor", type = "Long") {
+                stereotype("Column") { "columnName" to "price_minor" }
+            }
+            attribute(name = "buyNowMinor", type = "Long") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "buy_now_minor" }
+            }
+            attribute(name = "offersPossible", type = "Boolean") {
+                stereotype("Column") { "columnName" to "offers_possible" }
+            }
+            attribute(name = "endsAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "ends_at" }
+            }
+            attribute(name = "priceAsOf", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "price_as_of" }
+            }
+            attribute(name = "originSignature", type = "String") {
+                stereotype("Column") { "columnName" to "origin_signature"; "sqlType" to "VARCHAR(1024)" }
+            }
+            attribute(name = "receivedAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "received_at" }
+            }
+            attribute(name = "lastSeenAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "last_seen_at" }
+            }
+            attribute(name = "expiresAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "expires_at" }
+            }
+        }
+
+    // A LOCAL block (WITHDRAWN = the origin withdrew it, HIDDEN = an administrator hid it). Never sent anywhere. Excluded from the backup.
+    val auctionReceivedTombstone =
+        classOf(name = "AuctionReceivedTombstone") {
+            stereotype("Entity") { "tableName" to "auction_received_tombstone"; "kotlinObjectName" to "AuctionReceivedTombstoneTable" }
+            stereotype("Index") { "columns" to listOf("origin_host", "teaser_id"); "unique" to true; "name" to "uq_auction_received_tombstone_origin_teaser" }
+            stereotype("Index") { "columns" to listOf("expires_at"); "name" to "idx_auction_received_tombstone_expires" }
+            attribute(name = "id", type = "UUID") {
+                stereotype("Id")
+                stereotype("Column") { "columnName" to "id" }
+            }
+            attribute(name = "teaserId", type = "String") {
+                stereotype("Column") { "columnName" to "teaser_id"; "sqlType" to "VARCHAR(64)" }
+            }
+            attribute(name = "originHost", type = "String") {
+                stereotype("Column") { "columnName" to "origin_host"; "sqlType" to "VARCHAR(253)" }
+            }
+            attribute(name = "kind", type = "String") {
+                stereotype("Column") { "columnName" to "kind"; "sqlType" to "VARCHAR(16)" }
+            }
+            attribute(name = "reportedByPartnerId", type = "UUID") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "reported_by_partner_id"; "fkEntity" to "PartnerServer" }
+            }
+            attribute(name = "createdAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "created_at" }
+            }
+            attribute(name = "expiresAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "expires_at" }
+            }
+        }
 }

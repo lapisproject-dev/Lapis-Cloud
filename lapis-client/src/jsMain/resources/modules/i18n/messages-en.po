@@ -33968,3 +33968,8 @@ msgstr "This price suggestion is no longer open."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
 msgid "Die Bedingungen dieser Auktion können wegen der Preisvorschläge nicht mehr geändert werden."
 msgstr "The terms of this auction can no longer be changed because of its price suggestions."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Auktionshinweise abgerufen"
+msgstr "Auction hints retrieved"
+

@@ -63,6 +63,10 @@ class OrganizationSchemaCatalogTest :
                     // Welle V1.9.314 -- the cache of carpool hints received from partners and its local blocks (foreign data, a refilled cache)
                     "carpool_received_hint",
                     "carpool_received_tombstone",
+                    // Welle V1.9.322 -- the auction hint exchange: the last published state, the received cache and its local blocks
+                    "auction_teaser_snapshot",
+                    "auction_received_hint",
+                    "auction_received_tombstone",
                 )
             val names = transaction { OrganizationSchemaCatalog.exportableTables(this).map { it.tableName } }
             ("flyway_schema_history" in names) shouldBe false

@@ -69,7 +69,9 @@ class CarpoolHardeningTripwireTest :
             main
                 .filter { Regex("""\bresetAfterRestore\s*\(""").containsMatchIn(SourceScan.blank(it.readText())) }
                 .map { it.name }
-                .filter { it != "CarpoolFederationStore.kt" } shouldBe listOf("OrganizationRestoreService.kt")
+                // V1.9.322: the auction exchange has its own resetAfterRestore (AuctionFederationStore), pinned by AuctionFederationTripwireTest.
+                .filter { it != "CarpoolFederationStore.kt" && it != "AuctionFederationStore.kt" } shouldBe
+                listOf("OrganizationRestoreService.kt")
         }
 
         test("(z) applyFetchSuccess assigns the pinned key only in the first-pin branch; the discovered pin comes only from decideKeyPin") {

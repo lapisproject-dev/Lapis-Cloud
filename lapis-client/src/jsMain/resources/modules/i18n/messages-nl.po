@@ -34013,3 +34013,8 @@ msgstr "Dit prijsvoorstel is niet meer open."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
 msgid "Die Bedingungen dieser Auktion können wegen der Preisvorschläge nicht mehr geändert werden."
 msgstr "De voorwaarden van deze veiling kunnen vanwege de prijsvoorstellen niet meer worden gewijzigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Auktionshinweise abgerufen"
+msgstr "Veilingmeldingen opgehaald"
+

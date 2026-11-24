@@ -33583,3 +33583,8 @@ msgstr "Esta propuesta de precio ya no está abierta."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
 msgid "Die Bedingungen dieser Auktion können wegen der Preisvorschläge nicht mehr geändert werden."
 msgstr "Las condiciones de esta subasta ya no se pueden cambiar a causa de las propuestas de precio."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Auktionshinweise abgerufen"
+msgstr "Avisos de subastas consultados"
+

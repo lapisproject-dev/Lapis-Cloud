@@ -60,6 +60,59 @@ classDiagram(name = "PartnerServers") {
             defaultValue = "FALSE"
             stereotype("Column") { "columnName" to "carpool_sharing" }
         }
+        // V1.9.322 (V169, Fiat wave c): this DIRECT partner may receive/send auction hints. Default FALSE. Written ONLY by PartnerServerStore.
+        attribute(name = "auctionSharing", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "auction_sharing" }
+        }
+        attribute(name = "auctionFeedServedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "auction_feed_served_at" }
+        }
+        attribute(name = "auctionFeedServedCount", type = "Long") {
+            defaultValue = "0"
+            stereotype("Column") { "columnName" to "auction_feed_served_count" }
+        }
+        attribute(name = "auctionFeedLastItems", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "auction_feed_last_items" }
+        }
+        attribute(name = "auctionPullAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "auction_pull_at" }
+        }
+        attribute(name = "auctionPullOkAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "auction_pull_ok_at" }
+        }
+        attribute(name = "auctionPullNextAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "auction_pull_next_at" }
+        }
+        attribute(name = "auctionPullFailures", type = "Int") {
+            defaultValue = "0"
+            stereotype("Column") { "columnName" to "auction_pull_failures" }
+        }
+        attribute(name = "auctionPullStatus", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "auction_pull_status"; "sqlType" to "VARCHAR(32)" }
+        }
+        attribute(name = "auctionPullError", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "auction_pull_error"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "auctionPullEtag", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "auction_pull_etag"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "auctionPullLastAccepted", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "auction_pull_last_accepted" }
+        }
+        attribute(name = "auctionPullLastRejected", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "auction_pull_last_rejected" }
+        }
         attribute(name = "createdAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "created_at" }
         }

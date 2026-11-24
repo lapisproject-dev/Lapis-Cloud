@@ -637,6 +637,16 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "2"
             stereotype("Column") { "columnName" to "carpool_federation_hop_limit"; "sqlType" to "SMALLINT" }
         }
+        // V1.9.322 (V169, Fiat wave c): instance switch (default FALSE) and hop limit (1..2, default 1) of the auction hint exchange. NOT part of the generic
+        // update write set and NOT in OrganizationSettingsDto/Input; written ONLY by AuctionFederationStore (via IPartnerServerService).
+        attribute(name = "auctionFederationEnabled", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "auction_federation_enabled" }
+        }
+        attribute(name = "auctionFederationHopLimit", type = "Int") {
+            defaultValue = "1"
+            stereotype("Column") { "columnName" to "auction_federation_hop_limit"; "sqlType" to "SMALLINT" }
+        }
         attribute(name = "partnerRecursionLastRunAt", type = "LocalDateTime") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "partner_recursion_last_run_at" }

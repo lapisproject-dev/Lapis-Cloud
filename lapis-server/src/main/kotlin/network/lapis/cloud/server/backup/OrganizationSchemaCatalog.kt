@@ -125,6 +125,19 @@ object OrganizationSchemaCatalog {
                 "Welle V1.9.314. Local blocks against re-importing a withdrawn foreign hint (pseudonym and origin " +
                 "host, until two days after the departure). " +
                 "Meaningless without the excluded carpool_received_hint rows and never to be brought back by a restore.",
+            "auction_teaser_snapshot" to
+                "Welle V1.9.322. What THIS server last told its partners about a shared auction (revision, throttled " +
+                "price). A restore resets the exchange (every consent off), so an old snapshot would only carry a stale revision; " +
+                "the revision is epoch-based and stays monotonic without it (see docs/architecture/auction-federation.adoc).",
+            "auction_received_hint" to
+                "Welle V1.9.322. Cache of the auction hints received from partner servers (title, price, end, a foreign " +
+                "pseudonym; no member, no bid, no payment). A refilled cache of foreign data that lives until the auction " +
+                "ends; restoring stale hints would show auctions their owners may have withdrawn meanwhile. " +
+                "After a restore the copies are pulled again.",
+            "auction_received_tombstone" to
+                "Welle V1.9.322. Local blocks against re-importing a withdrawn or administrator-hidden foreign hint " +
+                "(pseudonym and origin host). " +
+                "Meaningless without the excluded auction_received_hint rows and never to be brought back by a restore.",
             "activism_signal" to
                 "Welle V1.9.246. A bare \"I would take part\" of a member for an action: political and therefore Art. 9 DSGVO relevant, " +
                 "and only ever shown as an aggregate (>= 5). The ADMIN-only whole-organization backup must not become a way to read who " +
