@@ -202,6 +202,8 @@ class PartnerServerTripwireTest :
                     "CarpoolFeedRecipients.kt",
                     "AuctionTeaserFeedGate.kt",
                     "AuctionFeedRecipients.kt",
+                    // V1.9.322 c3: the auction store verifies the stored hints against the pinned key of the source (the same rule as the carpool store).
+                    "AuctionReceivedStore.kt",
                 )
             SourceScan
                 .mainFiles()

@@ -109,6 +109,8 @@ data class PartnerServerDto(
     val auctionPullError: CarpoolPullErrorCode? = null,
     val auctionPullFailures: Int = 0,
     val auctionReceivedFromPartner: Int = 0,
+    val auctionPullLastAccepted: Int? = null,
+    val auctionPullLastRejected: Int? = null,
 )
 
 @Serializable

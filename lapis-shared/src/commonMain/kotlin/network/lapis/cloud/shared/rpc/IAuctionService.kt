@@ -18,6 +18,7 @@ import network.lapis.cloud.shared.domain.AuctionSettingsDto
 import network.lapis.cloud.shared.domain.AuctionStatus
 import network.lapis.cloud.shared.domain.CreateAuctionListingInput
 import network.lapis.cloud.shared.domain.CreateFiatAuctionListingInput
+import network.lapis.cloud.shared.domain.PartnerAuctionHintPageDto
 import network.lapis.cloud.shared.domain.UpdateAuctionTermsInput
 
 /**
@@ -266,4 +267,21 @@ interface IAuctionService {
 
     /** Role: any active member. To which partner servers the hints of this server travel (host names only, capped). */
     suspend fun getAuctionFederationReach(): AuctionFederationReachDto
+
+    /**
+     * V1.9.322 c3. Role: an ACTIVE member (guest, friend and donor are refused). One page (50) of the auctions that PARTNER servers show to us, ordered by
+     * end, then id, then origin host. An empty page while the exchange switch or the auction module is off. The membership gate runs BEFORE the page
+     * check. Writes nothing, bids nothing: the member opens the origin server by link.
+     */
+    suspend fun listPartnerAuctionHints(page: Int): PartnerAuctionHintPageDto
+
+    /**
+     * V1.9.322 c3. Role: ADMIN (with an active membership). Hides ONE received hint: it goes and cannot come back, not even from its origin (kind HIDDEN
+     * until the end plus two days). Unknown and malformed ids are the SAME `NotFoundException`. Audited without title and amount. Nothing is reported to
+     * the origin.
+     */
+    suspend fun hidePartnerAuctionHint(
+        originHost: String,
+        teaserId: String,
+    )
 }

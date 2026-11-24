@@ -342,4 +342,68 @@ class PartnerServersLogicTest {
         assertTrue(lines.any { it.contains("Gespeichert: 14") && it.contains("noch nicht gelöscht: 4") })
         assertTrue(lines.any { it.contains("Aufgeschoben") && it.contains("2") })
     }
+
+    // ── V1.9.322 c3: the receiving side of the auction exchange ──────────────────────────────────
+
+    private fun auctionPartner(
+        pullAt: LocalDateTime? = null,
+        status: CarpoolPullStatus? = null,
+        error: CarpoolPullErrorCode? = null,
+        failures: Int = 0,
+        received: Int = 0,
+    ) = partner().copy(
+        auctionSharing = true,
+        auctionPullAt = pullAt,
+        auctionPullStatus = status,
+        auctionPullError = error,
+        auctionPullFailures = failures,
+        auctionReceivedFromPartner = received,
+        auctionPullLastAccepted = 3,
+        auctionPullLastRejected = 1,
+    )
+
+    @Test
+    fun theAuctionPullLines_lastResult_failureCode_received_andThePauseNote() {
+        val at = LocalDateTime(2026, 11, 24, 10, 0)
+        assertEquals(emptyList(), PartnerServersLogic.auctionPullLines(auctionPartner()))
+        val ok = PartnerServersLogic.auctionPullLines(auctionPartner(pullAt = at, status = CarpoolPullStatus.OK, received = 4))
+        assertTrue(ok.any { it.startsWith("Auktionshinweise zuletzt abgerufen:") && it.contains("3 übernommen, 1 abgelehnt") })
+        assertTrue(ok.contains("Empfangene Auktionshinweise von diesem Partner: 4"))
+        val failed =
+            PartnerServersLogic.auctionPullLines(
+                auctionPartner(pullAt = at, status = CarpoolPullStatus.FAILED, error = CarpoolPullErrorCode.RATE_LIMITED, failures = 8),
+            )
+        assertTrue(failed.any { it.startsWith("Abruf der Auktionshinweise fehlgeschlagen:") })
+        assertTrue(failed.contains("Abruf der Auktionshinweise pausiert nach 8 Fehlschlägen"))
+        assertFalse(
+            PartnerServersLogic.auctionPullLines(auctionPartner(pullAt = at, status = CarpoolPullStatus.OK, failures = 7)).any {
+                "pausiert" in
+                    it
+            },
+        )
+    }
+
+    @Test
+    fun theAuctionSettingsLines_receivedHidden_andOnlyTheCausesThatHappened() {
+        val settings =
+            network.lapis.cloud.shared.domain.AuctionFederationSettingsDto(
+                enabled = true,
+                hopLimit = 1,
+                feedKeyAvailable = true,
+                receivedHintsTotal = 12,
+                hiddenActive = 2,
+                receivedRejectedByReason = mapOf("SIGNATURE" to 3L, "CAPACITY" to 0L, "TAMPER" to 1L, "NOT_A_REASON" to 9L),
+            )
+        val lines = PartnerServersLogic.auctionSettingsLines(settings)
+        assertTrue(lines.contains("Empfangene Auktionshinweise: 12"))
+        assertTrue(lines.contains("Ausgeblendete Auktionshinweise: 2"))
+        assertTrue(lines.contains("Signatur ungültig oder fehlt: 3"))
+        assertTrue(lines.contains("Inhalt bei gleicher Fassung verändert: 1"))
+        assertFalse(lines.any { it.startsWith("Kapazität erreicht") })
+        assertFalse(lines.any { "NOT_A_REASON" in it || "9" == it.takeLast(1) && "Nicht" in it })
+        // switched off: only what is still going on
+        assertFalse(
+            PartnerServersLogic.auctionSettingsLines(settings.copy(enabled = false)).any { it.startsWith("Empfangene Auktionshinweise") },
+        )
+    }
 }

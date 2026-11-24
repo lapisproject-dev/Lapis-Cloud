@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.AuctionReceivedHintTable
 import network.lapis.cloud.server.db.generated.AuctionReceivedTombstoneTable
 import network.lapis.cloud.server.db.generated.AuctionTeaserSnapshotTable
 import network.lapis.cloud.server.db.generated.AuctionTeaserTombstoneTable
+import network.lapis.cloud.shared.domain.PartnerAuctionHintDto
 import java.io.File
 
 /**
@@ -142,7 +143,10 @@ class AuctionFederationTripwireTest :
         }
 
         test("(b3) only PartnerServerStore writes partner_server.auction_*") {
-            val writer = Regex("""\b(auctionSharing|auctionFeedServedAt|auctionFeedServedCount|auctionFeedLastItems)\s*\]\s*=[^=]""")
+            val writer =
+                Regex(
+                    """\b(auctionSharing|auctionFeedServedAt|auctionFeedServedCount|auctionFeedLastItems|auctionPull\w*)\s*\]\s*=[^=]""",
+                )
             main
                 .filter { it.name != "PartnerServerStore.kt" && it.name != "PartnerServerTable.kt" }
                 .filter { writer.containsMatchIn(it.code()) }
@@ -165,11 +169,18 @@ class AuctionFederationTripwireTest :
                 .shouldBeEmpty()
         }
 
-        test("(g) no server file builds an AuctionTeaser: the projection in lapis-shared is the only producer") {
+        test("(g) no server file builds an AuctionTeaser: the projection in lapis-shared is the only producer (c3: one exception)") {
+            // AuctionReceivedStore rebuilds a RECEIVED, origin-signed hint from its stored columns, so that it is handed on exactly as signed. Every
+            // other file only ever gets a teaser from the projection or from a decoded feed. (The rebuild is checked against the signature in a test.)
             main
+                .filter { it.name != "AuctionReceivedStore.kt" }
                 .filter { Regex("""(?<![A-Za-z.])AuctionTeaser\s*\(""").containsMatchIn(it.code()) }
                 .map { it.name }
                 .shouldBeEmpty()
+            Regex(
+                """(?<![A-Za-z.])AuctionTeaser\s*\(""",
+            ).findAll(main.single { it.name == "AuctionReceivedStore.kt" }.code()).count() shouldBe
+                1
         }
 
         test("(h) the feed path is private, differs from the carpool path, and the federation package makes no outgoing call") {
@@ -182,10 +193,30 @@ class AuctionFederationTripwireTest :
                 .map { it.name }
                 .shouldBeEmpty()
             ("/api/federation/auction-feed/v1" == "/api/federation/carpool-feed/v1") shouldBe false
+            // c3: exactly ONE file of the federation package opens an outgoing connection: the pull client (pinned below).
             main
                 .filter { it.inFederationPackage() }
+                .filter { it.name != "AuctionTeaserFeedClient.kt" }
                 .filter { Regex("""HttpClient|checkWebhookUrl|java\.net\.http|URL\(|openConnection""").containsMatchIn(it.code()) }
                 .map { it.name }
+                .shouldBeEmpty()
+            val client = main.single { it.name == "AuctionTeaserFeedClient.kt" }
+            client.path.replace('\\', '/').contains("/server/auction/federation/pull/") shouldBe true
+            val clientCode = client.code()
+            Regex("""\bclient\s*\.\s*get\s*\(""").findAll(clientCode).count() shouldBe 1
+            client.readText().contains("client.get(\"https://\$host\$AUCTION_TEASER_FEED_PATH\")") shouldBe true
+            Regex("""\b(post|put|patch|delete|submitForm)\s*\(""").containsMatchIn(clientCode) shouldBe false
+            clientCode.contains("allowInsecureHttp = false") shouldBe true
+            clientCode.contains("allowInsecureHttp = true") shouldBe false
+            Regex("""followRedirects\s*=\s*true""").containsMatchIn(clientCode) shouldBe false
+            Regex("""http://""").containsMatchIn(client.readText()) shouldBe false
+            // outside the federation package nothing builds a client for the auction path
+            main
+                .filter { !it.inFederationPackage() }
+                .filter {
+                    Regex("""AUCTION_TEASER_FEED_PATH""").containsMatchIn(it.code()) &&
+                        Regex("""HttpClient|federationHttpClient""").containsMatchIn(it.code())
+                }.map { it.name }
                 .shouldBeEmpty()
             // the route and the gate never read the host or the path of the request
             listOf("AuctionTeaserFeedRoutes.kt", "AuctionTeaserFeedGate.kt").forEach { name ->
@@ -224,7 +255,14 @@ class AuctionFederationTripwireTest :
             main
                 .filter {
                     it.name !in
-                        setOf("AuctionService.kt", "PartnerServerService.kt", "AuctionWithdrawals.kt", "AuctionTeaserFeedBuilder.kt")
+                        setOf(
+                            "AuctionService.kt",
+                            "PartnerServerService.kt",
+                            "AuctionWithdrawals.kt",
+                            "AuctionTeaserFeedBuilder.kt",
+                            // c3: the pull tick runs the same bounded consent sweep as the feed build.
+                            "AuctionPullPoller.kt",
+                        )
                 }.filter { Regex("""AuctionWithdrawals\s*\.""").containsMatchIn(it.code()) }
                 .map { it.name }
                 .shouldBeEmpty()
@@ -250,11 +288,18 @@ class AuctionFederationTripwireTest :
             app.contains("AuctionFederationKey.configure(auctionTeaserIds)") shouldBe true
             app.contains("registerAuctionTeaserFeedRoutes(") shouldBe true
             app.contains("hintResolveLimiter = auctionHintResolveRateLimiter") shouldBe true
+            // c3: the one poller of the exchange is built and started only here (and defined in its own file).
             main
                 .filter { Regex("""Auction\w*Poller""").containsMatchIn(it.code()) }
-                .filter { !it.name.startsWith("AuctionPaymentDetails") && it.name != "Application.kt" }
+                .filter { !it.name.startsWith("AuctionPaymentDetails") && it.name != "Application.kt" && it.name != "AuctionPullPoller.kt" }
                 .map { it.name }
                 .shouldBeEmpty()
+            main
+                .filter { Regex("""(?<!class )\bAuctionPullPoller\s*\(""").containsMatchIn(it.code()) }
+                .map { it.name }
+                .sorted() shouldBe listOf("Application.kt")
+            Regex("""(?<!class )\bAuctionPullPoller\s*\(""").findAll(app).count() shouldBe 1
+            app.contains("auctionPullPoller.start()") shouldBe true
         }
 
         test("(m) no bidding, buying or offer method looks at the hint id") {
@@ -323,5 +368,88 @@ class AuctionFederationTripwireTest :
                 }.flatMap { f -> f.readLines().filter { it.contains("logger.") }.map { f.name to it } }
                 .filter { (_, line) -> Regex("""\.of\(|ids|auctionId|\$\{it\}""").containsMatchIn(line) }
                 .shouldBeEmpty()
+        }
+
+        // ---------------------------------------------------------------------------------------------------------------------------------
+        // V1.9.322 step c3: the receiving side
+        // ---------------------------------------------------------------------------------------------------------------------------------
+
+        test("(c3-a) AuctionReceivedStore is called only by the RPC services, the pull poller, the feed builder and the partner stores") {
+            main
+                .filter { it.name != "AuctionReceivedStore.kt" }
+                .filter { Regex("""AuctionReceivedStore\s*\.""").containsMatchIn(it.code()) }
+                .map { it.name }
+                .sorted() shouldBe
+                listOf(
+                    "AuctionPullPoller.kt",
+                    "AuctionService.kt",
+                    "AuctionTeaserFeedBuilder.kt",
+                    "PartnerDiscoveryStore.kt",
+                    "PartnerServerService.kt",
+                    "PartnerServerStore.kt",
+                )
+            // AuctionService reaches it by exactly two RPC methods
+            val service = main.single { it.name == "AuctionService.kt" }.code()
+            Regex("""AuctionReceivedStore\s*\.\s*(\w+)""").findAll(service).map { it.groupValues[1] }.toSet() shouldBe
+                setOf("listForMembers", "sourceOf", "hide")
+            bodyOf(service, "listPartnerAuctionHints").contains("AuctionReceivedStore.listForMembers") shouldBe true
+            bodyOf(service, "hidePartnerAuctionHint").contains("AuctionReceivedStore.hide") shouldBe true
+        }
+
+        test(
+            "(c3-b) the member list is gated by an ACTIVE membership BEFORE the page check, the hide by ADMIN, and the audit is the last write",
+        ) {
+            val service = main.single { it.name == "AuctionService.kt" }.code()
+            val list = bodyOf(service, "listPartnerAuctionHints")
+            val gate = list.indexOf("requireActiveMembership")
+            val page = list.indexOf("MAX_PAGE")
+            (gate in 0 until page) shouldBe true
+            val hide = bodyOf(service, "hidePartnerAuctionHint")
+            hide.contains("requireRole(AccountRole.ADMIN)") shouldBe true
+            hide.contains("requireActiveMembership") shouldBe true
+            // lock order: the partner row of the source before the received row; the audit entry after the hide
+            (hide.indexOf("lockPartner") in 0 until hide.indexOf("AuctionReceivedStore.hide")) shouldBe true
+            (hide.indexOf("AuctionReceivedStore.hide") < hide.indexOf("AuditLogRecorder.record")) shouldBe true
+            // the audit never names a title or an amount
+            hide.contains("title") shouldBe false
+            hide.contains("priceMinor") shouldBe false
+        }
+
+        test("(c3-c) the pull client and the poller are built with their production defaults only") {
+            main
+                .flatMap { f ->
+                    Regex(
+                        """(?<!class )(AuctionTeaserFeedClient|AuctionPullPoller)\(\s*[^)\s]""",
+                    ).findAll(f.code()).map { "${f.name}: ${it.value}" }
+                }.shouldBeEmpty()
+        }
+
+        test("(c3-d) the reader decodes with its OWN strict Json and pins the key sets") {
+            val reader = main.single { it.name == "AuctionTeaserFeedReader.kt" }.code()
+            reader.contains("ignoreUnknownKeys = false") shouldBe true
+            reader.contains("ignoreUnknownKeys = true") shouldBe false
+            reader.contains("AUCTION_TEASER_FEED_JSON") shouldBe false
+        }
+
+        test("(c3-e) the received hint DTO has exactly the ten pinned fields") {
+            PartnerAuctionHintDto.serializer().descriptor.let { d -> (0 until d.elementsCount).map { d.getElementName(it) } } shouldBe
+                listOf(
+                    "originHost",
+                    "teaserId",
+                    "title",
+                    "currency",
+                    "priceKind",
+                    "priceMinor",
+                    "priceAsOf",
+                    "buyNowMinor",
+                    "offersPossible",
+                    "endsAt",
+                )
+        }
+
+        test("(c3-f) a HIDDEN block is never deleted by the withdrawal paths: every delete of a block names the kind") {
+            val code = main.single { it.name == "AuctionReceivedStore.kt" }.code()
+            val del = bodyOf(code, "clearWithdrawnBlock")
+            del.contains("KIND_WITHDRAWN") shouldBe true
         }
     })

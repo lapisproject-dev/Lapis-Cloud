@@ -4,6 +4,8 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toKotlinLocalDateTime
 import network.lapis.cloud.server.auction.federation.AuctionFederationStore
+import network.lapis.cloud.server.auction.federation.AuctionReceivedStore
+import network.lapis.cloud.server.auction.federation.mayPullAuctionFeed
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
 import network.lapis.cloud.server.carpool.CarpoolReceivedStore
 import network.lapis.cloud.server.db.DbClock
@@ -84,6 +86,16 @@ internal data class PartnerRow(
     val auctionFeedServedAt: LocalDateTime? = null,
     val auctionFeedServedCount: Long = 0,
     val auctionFeedLastItems: Int? = null,
+    /** V1.9.322 c3: the pull state of THIS server towards the partner's auction feed (the twin of the carpool pull state). */
+    val auctionPullAt: LocalDateTime? = null,
+    val auctionPullOkAt: LocalDateTime? = null,
+    val auctionPullNextAt: LocalDateTime? = null,
+    val auctionPullFailures: Int = 0,
+    val auctionPullStatus: String? = null,
+    val auctionPullError: String? = null,
+    val auctionPullEtag: String? = null,
+    val auctionPullLastAccepted: Int? = null,
+    val auctionPullLastRejected: Int? = null,
 )
 
 internal data class BlockRow(
@@ -188,6 +200,15 @@ internal object PartnerServerStore {
             auctionFeedServedAt = this[PartnerServerTable.auctionFeedServedAt],
             auctionFeedServedCount = this[PartnerServerTable.auctionFeedServedCount],
             auctionFeedLastItems = this[PartnerServerTable.auctionFeedLastItems],
+            auctionPullAt = this[PartnerServerTable.auctionPullAt],
+            auctionPullOkAt = this[PartnerServerTable.auctionPullOkAt],
+            auctionPullNextAt = this[PartnerServerTable.auctionPullNextAt],
+            auctionPullFailures = this[PartnerServerTable.auctionPullFailures],
+            auctionPullStatus = this[PartnerServerTable.auctionPullStatus],
+            auctionPullError = this[PartnerServerTable.auctionPullError],
+            auctionPullEtag = this[PartnerServerTable.auctionPullEtag],
+            auctionPullLastAccepted = this[PartnerServerTable.auctionPullLastAccepted],
+            auctionPullLastRejected = this[PartnerServerTable.auctionPullLastRejected],
         )
 
     /** Ordered by host IN KOTLIN: the database collation decides how `-` and `.` sort (PostgreSQL ignores punctuation at first level, H2 does not). */
@@ -439,7 +460,10 @@ internal object PartnerServerStore {
         }
         // The partner row is locked (partner row first, like every other drop): the copies that came from this partner or that it signed as their
         // origin go now, the forwardable ones are reported as withdrawn.
-        if (keyChanged) CarpoolReceivedStore.dropMatchingBlock(patterns = listOf(row.host), now = now)
+        if (keyChanged) {
+            CarpoolReceivedStore.dropMatchingBlock(patterns = listOf(row.host), now = now)
+            AuctionReceivedStore.dropMatchingBlock(patterns = listOf(row.host), now = now)
+        }
         return true
     }
 
@@ -572,6 +596,97 @@ internal object PartnerServerStore {
         }
     }
 
+    // ── V1.9.322 (step c3): the pull state of the AUCTION teaser feed of a DIRECT partner (the twin of the carpool state above) ──────────────
+
+    /** The partners whose auction teaser feed is due ([mayPullAuctionFeed] and `auction_pull_next_at` empty or reached). Blocked hosts are pushed a day out. */
+    fun dueForAuctionPull(
+        now: LocalDateTime,
+        limit: Int,
+    ): List<PartnerRow> {
+        val patterns = blockPatterns()
+        val candidates =
+            PartnerServerTable
+                .selectAll()
+                .where {
+                    (PartnerServerTable.active eq true) and (PartnerServerTable.auctionSharing eq true) and
+                        PartnerServerTable.signingPublicKeyPem.isNotNull() and PartnerServerTable.signingKeyChangedAt.isNull() and
+                        (PartnerServerTable.auctionPullNextAt.isNull() or (PartnerServerTable.auctionPullNextAt lessEq now))
+                }.orderBy(PartnerServerTable.auctionPullNextAt to SortOrder.ASC, PartnerServerTable.host to SortOrder.ASC)
+                .limit(limit)
+                .map { it.toPartnerRow() }
+        val (blocked, free) = candidates.partition { !it.mayPullAuctionFeed(patterns) }
+        blocked.forEach { row ->
+            if (PartnerBlocklistPattern.isBlocked(host = row.host, patterns = patterns)) {
+                PartnerServerTable.update({ PartnerServerTable.id eq row.id }) {
+                    it[auctionPullNextAt] = now.plusHoursKt(BLOCKED_PULL_DELAY_HOURS)
+                }
+            }
+        }
+        return free
+    }
+
+    /** A pull that was answered (200 or 304): resets the failure count, remembers the ETag (a `200` only) and the next try. */
+    fun recordAuctionPullSuccess(
+        id: Uuid,
+        status: String,
+        accepted: Int?,
+        rejected: Int?,
+        etag: String?,
+        keepEtag: Boolean,
+        next: LocalDateTime,
+        now: LocalDateTime,
+    ) {
+        PartnerServerTable.update({ PartnerServerTable.id eq id }) {
+            it[auctionPullAt] = now
+            it[auctionPullOkAt] = now
+            it[auctionPullNextAt] = next
+            it[auctionPullFailures] = 0
+            it[auctionPullStatus] = status
+            it[auctionPullError] = null
+            if (!keepEtag) it[auctionPullEtag] = etag
+            if (accepted != null) it[auctionPullLastAccepted] = accepted
+            if (rejected != null) it[auctionPullLastRejected] = rejected
+        }
+    }
+
+    /** A pull that failed. The last success stays (it decides when the copies of this partner are too old). */
+    fun recordAuctionPullFailure(
+        id: Uuid,
+        error: String,
+        next: LocalDateTime,
+        now: LocalDateTime,
+    ) {
+        val failures = (findPartner(id)?.auctionPullFailures ?: return) + 1
+        PartnerServerTable.update({ PartnerServerTable.id eq id }) {
+            it[auctionPullAt] = now
+            it[auctionPullNextAt] = next
+            it[auctionPullFailures] = failures
+            it[auctionPullStatus] = "FAILED"
+            it[auctionPullError] = error
+        }
+    }
+
+    /** "Try again now": failures back to 0, the next pull due right away, the ETag forgotten. The caller holds the lock of the partner row. */
+    fun resetAuctionPull(
+        id: Uuid,
+        now: LocalDateTime,
+    ) {
+        PartnerServerTable.update({ PartnerServerTable.id eq id }) {
+            it[auctionPullFailures] = 0
+            it[auctionPullNextAt] = now
+            it[auctionPullEtag] = null
+        }
+    }
+
+    /** Forgets the ETag of one partner (or of every partner when [id] is `null`): the next auction pull is unconditional. */
+    fun clearAuctionPullEtag(id: Uuid?) {
+        if (id == null) {
+            PartnerServerTable.update({ PartnerServerTable.auctionPullEtag.isNotNull() }) { it[auctionPullEtag] = null }
+        } else {
+            PartnerServerTable.update({ PartnerServerTable.id eq id }) { it[auctionPullEtag] = null }
+        }
+    }
+
     /**
      * The pinned signing key of the DIRECT partner with exactly this [host], or `null`: the partner must be active and not blocked, a key must be
      * pinned, and the key id must lie on the partner's own host. Verifies origin signatures of hints; no network.
@@ -630,7 +745,9 @@ internal object PartnerServerStore {
             it[signingKeyPendingPem] = null
             it[signingKeyChangedAt] = null
         }
+        // The pin is shared: accepting it ends the pause of BOTH exchanges.
         resetCarpoolPull(id = id, now = now)
+        resetAuctionPull(id = id, now = now)
         return AcceptKeyResult.Accepted(
             host = row.host,
             oldFingerprint = row.signingPublicKeyPem?.let { SigningKeyFingerprint.of(it) },
@@ -752,6 +869,7 @@ internal object PartnerServerStore {
         // V1.9.314: the hints received from this partner go too (reported as withdrawn when they could have been handed on), explicitly and BEFORE the
         // row, independent of the foreign key's ON DELETE rule. The partner row is already locked by the caller's read order (partner first).
         CarpoolReceivedStore.dropFromSource(sourceId = id, now = DbClock.nowLocalDateTime())
+        AuctionReceivedStore.dropFromSource(sourceId = id, now = DbClock.nowLocalDateTime())
         PartnerServerTable.deleteWhere { PartnerServerTable.id eq id }
         return row
     }
@@ -802,6 +920,7 @@ internal object PartnerServerStore {
         }
         // V1.9.314: received carpool hints whose source or origin matches the new pattern go (partner rows are already locked above).
         CarpoolReceivedStore.dropMatchingBlock(patterns = listOf(pattern), now = DbClock.nowLocalDateTime())
+        AuctionReceivedStore.dropMatchingBlock(patterns = listOf(pattern), now = DbClock.nowLocalDateTime())
         // Lock order: partner_server (above), then partner_discovered_server and partner_event (here).
         PartnerDiscoveryStore.purgeForBlock(pattern)
         return block to (existing == null && raced == null)

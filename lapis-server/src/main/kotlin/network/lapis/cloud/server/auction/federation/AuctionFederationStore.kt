@@ -30,6 +30,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.neq
@@ -128,6 +129,14 @@ internal object AuctionFederationStore {
                     .coerceIn(AuctionFederationLimits.MIN_HOPS, AuctionFederationLimits.MAX_HOPS),
         )
     }
+
+    /** V1.9.322 c3: `true` while the auction module is on (the RECEIVING side needs this and the instance switch, not the Euro module). */
+    fun auctionModuleOn(): Boolean =
+        OrganizationSettingsTable
+            .selectAll()
+            .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+            .singleOrNull()
+            ?.get(OrganizationSettingsTable.auctionEnabled) ?: false
 
     /** `true` only while the auction module AND the Euro module are on (the exchange needs both). */
     fun modulesOn(): Boolean {
@@ -437,8 +446,16 @@ internal object AuctionFederationStore {
     internal fun tombstoneId(
         teaserId: String,
         partnerId: Uuid?,
+        relayOriginHost: String? = null,
     ): Uuid {
-        val seed = "auction-tombstone/v1\u0000$teaserId\u0000${partnerId ?: "*"}"
+        // A pass-on tombstone has its own key space (the origin host is part of it), so it never collides with an own withdrawal. With
+        // `relayOriginHost == null` the seed is byte-identical to c2 (live rows must still be found).
+        val seed =
+            if (relayOriginHost == null) {
+                "auction-tombstone/v1\u0000$teaserId\u0000${partnerId ?: "*"}"
+            } else {
+                "auction-tombstone-relay/v1\u0000$teaserId\u0000$relayOriginHost\u0000${partnerId ?: "*"}"
+            }
         val bytes = MessageDigest.getInstance("SHA-256").digest(seed.toByteArray(Charsets.UTF_8)).copyOf(16)
         bytes[6] = ((bytes[6].toInt() and 0x0f) or 0x40).toByte()
         bytes[8] = ((bytes[8].toInt() and 0x3f) or 0x80).toByte()
@@ -512,10 +529,12 @@ internal object AuctionFederationStore {
         endsAt: LocalDateTime,
         partnerId: Uuid?,
         now: LocalDateTime,
+        relayOrigin: String? = null,
+        relayReporter: Uuid? = null,
     ): Boolean {
         val expires = AuctionTeaserTombstonePolicy.expiresAt(createdAt = now, endsAt = endsAt)
         if (expires <= now) return false
-        val tid = tombstoneId(teaserId = teaserId, partnerId = partnerId)
+        val tid = tombstoneId(teaserId = teaserId, partnerId = partnerId, relayOriginHost = relayOrigin)
         AuctionTeaserTombstoneTable.deleteWhere {
             (AuctionTeaserTombstoneTable.id eq tid) and (AuctionTeaserTombstoneTable.expiresAt lessEq now)
         }
@@ -524,11 +543,87 @@ internal object AuctionFederationStore {
                 it[id] = tid
                 it[AuctionTeaserTombstoneTable.teaserId] = teaserId
                 it[AuctionTeaserTombstoneTable.partnerId] = partnerId
+                it[relayOriginHost] = relayOrigin
+                it[relayReporterPartnerId] = relayReporter
                 it[createdAt] = now
                 it[expiresAt] = expires
             }
         return inserted.insertedCount > 0
     }
+
+    /** A hint of ANOTHER origin that this server relayed and now has to report as withdrawn. [endsAt] bounds the life of the tombstone. */
+    internal data class RelayedTarget(
+        val teaserId: String,
+        val endsAt: LocalDateTime,
+        val originHost: String,
+    )
+
+    /**
+     * Reports hints of ANOTHER origin that this server relayed as withdrawn (the pass-on). [partnerId] `null` = for every partner.
+     * [requireServedSince] writes a tombstone only if some partner fetched this server's feed at or after that moment (nothing can have been handed
+     * on before). The caller holds the locks of the received rows. @return the number of tombstone rows written.
+     */
+    fun withdrawRelayed(
+        targets: Collection<RelayedTarget>,
+        partnerId: Uuid?,
+        now: LocalDateTime,
+        requireServedSince: LocalDateTime?,
+        maxRelayRows: Int? = null,
+        reporterId: Uuid? = null,
+        maxRelayRowsPerReporter: Int? = null,
+    ): Int {
+        if (targets.isEmpty()) return 0
+        if (requireServedSince != null) {
+            val lastServed = PartnerServerStore.latestAuctionFeedServedAt()
+            if (lastServed == null || lastServed < requireServedSince) return 0
+        }
+        var written = 0
+        var rows = if (maxRelayRows != null) AuctionTeaserTombstoneTable.selectAll().count().toInt() else 0
+        var ofReporter = if (reporterId != null && maxRelayRowsPerReporter != null) countRelayRowsOfReporter(reporterId) else 0
+        targets.sortedBy { it.teaserId }.forEach { t ->
+            if ((maxRelayRows != null && rows >= maxRelayRows) ||
+                (reporterId != null && maxRelayRowsPerReporter != null && ofReporter >= maxRelayRowsPerReporter)
+            ) {
+                AuctionPullCounters.relayTombstonesSkipped.incrementAndGet()
+                return@forEach
+            }
+            if (insertTombstone(
+                    teaserId = t.teaserId,
+                    endsAt = t.endsAt,
+                    partnerId = partnerId,
+                    now = now,
+                    relayOrigin = t.originHost,
+                    relayReporter = reporterId,
+                )
+            ) {
+                written++
+                rows++
+                ofReporter++
+            }
+        }
+        return written
+    }
+
+    private fun countRelayRowsOfReporter(reporterId: Uuid): Int =
+        AuctionTeaserTombstoneTable
+            .selectAll()
+            .where { AuctionTeaserTombstoneTable.relayReporterPartnerId eq reporterId }
+            .count()
+            .toInt()
+
+    /** A foreign hint came back (its origin or reporter relisted it): the global pass-on tombstone of exactly that (origin, id) is moot. */
+    fun forgetRelayedTombstone(
+        originHost: String,
+        teaserId: String,
+    ) {
+        AuctionTeaserTombstoneTable.deleteWhere {
+            (AuctionTeaserTombstoneTable.teaserId eq teaserId) and AuctionTeaserTombstoneTable.partnerId.isNull() and
+                (AuctionTeaserTombstoneTable.relayOriginHost eq originHost)
+        }
+    }
+
+    /** Every tombstone row, live or expired (the pass-on cap counts these). */
+    fun countTombstoneRows(): Int = AuctionTeaserTombstoneTable.selectAll().count().toInt()
 
     /** The seller gave the consent again: the global tombstone of this server's own earlier withdrawal is moot. */
     fun forgetOwnGlobalTombstone(teaserId: String) {
@@ -566,38 +661,80 @@ internal object AuctionFederationStore {
             }.toSet()
 
     /**
-     * The live withdrawals a partner has to be told: scope = every partner or exactly [partnerId], not yet expired, own rows only (the pass-on rows
-     * come with c3). One row per hint (the earliest day wins), ordered by day then id so the cut is deterministic. At most [scanLimit] rows are read.
+     * The live withdrawals a partner has to be told: scope = every partner or exactly [partnerId], not yet expired. Own rows (consent withdrawn by a
+     * member of THIS server) have their own scan budget; pass-on rows (c3) come on top, except to the partner that CAUSED them (the reporter). One row
+     * per hint (the earliest day wins, an own row beats a pass-on row of the same id), ordered by day then id so the cut is deterministic.
      */
     fun liveWithdrawals(
         partnerId: Uuid,
         now: LocalDateTime,
         scanLimit: Int,
     ): AuctionLiveWithdrawals {
-        val scanned =
+        val scope =
+            (AuctionTeaserTombstoneTable.expiresAt greater now) and
+                (AuctionTeaserTombstoneTable.partnerId.isNull() or (AuctionTeaserTombstoneTable.partnerId eq partnerId))
+
+        fun scan(extra: Op<Boolean>) =
             AuctionTeaserTombstoneTable
                 .selectAll()
-                .where {
-                    (AuctionTeaserTombstoneTable.expiresAt greater now) and
-                        AuctionTeaserTombstoneTable.relayOriginHost.isNull() and
-                        (AuctionTeaserTombstoneTable.partnerId.isNull() or (AuctionTeaserTombstoneTable.partnerId eq partnerId))
-                }.orderBy(AuctionTeaserTombstoneTable.createdAt to SortOrder.ASC, AuctionTeaserTombstoneTable.id to SortOrder.ASC)
+                .where { scope and extra }
+                .orderBy(AuctionTeaserTombstoneTable.createdAt to SortOrder.ASC, AuctionTeaserTombstoneTable.id to SortOrder.ASC)
                 .limit(scanLimit + 1)
                 .toList()
-        val capped = scanned.size > scanLimit
-        val rows =
-            scanned
-                .take(scanLimit)
-                .map {
+
+        val ownScan = scan(AuctionTeaserTombstoneTable.relayOriginHost.isNull())
+        val relayScan =
+            scan(
+                AuctionTeaserTombstoneTable.relayOriginHost.isNotNull() and
+                    (
+                        AuctionTeaserTombstoneTable.relayReporterPartnerId.isNull() or
+                            (AuctionTeaserTombstoneTable.relayReporterPartnerId neq partnerId)
+                    ),
+            )
+        val capped = ownScan.size > scanLimit || relayScan.size > scanLimit
+
+        fun earliest(rows: List<ResultRow>): Map<String, AuctionTeaserWithdrawalRow> {
+            val map = LinkedHashMap<String, AuctionTeaserWithdrawalRow>()
+            rows.forEach {
+                val row =
                     AuctionTeaserWithdrawalRow(
                         teaserId = it[AuctionTeaserTombstoneTable.teaserId],
                         withdrawnAt = it[AuctionTeaserTombstoneTable.createdAt].date,
                     )
-                }.groupBy { it.teaserId }
-                .map { (_, group) -> group.minBy { it.withdrawnAt } }
+                val known = map[row.teaserId]
+                if (known == null || row.withdrawnAt < known.withdrawnAt) map[row.teaserId] = row
+            }
+            return map
+        }
+        val own = earliest(ownScan.take(scanLimit))
+        val relay = earliest(relayScan.take(scanLimit)).filterKeys { it !in own }
+        val rows =
+            (own.values + relay.values)
                 .sortedWith(compareByDescending<AuctionTeaserWithdrawalRow> { it.withdrawnAt }.thenBy { it.teaserId })
         return AuctionLiveWithdrawals(rows = rows, scanCapped = capped)
     }
+
+    /**
+     * Teaser ids of our OWN live withdrawals (no relay origin) that apply to [partnerId]. The feed build drops relayed copies of these ids, so a foreign
+     * origin listing OUR id cannot make "item wins" swallow our withdrawal.
+     */
+    fun liveOwnWithdrawnIds(
+        partnerId: Uuid,
+        now: LocalDateTime,
+        scanLimit: Int,
+    ): Set<String> =
+        AuctionTeaserTombstoneTable
+            .selectAll()
+            .where {
+                (AuctionTeaserTombstoneTable.expiresAt greater now) and AuctionTeaserTombstoneTable.relayOriginHost.isNull() and
+                    (AuctionTeaserTombstoneTable.partnerId.isNull() or (AuctionTeaserTombstoneTable.partnerId eq partnerId))
+            }
+            // Same order as the own scan of [liveWithdrawals]: with more rows than the budget both cut at the same place, so an id that is
+            // published as withdrawn is always also in this set.
+            .orderBy(AuctionTeaserTombstoneTable.createdAt to SortOrder.ASC, AuctionTeaserTombstoneTable.id to SortOrder.ASC)
+            .limit(scanLimit)
+            .map { it[AuctionTeaserTombstoneTable.teaserId] }
+            .toSet()
 
     fun hasLiveWithdrawalsFor(
         partnerId: Uuid,
@@ -607,8 +744,12 @@ internal object AuctionFederationStore {
             .selectAll()
             .where {
                 (AuctionTeaserTombstoneTable.expiresAt greater now) and
-                    AuctionTeaserTombstoneTable.relayOriginHost.isNull() and
-                    (AuctionTeaserTombstoneTable.partnerId.isNull() or (AuctionTeaserTombstoneTable.partnerId eq partnerId))
+                    (AuctionTeaserTombstoneTable.partnerId.isNull() or (AuctionTeaserTombstoneTable.partnerId eq partnerId)) and
+                    (
+                        AuctionTeaserTombstoneTable.relayOriginHost.isNull() or
+                            AuctionTeaserTombstoneTable.relayReporterPartnerId.isNull() or
+                            (AuctionTeaserTombstoneTable.relayReporterPartnerId neq partnerId)
+                    )
             }.limit(1)
             .empty()
 

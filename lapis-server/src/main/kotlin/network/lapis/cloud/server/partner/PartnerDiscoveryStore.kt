@@ -3,6 +3,7 @@ package network.lapis.cloud.server.partner
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toKotlinLocalDateTime
+import network.lapis.cloud.server.auction.federation.AuctionReceivedStore
 import network.lapis.cloud.server.carpool.CarpoolReceivedStore
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PartnerDiscoveredServerTable
@@ -411,6 +412,7 @@ internal object PartnerDiscoveryStore {
         }
         // The copies this host signed as origin go (partner rows are locked by the caller's gate), the forwardable ones as withdrawn.
         CarpoolReceivedStore.dropMatchingBlock(patterns = listOf(host), now = now)
+        AuctionReceivedStore.dropMatchingBlock(patterns = listOf(host), now = now)
         return KeyDecision(keyId = null, pem = null, pinnedAt = null)
     }
 

@@ -192,7 +192,11 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * loaded ahead or cached); `AuctionScreen.kt` gains two reads in the administrator's switch for euro auctions (`getAuctionSettings(` after each switch, and
  * `getAuctionFiatOperatorDisclaimer(` once on the click that opens the legal notice), both on demand inside `guarded`.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 219
+private const val READ_OUTSIDE_STATE_REGION_MAX = 221
+
+// +2 V1.9.322 (auction hints, step c3), both in the (already counted) `AuctionScreen.kt`: `getAuctionFederationAvailability(` (asked once after the list loaded; a
+// failed call or "not visible" simply leaves the section out -- nothing the person did failed) and `listPartnerAuctionHints(` (the section's own loading / error with
+// "Erneut versuchen" / empty states live in `PartnerAuctionHintsSection`, which has the shape of the carpool hint list). 219 -> 221, no new file.
 
 // +4 V1.9.322 (auction hints, step c2): the availability and the reach of the consent box (`AuctionFederationUi.kt`, both small cached reads that only decide whether
 // a box is shown), the landing page's one `resolveAuctionHint(` (its own neutral page is the only state) and the linked card's `getAuction(` in `AuctionScreen.kt`. 215 -> 219.

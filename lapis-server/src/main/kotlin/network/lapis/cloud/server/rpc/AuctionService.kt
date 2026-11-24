@@ -15,6 +15,7 @@ import network.lapis.cloud.server.auction.PaymentDetailsUnavailableException
 import network.lapis.cloud.server.auction.SellerPaymentDetails
 import network.lapis.cloud.server.auction.federation.AuctionFederationKey
 import network.lapis.cloud.server.auction.federation.AuctionFederationStore
+import network.lapis.cloud.server.auction.federation.AuctionReceivedStore
 import network.lapis.cloud.server.auction.federation.AuctionTeaserSnapshots
 import network.lapis.cloud.server.auction.federation.AuctionWithdrawals
 import network.lapis.cloud.server.auction.federation.mayPullAuctionFeed
@@ -73,8 +74,13 @@ import network.lapis.cloud.shared.domain.CreateFiatAuctionListingInput
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
 import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.PartnerAuctionHintDto
 import network.lapis.cloud.shared.domain.PartnerAuctionHintLimits
+import network.lapis.cloud.shared.domain.PartnerAuctionHintPageDto
+import network.lapis.cloud.shared.domain.PartnerAuditKind
+import network.lapis.cloud.shared.domain.PartnerAuditSnapshot
 import network.lapis.cloud.shared.domain.UpdateAuctionTermsInput
+import network.lapis.cloud.shared.domain.isCanonicalFederationHost
 import network.lapis.cloud.shared.domain.mayConsentToAuctionFederation
 import network.lapis.cloud.shared.rpc.AuctionAlreadyConfirmedException
 import network.lapis.cloud.shared.rpc.AuctionAmountOutOfRangeException
@@ -97,6 +103,7 @@ import network.lapis.cloud.shared.rpc.AuctionOfferNotOpenException
 import network.lapis.cloud.shared.rpc.AuctionOfferOutbidException
 import network.lapis.cloud.shared.rpc.AuctionOffersImmutableException
 import network.lapis.cloud.shared.rpc.AuctionPaymentDetailsInvalidException
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IAuctionService
@@ -145,6 +152,8 @@ private const val PAYMENT_DETAILS_NOT_FOUND = "Auction not found"
 private const val OFFER_NOT_FOUND = "Offer not found"
 
 /** The ONE answer of the federation consent for a stranger's, a missing or a malformed auction id. No id in it. */
+private const val HINT_NOT_FOUND = "Hint not found"
+
 private const val FEDERATION_NOT_FOUND = "Auction not found"
 
 /** The statuses of an awarded Fiat auction (the payment details can be opened, the confirmations run). */
@@ -2233,7 +2242,7 @@ class AuctionService(
         val current = resolveCurrentMember(call)
         return transaction {
             requireActiveMembership(memberId = current.memberId)
-            AuctionFederationAvailabilityDto(enabled = federationAvailableNow())
+            AuctionFederationAvailabilityDto(enabled = federationAvailableNow(), partnerHintsVisible = partnerHintsVisibleNow())
         }
     }
 
@@ -2261,6 +2270,9 @@ class AuctionService(
             rowToDto(row = AuctionTable.selectAll().where { AuctionTable.id eq id }.single(), now = now, callerId = current.memberId)
         }
     }
+
+    /** V1.9.322 c3: partner auctions are SHOWN while the instance switch and the auction module are on (the Euro module is not needed to look). */
+    private fun partnerHintsVisibleNow(): Boolean = AuctionFederationStore.settings().enabled && AuctionFederationStore.auctionModuleOn()
 
     private fun federationAvailableNow(): Boolean =
         AuctionFederationStore.settings().enabled && AuctionFederationStore.modulesOn() && AuctionFederationKey.current() != null
@@ -2394,6 +2406,77 @@ class AuctionService(
                 partners = labels.take(PartnerAuctionHintLimits.MAX_REACH_PARTNERS),
                 maxHops = minOf(settings.hopLimit, AuctionFederationLimits.MAX_HOPS),
                 partnersTruncated = labels.size > PartnerAuctionHintLimits.MAX_REACH_PARTNERS,
+            )
+        }
+    }
+
+    override suspend fun listPartnerAuctionHints(page: Int): PartnerAuctionHintPageDto {
+        val current = resolveCurrentMember(call)
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            // The page is checked AFTER the gate: a non-member always gets the refusal and learns nothing else.
+            if (page !in 0..PartnerAuctionHintLimits.MAX_PAGE) throw BadRequestException("Ungültige Seite.")
+            val settings = AuctionFederationStore.settings()
+            if (!settings.enabled || !AuctionFederationStore.auctionModuleOn()) {
+                return@transaction PartnerAuctionHintPageDto(items = emptyList(), hasMore = false)
+            }
+            val result = AuctionReceivedStore.listForMembers(now = nowLocalDateTime(), hopLimit = settings.hopLimit, page = page)
+            PartnerAuctionHintPageDto(
+                items =
+                    result.items.map {
+                        PartnerAuctionHintDto(
+                            originHost = it.originHost,
+                            teaserId = it.teaserId,
+                            title = it.title,
+                            currency = it.currency,
+                            priceKind = it.priceKind,
+                            priceMinor = it.priceMinor,
+                            priceAsOf = it.priceAsOf,
+                            buyNowMinor = it.buyNowMinor,
+                            offersPossible = it.offersPossible,
+                            endsAt = it.endsAt,
+                        )
+                    },
+                hasMore = result.hasMore,
+            )
+        }
+    }
+
+    override suspend fun hidePartnerAuctionHint(
+        originHost: String,
+        teaserId: String,
+    ) {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val now = nowLocalDateTime()
+        transaction {
+            requireActiveMembership(memberId = current.memberId)
+            // Unknown, malformed and "never held" are ONE answer: the administrator learns nothing about hints that are not stored.
+            if (!isCanonicalFederationHost(originHost) ||
+                !AuctionTeaser.TEASER_ID_REGEX.matches(teaserId)
+            ) {
+                throw NotFoundException(HINT_NOT_FOUND)
+            }
+            // Lock order: the partner row of the source first, then the received row. The source is read without a lock to know which row to lock.
+            val sourceId =
+                AuctionReceivedStore.sourceOf(originHost = originHost, teaserId = teaserId) ?: throw NotFoundException(HINT_NOT_FOUND)
+            PartnerServerStore.lockPartner(sourceId)
+            val hidden =
+                AuctionReceivedStore.hide(originHost = originHost, teaserId = teaserId, now = now)
+                    ?: throw NotFoundException(HINT_NOT_FOUND)
+            // The audit entry is the LAST write: who hid a hint of which host. No title, no amount.
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.PARTNER_SERVER,
+                entityId = hidden.sourcePartnerId,
+                action = AuditAction.UPDATE,
+                after =
+                    Json.encodeToString(
+                        PartnerAuditSnapshot.serializer(),
+                        PartnerAuditSnapshot(kind = PartnerAuditKind.AUCTION_RECEIVED_HINT_HIDDEN, subject = "$originHost $teaserId"),
+                    ),
+                occurredAt = now,
             )
         }
     }

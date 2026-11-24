@@ -34048,3 +34048,123 @@ msgstr "Condividi aste"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
 msgid "Auktionen für diesen Partner zurückziehen?"
 msgstr "Ritirare le aste per questo partner?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Auktionen von Partnerservern"
+msgstr "Aste sui server partner"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Kurzhinweise von Partnerservern: Titel, Preis und Ende. Bieten und Kaufen ist nur beim anbietenden Server möglich."
+msgstr "Brevi avvisi dei server partner: titolo, prezzo e termine. Offrire e acquistare è possibile solo sul server che propone l'asta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Noch keine Auktionen von Partnerservern."
+msgstr "Ancora nessuna asta dai server partner."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "LTR von %1"
+msgstr "LTR da %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "· Stand: gerade eben"
+msgstr "· aggiornato: proprio ora"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "· Stand: vor %1 Min."
+msgstr "· aggiornato: %1 min fa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "· Stand: vor %1 Std."
+msgstr "· aggiornato: %1 h fa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "endet in weniger als 1 Min."
+msgstr "termina tra meno di 1 min"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "endet in %1 Min."
+msgstr "termina tra %1 min"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Auf %1 ansehen"
+msgstr "Vedi su %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Auf %1 ansehen (öffnet neues Fenster)"
+msgstr "Vedi su %1 (si apre in una nuova finestra)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Hinweis ausblenden"
+msgstr "Nascondi avviso"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Hinweis ausblenden?"
+msgstr "Nascondere l'avviso?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Der Hinweis von %1 verschwindet bei uns und kommt nicht wieder, auch wenn der Partnerserver ihn erneut meldet. Der Partnerserver erfährt davon nichts."
+msgstr "L'avviso di %1 scompare da noi e non ritorna, anche se il server partner lo segnala di nuovo. Il server partner non ne viene informato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Hinweis ausgeblendet."
+msgstr "Avviso nascosto."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Der Hinweis konnte nicht ausgeblendet werden."
+msgstr "Non è stato possibile nascondere l'avviso."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abruf der Auktionshinweise fehlgeschlagen: %1"
+msgstr "Recupero degli avvisi d'asta non riuscito: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Auktionshinweise zuletzt abgerufen: %1 (%2 übernommen, %3 abgelehnt)"
+msgstr "Avvisi d'asta recuperati l'ultima volta: %1 (%2 accettati, %3 rifiutati)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Empfangene Auktionshinweise von diesem Partner: %1"
+msgstr "Avvisi d'asta ricevuti da questo partner: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abruf der Auktionshinweise pausiert nach %1 Fehlschlägen"
+msgstr "Recupero degli avvisi d'asta in pausa dopo %1 errori"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Empfangene Auktionshinweise: %1"
+msgstr "Avvisi d'asta ricevuti: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Ausgeblendete Auktionshinweise: %1"
+msgstr "Avvisi d'asta nascosti: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Unbekanntes Feld: %1"
+msgstr "Campo sconosciuto: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Titel nicht darstellbar: %1"
+msgstr "Titolo non visualizzabile: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Währung nicht zulässig: %1"
+msgstr "Valuta non ammessa: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Betrag außerhalb des Bereichs: %1"
+msgstr "Importo fuori intervallo: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Ende ungültig: %1"
+msgstr "Termine non valido: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Preisstand ungültig: %1"
+msgstr "Data del prezzo non valida: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Ältere Fassung wiedereingespielt: %1"
+msgstr "Versione precedente riproposta: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Inhalt bei gleicher Fassung verändert: %1"
+msgstr "Contenuto modificato nella stessa versione: %1"

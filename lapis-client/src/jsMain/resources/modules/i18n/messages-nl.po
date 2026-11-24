@@ -34122,3 +34122,123 @@ msgstr "Veilingen delen"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
 msgid "Auktionen für diesen Partner zurückziehen?"
 msgstr "Veilingen voor deze partner intrekken?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Auktionen von Partnerservern"
+msgstr "Veilingen op partnerservers"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Kurzhinweise von Partnerservern: Titel, Preis und Ende. Bieten und Kaufen ist nur beim anbietenden Server möglich."
+msgstr "Korte meldingen van partnerservers: titel, prijs en einde. Bieden en kopen kan alleen op de server die de veiling aanbiedt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Noch keine Auktionen von Partnerservern."
+msgstr "Nog geen veilingen van partnerservers."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "LTR von %1"
+msgstr "LTR van %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "· Stand: gerade eben"
+msgstr "· stand: zojuist"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "· Stand: vor %1 Min."
+msgstr "· stand: %1 min geleden"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "· Stand: vor %1 Std."
+msgstr "· stand: %1 uur geleden"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "endet in weniger als 1 Min."
+msgstr "eindigt over minder dan 1 min"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "endet in %1 Min."
+msgstr "eindigt over %1 min"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Auf %1 ansehen"
+msgstr "Bekijken op %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Auf %1 ansehen (öffnet neues Fenster)"
+msgstr "Bekijken op %1 (opent in een nieuw venster)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Hinweis ausblenden"
+msgstr "Melding verbergen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Hinweis ausblenden?"
+msgstr "Melding verbergen?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Der Hinweis von %1 verschwindet bei uns und kommt nicht wieder, auch wenn der Partnerserver ihn erneut meldet. Der Partnerserver erfährt davon nichts."
+msgstr "De melding van %1 verdwijnt bij ons en komt niet terug, ook niet als de partnerserver hem opnieuw meldt. De partnerserver krijgt hier niets van te horen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Hinweis ausgeblendet."
+msgstr "Melding verborgen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:1
+msgid "Der Hinweis konnte nicht ausgeblendet werden."
+msgstr "De melding kon niet worden verborgen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abruf der Auktionshinweise fehlgeschlagen: %1"
+msgstr "Ophalen van de veilingmeldingen mislukt: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Auktionshinweise zuletzt abgerufen: %1 (%2 übernommen, %3 abgelehnt)"
+msgstr "Veilingmeldingen laatst opgehaald: %1 (%2 overgenomen, %3 afgewezen)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Empfangene Auktionshinweise von diesem Partner: %1"
+msgstr "Ontvangen veilingmeldingen van deze partner: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abruf der Auktionshinweise pausiert nach %1 Fehlschlägen"
+msgstr "Ophalen van veilingmeldingen gepauzeerd na %1 mislukkingen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Empfangene Auktionshinweise: %1"
+msgstr "Ontvangen veilingmeldingen: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Ausgeblendete Auktionshinweise: %1"
+msgstr "Verborgen veilingmeldingen: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Unbekanntes Feld: %1"
+msgstr "Onbekend veld: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Titel nicht darstellbar: %1"
+msgstr "Titel niet weer te geven: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Währung nicht zulässig: %1"
+msgstr "Valuta niet toegestaan: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Betrag außerhalb des Bereichs: %1"
+msgstr "Bedrag buiten het bereik: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Ende ungültig: %1"
+msgstr "Ongeldig einde: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Preisstand ungültig: %1"
+msgstr "Ongeldige prijsdatum: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Ältere Fassung wiedereingespielt: %1"
+msgstr "Oudere versie opnieuw aangeboden: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Inhalt bei gleicher Fassung verändert: %1"
+msgstr "Inhoud gewijzigd binnen dezelfde versie: %1"

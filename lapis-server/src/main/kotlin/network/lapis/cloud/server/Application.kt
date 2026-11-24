@@ -52,10 +52,12 @@ import network.lapis.cloud.server.ai.retrieval.KnowledgeRetrievers
 import network.lapis.cloud.server.ai.retrieval.PostgresFullTextIndexInitializer
 import network.lapis.cloud.server.auction.AuctionPaymentDetailsRetentionPoller
 import network.lapis.cloud.server.auction.federation.AuctionFederationKey
+import network.lapis.cloud.server.auction.federation.AuctionPullCounters
 import network.lapis.cloud.server.auction.federation.AuctionTeaserIds
 import network.lapis.cloud.server.auction.federation.feed.AuctionTeaserFeedCounters
 import network.lapis.cloud.server.auction.federation.feed.AuctionTeaserFeedLimits
 import network.lapis.cloud.server.auction.federation.feed.registerAuctionTeaserFeedRoutes
+import network.lapis.cloud.server.auction.federation.pull.AuctionPullPoller
 import network.lapis.cloud.server.backup.BackupAssetRoots
 import network.lapis.cloud.server.bootstrap.DonorRoleDowngrade
 import network.lapis.cloud.server.branding.BrandConfig
@@ -1928,6 +1930,12 @@ internal fun Application.module(
     val carpoolPullPoller = CarpoolPullPoller()
     carpoolPullPoller.start()
     monitor.subscribe(ApplicationStopping) { carpoolPullPoller.stop() }
+    // V1.9.322 c3: pulls the auction teaser feed of the direct partners that share with this server (instance switch or auction module off =
+    // housekeeping only). The ONLY place that builds and starts this poller (pinned by AuctionFederationTripwireTest).
+    AuctionPullCounters.markStarted(ServerClock.now())
+    val auctionPullPoller = AuctionPullPoller()
+    auctionPullPoller.start()
+    monitor.subscribe(ApplicationStopping) { auctionPullPoller.stop() }
     val partnerFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val partnerProbeRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     // V1.9.312 Mitfahrzentrale-Foederation W2: the signed teaser feed. Per IP BEFORE the signature check, per partner and globally only AFTER the

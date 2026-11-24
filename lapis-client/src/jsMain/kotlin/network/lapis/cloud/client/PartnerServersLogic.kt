@@ -3,9 +3,11 @@ package network.lapis.cloud.client
 import io.kvision.i18n.gettext
 import network.lapis.cloud.shared.domain.AuctionFederationLimits
 import network.lapis.cloud.shared.domain.AuctionFederationSettingsDto
+import network.lapis.cloud.shared.domain.AuctionReceivedRejectReason
 import network.lapis.cloud.shared.domain.CarpoolFederationLimits
 import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
 import network.lapis.cloud.shared.domain.CarpoolPullState
+import network.lapis.cloud.shared.domain.CarpoolPullStates
 import network.lapis.cloud.shared.domain.CarpoolPullStatus
 import network.lapis.cloud.shared.domain.CarpoolReceivedRejectReason
 import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
@@ -101,7 +103,11 @@ internal object PartnerServersLogic {
     fun auctionSharedLine(sharedActive: Int): String =
         ngettext("Derzeit geteilt: %1 Auktion", "Derzeit geteilt: %1 Auktionen", sharedActive, sharedActive)
 
-    /** The notes under the auction switch: the shared count, the missing key, the withdrawals still reported, refused and limited requests. */
+    /**
+     * The notes under the auction switch: the shared count, the missing key, the withdrawals still reported, refused and limited requests, and
+     * (step c3) what this server RECEIVED: how many hints it holds, how many an administrator hid, and the rejections by cause (causes with a count
+     * of 0 are left out). Numbers only; the keys of the cause map are enum names and are never shown raw.
+     */
     fun auctionSettingsLines(settings: AuctionFederationSettingsDto): List<String> {
         val lines = mutableListOf<String>()
         lines += auctionSharedLine(settings.sharedActive)
@@ -114,17 +120,48 @@ internal object PartnerServersLogic {
         ) {
             lines += gettext("Gedrosselte Abrufe seit dem Start: %1", settings.feedRateLimitedSinceStart)
         }
+        lines += gettext("Empfangene Auktionshinweise: %1", settings.receivedHintsTotal)
+        if (settings.hiddenActive > 0) lines += gettext("Ausgeblendete Auktionshinweise: %1", settings.hiddenActive)
+        lines += auctionRejectLines(settings)
         return lines
     }
 
-    /** The feed lines of a partner row: empty unless the exchange is on AND this partner has auction sharing on. */
+    /** The causes of the rejected hints in the FIXED order of [AuctionReceivedRejectReason]; only causes that happened; an unknown key is ignored. */
+    fun auctionRejectLines(settings: AuctionFederationSettingsDto): List<String> =
+        AuctionReceivedRejectReason.entries.mapNotNull { reason ->
+            val count = settings.receivedRejectedByReason[reason.name] ?: 0L
+            if (count <= 0L) return@mapNotNull null
+            when (reason) {
+                AuctionReceivedRejectReason.SIGNATURE -> gettext("Signatur ungültig oder fehlt: %1", count)
+                AuctionReceivedRejectReason.UNKNOWN_ORIGIN_KEY -> gettext("Schlüssel des Ursprungs unbekannt: %1", count)
+                AuctionReceivedRejectReason.FORMAT -> gettext("Format ungültig: %1", count)
+                AuctionReceivedRejectReason.UNKNOWN_FIELD -> gettext("Unbekanntes Feld: %1", count)
+                AuctionReceivedRejectReason.TITLE -> gettext("Titel nicht darstellbar: %1", count)
+                AuctionReceivedRejectReason.CURRENCY -> gettext("Währung nicht zulässig: %1", count)
+                AuctionReceivedRejectReason.AMOUNT -> gettext("Betrag außerhalb des Bereichs: %1", count)
+                AuctionReceivedRejectReason.END -> gettext("Ende ungültig: %1", count)
+                AuctionReceivedRejectReason.PRICE_AS_OF -> gettext("Preisstand ungültig: %1", count)
+                AuctionReceivedRejectReason.HOP_LIMIT -> gettext("Weitergabegrenze überschritten: %1", count)
+                AuctionReceivedRejectReason.REPLAY -> gettext("Ältere Fassung wiedereingespielt: %1", count)
+                AuctionReceivedRejectReason.TAMPER -> gettext("Inhalt bei gleicher Fassung verändert: %1", count)
+                AuctionReceivedRejectReason.EXPIRED -> gettext("Abgelaufen: %1", count)
+                AuctionReceivedRejectReason.BLOCKED -> gettext("Gesperrt: %1", count)
+                AuctionReceivedRejectReason.CAPACITY -> gettext("Kapazität erreicht: %1", count)
+            }
+        }
+
+    /**
+     * The feed and pull lines of a partner row: empty unless the exchange is on AND this partner has auction sharing on. Step c3 adds the pull of THIS
+     * server (last result or the failure code, the number of hints held from this partner, and a note once the pull is paused).
+     */
     fun auctionFeedLines(
         partner: PartnerServerDto,
         exchangeOn: Boolean,
     ): List<String> {
         if (!auctionPartnerSharingVisible(exchangeOn) || !partner.auctionSharing) return emptyList()
         val at = partner.auctionFeedServedAt
-        return listOf(
+        val lines = mutableListOf<String>()
+        lines +=
             if (at == null) {
                 gettext("Kurzhinweise: noch nie abgerufen")
             } else {
@@ -134,8 +171,36 @@ internal object PartnerServersLogic {
                     formatSystemDateTime(at),
                     partner.auctionFeedLastItemCount ?: 0,
                 )
-            },
-        )
+            }
+        lines += auctionPullLines(partner)
+        return lines
+    }
+
+    /** What THIS server pulled from the partner: the last result or the code of the failure, what it holds, and a pause note. */
+    fun auctionPullLines(partner: PartnerServerDto): List<String> {
+        val lines = mutableListOf<String>()
+        val pullAt = partner.auctionPullAt
+        if (pullAt != null) {
+            val error = partner.auctionPullError
+            lines +=
+                if (partner.auctionPullStatus == CarpoolPullStatus.FAILED && error != null) {
+                    gettext("Abruf der Auktionshinweise fehlgeschlagen: %1", PartnerServersTexts.carpoolPullError(error))
+                } else {
+                    gettext(
+                        "Auktionshinweise zuletzt abgerufen: %1 (%2 übernommen, %3 abgelehnt)",
+                        formatSystemDateTime(pullAt),
+                        partner.auctionPullLastAccepted ?: 0,
+                        partner.auctionPullLastRejected ?: 0,
+                    )
+                }
+        }
+        if (partner.auctionReceivedFromPartner > 0) {
+            lines += gettext("Empfangene Auktionshinweise von diesem Partner: %1", partner.auctionReceivedFromPartner)
+        }
+        if (CarpoolPullStates.of(partner.auctionPullFailures) == CarpoolPullState.PAUSED) {
+            lines += gettext("Abruf der Auktionshinweise pausiert nach %1 Fehlschlägen", partner.auctionPullFailures)
+        }
+        return lines
     }
 
     // ── V1.9.245 "Partner von Partnern" ─────────────────────────────────────────

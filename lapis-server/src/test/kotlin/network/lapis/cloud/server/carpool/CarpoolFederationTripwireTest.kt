@@ -129,6 +129,8 @@ class CarpoolFederationTripwireTest :
             val offenders =
                 main
                     .filter { it.name != "CarpoolTeaserFeedClient.kt" }
+                    // V1.9.322 c3: pinned separately by AuctionFederationTripwireTest (h) (its signing key type is named after the carpool exchange).
+                    .filter { it.name != "AuctionTeaserFeedClient.kt" }
                     .filter { file ->
                         val code = SourceScan.blank(file.readText())
                         Regex("""Carpool""").containsMatchIn(code) && Regex("""\bHttpClient\b|federationHttpClient""").containsMatchIn(code)

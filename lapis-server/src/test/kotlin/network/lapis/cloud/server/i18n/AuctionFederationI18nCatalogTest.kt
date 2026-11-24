@@ -19,6 +19,8 @@ class AuctionFederationI18nCatalogTest :
                 "AuctionHintScreen.kt",
                 "PartnerServersLogic.kt",
                 "PartnerServersScreen.kt",
+                // V1.9.322 c3: the receiving side
+                "PartnerAuctionHintsUi.kt",
             )
         val expected =
             listOf(
@@ -45,6 +47,38 @@ class AuctionFederationI18nCatalogTest :
                 "Auktionsaustausch ausschalten?",
                 "Auktionen teilen",
                 "Auktionen für diesen Partner zurückziehen?",
+                // V1.9.322 c3: the receiving side (cards of partner auctions, the pull lines and the rejection causes)
+                "Auktionen von Partnerservern",
+                "Kurzhinweise von Partnerservern: Titel, Preis und Ende. Bieten und Kaufen ist nur beim anbietenden Server möglich.",
+                "Noch keine Auktionen von Partnerservern.",
+                "LTR von %1",
+                "· Stand: gerade eben",
+                "· Stand: vor %1 Min.",
+                "· Stand: vor %1 Std.",
+                "endet am %1",
+                "endet in weniger als 1 Min.",
+                "endet in %1 Min.",
+                "Auf %1 ansehen",
+                "Auf %1 ansehen (öffnet neues Fenster)",
+                "Hinweis ausblenden",
+                "Hinweis ausblenden?",
+                "Der Hinweis von %1 verschwindet bei uns und kommt nicht wieder, auch wenn der Partnerserver ihn erneut meldet. Der Partnerserver erfährt davon nichts.",
+                "Hinweis ausgeblendet.",
+                "Der Hinweis konnte nicht ausgeblendet werden.",
+                "Abruf der Auktionshinweise fehlgeschlagen: %1",
+                "Auktionshinweise zuletzt abgerufen: %1 (%2 übernommen, %3 abgelehnt)",
+                "Empfangene Auktionshinweise von diesem Partner: %1",
+                "Abruf der Auktionshinweise pausiert nach %1 Fehlschlägen",
+                "Empfangene Auktionshinweise: %1",
+                "Ausgeblendete Auktionshinweise: %1",
+                "Unbekanntes Feld: %1",
+                "Titel nicht darstellbar: %1",
+                "Währung nicht zulässig: %1",
+                "Betrag außerhalb des Bereichs: %1",
+                "Ende ungültig: %1",
+                "Preisstand ungültig: %1",
+                "Ältere Fassung wiedereingespielt: %1",
+                "Inhalt bei gleicher Fassung verändert: %1",
             )
         val plurals =
             mapOf(

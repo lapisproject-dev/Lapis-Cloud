@@ -4,6 +4,8 @@ import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.auction.federation.AuctionFederationStore
+import network.lapis.cloud.server.auction.federation.AuctionPullCounters
+import network.lapis.cloud.server.auction.federation.AuctionReceivedStore
 import network.lapis.cloud.server.auction.federation.AuctionWithdrawals
 import network.lapis.cloud.server.auction.federation.feed.AuctionTeaserFeedCounters
 import network.lapis.cloud.server.audit.AuditLogRecorder
@@ -201,8 +203,11 @@ internal class PartnerServerService(
                 // on), not at the next stale sweep, and its ETag is forgotten.
                 CarpoolReceivedStore.dropFromSource(sourceId = uuid, now = now)
                 PartnerServerStore.clearCarpoolPullEtag(uuid)
-            } else if (!row.active && active && row.carpoolSharing) {
-                PartnerServerStore.resetCarpoolPull(id = uuid, now = now)
+                AuctionReceivedStore.dropFromSource(sourceId = uuid, now = now)
+                PartnerServerStore.clearAuctionPullEtag(uuid)
+            } else if (!row.active && active) {
+                if (row.carpoolSharing) PartnerServerStore.resetCarpoolPull(id = uuid, now = now)
+                if (row.auctionSharing) PartnerServerStore.resetAuctionPull(id = uuid, now = now)
             }
             if (row.active != active) {
                 val kind = if (active) PartnerAuditKind.ACTIVATED else PartnerAuditKind.DEACTIVATED
@@ -593,6 +598,7 @@ internal class PartnerServerService(
         val withdrawals = CarpoolFederationStore.countLiveWithdrawalsByPartner(clock())
         val received = CarpoolReceivedStore.countBySource()
         val blocksByReporter = CarpoolReceivedStore.countBlocksByReporter(clock())
+        val auctionReceived = AuctionReceivedStore.countBySource()
         return PartnerServerOverviewDto(
             partners =
                 PartnerServerStore.listPartners().map {
@@ -605,6 +611,7 @@ internal class PartnerServerService(
                             carpoolWithdrawalsScoped = withdrawals[it.id] ?: 0,
                             carpoolReceivedHints = received[it.id] ?: 0,
                             carpoolReceivedBlocks = blocksByReporter[it.id] ?: 0,
+                            auctionReceivedFromPartner = auctionReceived[it.id] ?: 0,
                         )
                 },
             blocklist = blocks.map { it.toDto() },
@@ -612,7 +619,7 @@ internal class PartnerServerService(
         )
     }
 
-    // ---- V1.9.322 (Fiat wave c, step c2): auction hints. Only the ORIGIN side exists so far (the pull and the received hints come with c3). ----
+    // ---- V1.9.322 (Fiat wave c, steps c2 + c3): auction hints, origin side (c2) and receiving side (c3). ----
 
     override suspend fun getAuctionFederationSettings(): AuctionFederationSettingsDto {
         resolveCurrentMember(call).requireRole(AccountRole.ADMIN)
@@ -630,6 +637,12 @@ internal class PartnerServerService(
                 feedRateLimitedSinceStart = c?.rateLimited ?: 0,
                 withdrawalsActive = AuctionFederationStore.countLiveWithdrawals(now),
                 sharedActive = AuctionFederationStore.countSharedActive(now),
+                receivedHintsTotal = AuctionReceivedStore.countTotal(now),
+                receivedStoredRows = AuctionReceivedStore.countStoredRows(),
+                receivedRejectedByReason = AuctionPullCounters.rejectedByReason().mapKeys { it.key.name },
+                receivedAcceptedSinceStart = AuctionPullCounters.accepted.get(),
+                hiddenActive = AuctionReceivedStore.countHiddenActive(now),
+                serverStartedAt = AuctionPullCounters.startedAt,
             )
         }
     }
@@ -645,7 +658,11 @@ internal class PartnerServerService(
         transaction {
             val before = AuctionFederationStore.setSettings(enabled = enabled, hopLimit = hopLimit)
             // Switched off: every shared hint is reported as withdrawn for every partner. The consents stay.
-            if (before.enabled && !enabled) AuctionWithdrawals.onInstanceOff(now)
+            if (before.enabled && !enabled) {
+                AuctionWithdrawals.onInstanceOff(now)
+                // The receiving side too: every copy goes (the forwardable ones are reported as withdrawn), every ETag is forgotten.
+                AuctionReceivedStore.withdrawAllForSwitchOff(now)
+            }
             if (before.enabled != enabled) {
                 val kind = if (enabled) PartnerAuditKind.AUCTION_EXCHANGE_ENABLED else PartnerAuditKind.AUCTION_EXCHANGE_DISABLED
                 audit(
@@ -685,8 +702,12 @@ internal class PartnerServerService(
             if (row.auctionSharing && !enabled) {
                 // Switched off for this partner: the shared hints are reported as withdrawn for THIS partner only.
                 AuctionWithdrawals.onPartnerOff(partnerId = uuid, now = now)
+                // Its copies go and its ETag is forgotten (the partner row is locked by the setter above).
+                AuctionReceivedStore.dropFromSource(sourceId = uuid, now = now)
+                PartnerServerStore.clearAuctionPullEtag(uuid)
             } else if (!row.auctionSharing && enabled) {
                 AuctionFederationStore.forgetPartnerTombstones(uuid)
+                PartnerServerStore.resetAuctionPull(id = uuid, now = now)
             }
             if (row.auctionSharing != enabled) {
                 val kind = if (enabled) PartnerAuditKind.PARTNER_AUCTION_SHARING_ON else PartnerAuditKind.PARTNER_AUCTION_SHARING_OFF
@@ -754,6 +775,13 @@ private fun PartnerRow.toDto(blocked: Boolean) =
         auctionFeedServedAt = auctionFeedServedAt,
         auctionFeedServedCount = auctionFeedServedCount,
         auctionFeedLastItemCount = auctionFeedLastItems,
+        auctionPullAt = auctionPullAt,
+        auctionPullOkAt = auctionPullOkAt,
+        auctionPullStatus = auctionPullStatus?.let { s -> CarpoolPullStatus.entries.firstOrNull { it.name == s } },
+        auctionPullError = auctionPullError?.let { c -> CarpoolPullErrorCode.entries.firstOrNull { it.name == c } },
+        auctionPullFailures = auctionPullFailures,
+        auctionPullLastAccepted = auctionPullLastAccepted,
+        auctionPullLastRejected = auctionPullLastRejected,
         carpoolFeedServedAt = carpoolFeedServedAt,
         carpoolFeedServedCount = carpoolFeedServedCount,
         carpoolFeedLastItemCount = carpoolFeedLastItems,

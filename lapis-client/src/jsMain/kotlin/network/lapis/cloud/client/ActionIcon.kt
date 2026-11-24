@@ -52,6 +52,12 @@ enum class ActionIcon(
     PRINT("fas fa-print"),
     VIEW("fas fa-eye"),
     OPEN_EXTERNAL("fas fa-arrow-up-right-from-square"),
+
+    /** V1.9.322 c3: marks a card that comes from a PARTNER server (a hint of another organisation's auction). Assigned to this purpose only. */
+    FEDERATED("fas fa-share-nodes"),
+
+    /** V1.9.322 c3: an administrator hides one hint of a partner server ("Hinweis ausblenden"). Assigned to this purpose only. */
+    HIDE_HINT("fas fa-eye-slash"),
     BACK("fas fa-arrow-left"),
     NEXT("fas fa-arrow-right"),
     APPROVE("fas fa-circle-check"),

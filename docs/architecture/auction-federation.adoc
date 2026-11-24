@@ -91,6 +91,77 @@ Per IP budget before the signature, per partner and global budgets only after ap
 
 Consent on and off: `AUCTION` entries `AUCTION_FEDERATION_CONSENT_ON/OFF` (event, currency, status, time; never an amount, title or id). System withdrawals write no extra entry (the settlement or the switch is audited already). Switches: `PARTNER_SERVER`. Feed `200`: `AUCTION_FEDERATION_FEED` with counts only.
 
-== What c2 deliberately does not do
+== What c2 deliberately did not do (kept for the record)
 
-No pull, no relay, no received hints, no list of partner auctions for members, no hide or block (c3). No tombstones at restore, GDPR export or erasure, member exit (c4). No release: the legal-review gate of wave (c) stands.
+No pull, no relay, no received hints, no list of partner auctions for members, no hide or block: these came with c3 (next section). No tombstones at restore, GDPR export or erasure, member exit (c4). No release: the legal-review gate of wave (c) stands.
+
+== Receiving side (c3)
+
+No schema change: V169 already holds `auction_received_hint`, `auction_received_tombstone` (kind `WITHDRAWN` or `HIDDEN`), `partner_server.auction_pull_*` and the relay columns of `auction_teaser_tombstone`. **Off by default, not legally reviewed, the legal-review gate is not lifted.**
+
+[kuml, auction-federation-receive, svg]
+----
+sequenceDiagram(name = "Auction hint receive") {
+    val partner = lifeline(name = "Partner server (origin)")
+    val poller = lifeline(name = "AuctionPullPoller")
+    val reader = lifeline(name = "Reader and validator")
+    val store = lifeline(name = "AuctionReceivedStore")
+    val member = lifeline(name = "Active member")
+    message(from = poller, to = partner, label = "GET auction-feed/v1 (signed, outside any transaction)")
+    message(from = partner, to = poller, label = "feed: items, withdrawn, complete")
+    message(from = poller, to = reader, label = "parse (own strict Json, key sets, content rules)")
+    message(from = reader, to = poller, label = "valid items, rejected by reason")
+    message(from = poller, to = store, label = "apply (ONE transaction)")
+    message(from = store, to = store, label = "verify origin signature against the pinned key")
+    message(from = store, to = store, label = "revision: replay, tamper, newer content")
+    message(from = member, to = store, label = "listPartnerAuctionHints (switch, module, end in the future)")
+    message(from = store, to = member, label = "title, price, end, link to the origin")
+}
+----
+
+=== Pull
+
+`AuctionPullPoller` (a copy of the carpool poller, built and started only in `Application.kt`) pulls every direct partner that `mayPullAuctionFeed` allows: 30 minutes plus up to 10 minutes of jitter after a success, back-off from 15 minutes doubling to 24 hours after a failure (a `429` waits at least an hour, from 8 failures the pull counts as paused). At most 2 pulls run in parallel, 20 partners are due per tick, 5000 items and withdrawals per tick. The request is made by `AuctionTeaserFeedClient`, the only file of the federation package that opens a connection: https only, the host is resolved once and pinned, no redirect, 1 MiB, 10 seconds, signed with the own federation key over the auction path (a carpool signature is not valid here). A pull happens only while the instance switch AND the auction module are on; every tick, whatever the switches say, also sweeps expired hints and tombstones (our own tombstones were never deleted before c3), stale sources and the consent sweep of the origin side.
+
+=== Rules of a received hint
+
+The reader checks the key sets before it decodes anything: a root, item or teaser key this server does not know (a seller name, an IBAN, a bid count, a URL) rejects the item as `UNKNOWN_FIELD` and the field is never stored. Then, in a fixed order: format (canonical hosts, path consistent with the hop count, the feed host is the last relay), signature present, blocked, hop limit, content rules. The content rules (`AuctionTeaserValidator`, also applied by the feed builder before it signs, so what we would reject we never publish) in a fixed order: title (no control, bidi or zero-width characters, no link, NFC, at most 80 code points), currency (LTR is refused by name and by the supported list), amount, expired, end (a whole minute, at most 90 days ahead), price date (not in the future beyond 5 minutes, not after the end, a whole minute).
+
+Unlike the carpool reader the auction reader applies its own hop limit already on receipt: with limit 1 only hints of direct origins are taken (wire hops 0), with limit 2 also relayed ones (wire hops 1). The store checks the limit again inside the transaction (it may have changed meanwhile).
+
+=== Verification and revisions
+
+The store verifies the origin signature against the key pinned for the origin (a direct partner's pin or the pin of the partner recursion); no key means `UNKNOWN_ORIGIN_KEY` and no network call. A key pin that changed between the request and the apply voids the answer (`applied = false`, nothing written); a pending key holds both exchanges (the pin is shared). Per (origin host, teaser id): a lower revision is `REPLAY`; the same revision with other content is `TAMPER` (the fields are compared, not only the signature); a higher revision replaces content and signature whatever the source. The path (hops, via, source) changes only when the source is the same or the new path is shorter, or when the old path would violate a lowered hop limit of the origin; a shorter path of a foreign source needs room in its own cap.
+
+=== Caps, no displacement
+
+At most 1000 rows per source and 5000 in total, with the carpool fair share (`max(200, 5000 / sharing partners)`, never above 1000). A hint that does not fit is rejected as `CAPACITY`; no row of another source is ever deleted for it. Local blocks of reported withdrawals: 5000 per reporting source, 20000 in total; pass-on tombstones: 20000 in total, 5000 per reporter.
+
+=== Withdrawal, HIDDEN, relay
+
+A withdrawal reported by the source (or by the origin itself) removes the copy and writes a `WITHDRAWN` block until the end plus 2 days. Only the reporter, or the origin itself at hop 0, may bring the hint back; then the block and the pass-on tombstone are deleted. A copy that could have travelled (`hops < maxHops`) is reported as withdrawn to every partner as a pass-on tombstone, but only if a partner fetched our feed since we got it. An administrator can hide one hint (`hidePartnerAuctionHint`): the copy goes and a `HIDDEN` block is written until the end plus 2 days. `HIDDEN` is final: not even the origin brings it back, a later withdrawal never weakens it (one row per origin and id, only upgraded from `WITHDRAWN` to `HIDDEN`), a newer signed revision with a later end prolongs it. A hidden hint is not handed on and nothing is reported to a partner or the origin (the copy only disappears from our own feed).
+
+The relay works only with hop limit 2: stored hops 1 with `maxHops` 2 is re-published with `hops = 1` and the own host appended to `via`, signed as the origin signed it (the teaser is rebuilt from the stored columns and verified against the stored signature in a test). It is never handed to its source, its origin or a relay on its path, never when the source stopped sharing, the origin is blocked or any live block exists. An own live tombstone beats a relay copy with the same id. Lowering the limit 2 to 1 simply ends the relay (no explicit withdrawals are written; the receiving partners drop what a complete answer no longer lists).
+
+=== Retention and staleness
+
+A hint is shown only while its end lies in the future (server filter and client minute tick); the row is deleted by the next pull tick. A source whose last successful pull is older than 24 hours loses its copies (the forwardable ones are reported as withdrawn). Blocks and tombstones are deleted when they expire.
+
+=== Visibility
+
+`listPartnerAuctionHints` is for an ACTIVE member (guest, friend and donor are refused; the gate runs before the page check) and returns an empty page while the instance switch or the auction module is off. The Euro module of the receiver is not needed to look. `getAuctionFederationAvailability.partnerHintsVisible` tells the client whether to ask. The page is sorted by end, id, host and shows exactly the DTO fields (no signature, path or source). A partner can offer fake auctions under its own name; the levers are the per-partner switch, the administrator's hiding and the caps.
+
+=== Audit
+
+Hiding writes one `PARTNER_SERVER` entry `AUCTION_RECEIVED_HINT_HIDDEN` with the host and the pseudonymous id, never the title or an amount. Reading and pulling write no entry (counters in memory only).
+
+=== Known limits
+
+* Offset paging: rows can shift between two requests.
+* A partner can offer fake auctions under its own name.
+* Lowering the hop limit does not write explicit withdrawals.
+* Hidden hints are not un-hidden in this step (a hidden hint comes back only after its block ran out, which is after the auction ended).
+
+== What c3 deliberately does not do
+
+No message between servers, no LTR hints, no bidding over the federation, no images. No tombstones at restore, GDPR export or erasure, member exit, no staging notes (c4). No release: the legal-review gate of wave (c) stands.

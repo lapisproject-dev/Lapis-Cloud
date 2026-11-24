@@ -6,6 +6,7 @@ import kotlinx.datetime.toInstant
 import network.lapis.cloud.server.auction.federation.AuctionFederationSettings
 import network.lapis.cloud.server.auction.federation.AuctionFederationStore
 import network.lapis.cloud.server.auction.federation.AuctionOriginSignatures
+import network.lapis.cloud.server.auction.federation.AuctionReceivedStore
 import network.lapis.cloud.server.auction.federation.AuctionTeaserIds
 import network.lapis.cloud.server.auction.federation.AuctionTeaserSnapshots
 import network.lapis.cloud.server.auction.federation.AuctionTeaserTombstonePolicy
@@ -16,6 +17,7 @@ import network.lapis.cloud.server.db.generated.AuctionTable
 import network.lapis.cloud.server.partner.PartnerBlocklistPattern
 import network.lapis.cloud.server.partner.PartnerRow
 import network.lapis.cloud.server.partner.PartnerServerStore
+import network.lapis.cloud.shared.domain.AuctionFederationLimits
 import network.lapis.cloud.shared.domain.AuctionTeaserEligibility
 import network.lapis.cloud.shared.domain.isAuctionTeaserEligible
 
@@ -35,7 +37,7 @@ internal class BuiltAuctionTeaserFeed(
  * Reading order, pinned by tests: the candidates and the items first (complete, before any cut), then the lazy sweep of consented auctions that are
  * no longer shareable, then the tombstones; a hint that is in the item list is removed from the withdrawals ("item wins"). Deterministic: sorted by
  * teaser id. Bounded: at most [MAX_ITEMS] items, [SCAN_LIMIT] scanned auctions and [MAX_BYTES] bytes; whenever any bound cuts a list, `complete` is
- * `false`. Only OWN hints are published in c2 (no relay).
+ * `false`. Own hints always; hints received from partners are relayed too (c3), but only while the hop limit is 2.
  */
 internal object AuctionTeaserFeedBuilder {
     const val MAX_ITEMS = 1000
@@ -127,16 +129,49 @@ internal object AuctionTeaserFeedBuilder {
                     }
                 }
         if (unsigned > 0) complete = false
+        // Relay (c3): only with hop limit 2 (limit 1 hands on nothing). Hints we RECEIVED are re-published with their stored hop count and our host appended
+        // to the path; the origin signature is the one we stored, so the receiver verifies it against the origin key. An id that is one of OUR OWN live
+        // withdrawals or one of our own items never comes from a relay ("own tombstone beats relay copy").
+        var relayItems: List<AuctionTeaserFeedItem> = emptyList()
+        if (settings.hopLimit == AuctionFederationLimits.MAX_HOPS) {
+            val ownIds = items.map { it.teaser.teaserId }.toSet()
+            val ownWithdrawn =
+                AuctionFederationStore.liveOwnWithdrawnIds(
+                    partnerId = partner.id,
+                    now = now,
+                    scanLimit = AuctionTeaserTombstonePolicy.WITHDRAWN_SCAN_LIMIT,
+                )
+            val stored =
+                AuctionReceivedStore.republishableFor(
+                    partner = partner,
+                    ownHopLimit = settings.hopLimit,
+                    now = now,
+                    limit =
+                        maxItems + 1,
+                )
+            if (stored.size > maxItems) complete = false
+            relayItems =
+                stored
+                    .take(maxItems)
+                    .filter { it.teaser.teaserId !in ownIds && it.teaser.teaserId !in ownWithdrawn }
+                    .map {
+                        AuctionTeaserFeedItem(
+                            originHost = it.originHost,
+                            hops = it.storedHops,
+                            maxHops = it.maxHops,
+                            teaser = it.teaser,
+                            via = it.via + originHost,
+                            originSignature = it.originSignature,
+                        )
+                    }
+        }
+        val allItems = items + relayItems
         val withdrawn =
             withdrawalsFor(
                 partner = partner,
                 ids = ids,
                 now = now,
-                itemIds =
-                    items
-                        .map {
-                            it.teaser.teaserId
-                        }.toSet(),
+                itemIds = allItems.map { it.teaser.teaserId }.toSet(),
                 beforeRead = beforeWithdrawalRead,
             )
         if (withdrawn.capped) complete = false
@@ -145,7 +180,7 @@ internal object AuctionTeaserFeedBuilder {
             keptWithdrawn = keptWithdrawn.take(AuctionTeaserTombstonePolicy.MAX_WITHDRAWN)
             complete = false
         }
-        var kept = items
+        var kept = allItems
         if (kept.size > maxItems) {
             kept = kept.take(maxItems)
             complete = false

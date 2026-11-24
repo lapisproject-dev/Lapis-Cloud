@@ -168,6 +168,10 @@ internal fun renderAuctionScreenWithFocus(
     disabledBanner.hide()
     val auctionsPanel = root.vPanel(spacing = 10)
 
+    // ---- Auktionen von Partnerservern (V1.9.322 c3): below the own list, mounted ONCE after the list loaded (a banner = module off = no section).
+    val partnerSlot = root.vPanel(spacing = 6)
+    var partnerMounted = false
+
     // ---- Meine Gebote ------------------------------------------------------------------------
     root.h2(tr("Meine Gebote")) { addCssClass("h5") }
     val myBidsPanel = root.vPanel(spacing = 6)
@@ -192,6 +196,17 @@ internal fun renderAuctionScreenWithFocus(
         val statusFilter = parseOptionalEnum<AuctionStatus>(statusFilterSelect.value)
         AppScope.launch {
             val auctions = loadAuctionsOrShowBanner(statusFilter, auctionsPanel, disabledBanner) ?: return@launch
+            if (!partnerMounted) {
+                partnerMounted = true
+                mountPartnerAuctionHints(
+                    container = partnerSlot,
+                    status = AppState.session?.status,
+                    isAdmin = canAdmin,
+                    readVisible = { rpcService<IAuctionService>().getAuctionFederationAvailability().partnerHintsVisible },
+                    loadPage = { page -> rpcService<IAuctionService>().listPartnerAuctionHints(page) },
+                    hide = { host, id -> rpcService<IAuctionService>().hidePartnerAuctionHint(host, id) },
+                )
+            }
             val fetchedAt = organizationNow()
             staleLabel.content =
                 gettext("Preisstand: %1:%2:%3 Uhr", pad2(fetchedAt.hour), pad2(fetchedAt.minute), pad2(fetchedAt.second))

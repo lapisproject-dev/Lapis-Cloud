@@ -49,6 +49,10 @@ A seller of a euro auction **with a buy-now price** can allow *Preisvorschläge*
 
 The feature needs `LAPIS_SECRET_ENCRYPTION_KEY` (the key that also protects the SEPA and travel-expense IBANs): without it no euro auction can be created. Backups taken before schema V166 (and, since price offers, before V167) cannot be restored.
 
+== Auctions from partner servers
+
+When the administrator switches the exchange on and the auction module is on, an active member sees below the own list a section "Auktionen von Partnerservern": short hints of auctions that partner servers offer (title, price with its age, Sofortkauf price, end, the badge "Preisvorschlag möglich"). A card has one link that opens the auction on the offering server; **bidding and buying are only possible there**, never here. The card carries the host of the offering server first; the price of a running auction is refreshed at most every 30 minutes and its age is shown. A hint disappears at the moment its auction ends. Guests, friends and donors do not see the section. An administrator can hide a hint; it then does not come back, also not if the partner server reports it again. The feature is off by default and has not been legally reviewed.
+
 == Data protection
 
 The payment details of the seller are deleted at once when the auction closes without a sale, 30 days after the later confirmation, 180 days after the award if it never completes, and when the seller is erased. They are in no list, no audit entry and no log. See xref:../architecture/dsgvo.adoc[dsgvo.adoc].
@@ -56,5 +60,5 @@ The payment details of the seller are deleted at once when the auction closes wi
 == Limits
 
 * EUR only; Germany first (a German IBAN is required).
-* No appearance on partner servers, no outbid or ending-soon dashboard signals for euro auctions (the won and sold signals exist).
+* No appearance on partner servers (a member can offer an own euro auction to partners, see below), no outbid or ending-soon dashboard signals for euro auctions (the won and sold signals exist).
 * The wording of both notices is the proposal of the authors and has **not** been checked by a lawyer.

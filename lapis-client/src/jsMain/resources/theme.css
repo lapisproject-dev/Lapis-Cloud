@@ -8960,6 +8960,22 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
   justify-content: center;
 }
 
+/* V1.9.322 c3: a card that comes from a PARTNER server -- the same geometry as an own card, a dashed accent border says "somebody else's".
+   Colour only through the accent token (light and dark), no tint, no literal. */
+.lapis-card-federated {
+  border-style: dashed !important;
+  border-width: 1px !important;
+  border-color: var(--lapis-accent) !important;
+}
+.lapis-line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
 @media (prefers-reduced-motion: reduce) {
   body,
   .lapis-conference-background-preview,
@@ -8974,4 +8990,3 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
     transition: none;
   }
 }
-

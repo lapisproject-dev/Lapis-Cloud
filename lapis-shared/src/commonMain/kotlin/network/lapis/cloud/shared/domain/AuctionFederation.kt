@@ -207,6 +207,11 @@ fun buildAuctionHintLink(
 @Serializable
 data class AuctionFederationAvailabilityDto(
     val enabled: Boolean,
+    /**
+     * V1.9.322 c3: partner auctions may be SHOWN to this member: the instance switch is on AND the auction module is on. (`enabled` above means "sharing is
+     * possible", which also needs the Euro module and the key.) Added at the end with a default, so an old payload reads as `false`.
+     */
+    val partnerHintsVisible: Boolean = false,
 )
 
 /** Admin view of the exchange: the switch, the hop limit and operational counters (numbers only, never a title or price). */
@@ -271,6 +276,21 @@ data class PartnerAuctionHintPageDto(
     val items: List<PartnerAuctionHintDto>,
     val hasMore: Boolean,
 )
+
+/** V1.9.322 c3: THE display rule of a received hint, used by the server read path and by the client minute tick. */
+object PartnerAuctionHintRules {
+    /** A hint is shown only while the end lies in the future (the moment of the end itself already hides it). */
+    fun isShowable(
+        endsAt: Instant,
+        now: Instant,
+    ): Boolean = endsAt > now
+}
+
+/** Who may see the hints of partner servers: an ACTIVE member (never guest, friend or donor) while the exchange is visible. */
+fun mayShowPartnerAuctionHints(
+    status: MemberStatus?,
+    partnerHintsVisible: Boolean,
+): Boolean = status != null && status in MemberStatusSets.ORGANIZATION_MEMBER && partnerHintsVisible
 
 object PartnerAuctionHintLimits {
     const val PAGE_SIZE: Int = 50
