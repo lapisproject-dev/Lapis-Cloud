@@ -3,6 +3,8 @@ package network.lapis.cloud.client
 import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
 import io.kvision.html.div
+import io.kvision.html.icon
+import io.kvision.i18n.I18n
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
@@ -13,7 +15,12 @@ import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AuctionCurrencies
 import network.lapis.cloud.shared.domain.AuctionDto
 import network.lapis.cloud.shared.domain.AuctionOfferDto
+import network.lapis.cloud.shared.domain.AuctionOfferNoticeDto
+import network.lapis.cloud.shared.domain.AuctionOfferNoticeKind
+import network.lapis.cloud.shared.domain.AuctionOfferRules
 import network.lapis.cloud.shared.domain.AuctionOfferStatus
+import network.lapis.cloud.shared.rpc.AuctionOfferAlreadyAnsweredException
+import network.lapis.cloud.shared.rpc.AuctionOfferNoticeMismatchException
 import network.lapis.cloud.shared.rpc.IAuctionService
 
 // V1.9.321 (Fiat wave b "Preisvorschlag"): the buyer's offer dialog and status, the seller's list of proposals, "Meine Preisvorschläge".
@@ -64,17 +71,12 @@ private fun offerAmountDialog(
         }
     val modal = Modal(caption = if (counterOf == null) tr("Preis vorschlagen") else tr("Gegenvorschlag machen"))
     modal.div(sanitizeUntrustedI18nText(auction.title)) { addCssClasses("fw-bold") }
-    modal.div(
-        tr(
-            "Ein Preisvorschlag bindet Sie erst, wenn der Verkäufer ihn annimmt. Er gilt höchstens bis zum Auktionsende. " +
-                "Ihre Gebote und der Sofortkauf bleiben davon unberührt.",
-        ),
-    ) { addCssClasses("small") }
-    if (counterOf != null) {
-        modal.div(tr("Ein Gegenvorschlag bindet Sie erst, wenn der Käufer ihn annimmt. Es ist nur ein Gegenvorschlag möglich.")) {
-            addCssClasses("small")
-        }
-    }
+    // V1.9.323: the notice comes from the SERVER (versioned, hashed) and is shown exactly as delivered: no gettext, no sanitizer, a text node. The
+    // hash proves which wording the person saw, so nothing between the server and this box may change a character.
+    val kind = if (counterOf == null) AuctionOfferNoticeKind.BUYER_OFFER else AuctionOfferNoticeKind.SELLER_COUNTER
+    val noticeBox = modal.div().apply { addCssClasses("small border rounded p-2") }
+    val noticeVersionLine = modal.div().apply { addCssClasses("text-muted small") }
+    var notice: AuctionOfferNoticeDto? = null
     val input = modal.text(label = gettext("Ihr Preis (%1)", auction.currency)) { placeholder = auction.currency }
     input.input.setAttribute("inputmode", "decimal")
     modal.div(
@@ -91,6 +93,26 @@ private fun offerAmountDialog(
         }
     modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     val send = newActionButton(ActionIcon.SEND, tr("Vorschlag senden"), ButtonStyle.PRIMARY)
+    // The sending stays off until the notice is there: nobody can send a proposal without having been shown the wording.
+    send.disabled = true
+
+    fun loadNotice() {
+        AppScope.launch {
+            val loaded = guarded { rpcService<IAuctionService>().getAuctionOfferNotice(kind, I18n.language) }
+            notice = loaded
+            if (loaded != null) {
+                // `untrustedContent` is the codebase's one way to put server text into an existing widget. For the notice it changes nothing: the
+                // sanitizer only removes the KVision i18n marker and control characters, and no notice text contains either (AuctionOfferNoticeTest).
+                untrustedContent(noticeBox, loaded.text)
+                noticeVersionLine.content = gettext("Hinweisfassung %1", loaded.version)
+                send.disabled = false
+            } else {
+                noticeBox.content =
+                    tr("Der Hinweistext konnte nicht geladen werden. Bitte schließen Sie das Fenster und versuchen Sie es erneut.")
+            }
+        }
+    }
+    loadNotice()
     send.onClick {
         errorBox.hide()
         val minor = parseMinorAmountInput(input.value.orEmpty())
@@ -104,17 +126,29 @@ private fun offerAmountDialog(
             errorBox.show()
             return@onClick
         }
+        val shown = notice ?: return@onClick
         send.disabled = true
         AppScope.launch {
+            var noticeChanged = false
             val result =
                 guarded {
-                    if (counterOf == null) {
-                        rpcService<IAuctionService>().makeOffer(auction.id, minor)
-                    } else {
-                        rpcService<IAuctionService>().counterOffer(counterOf.id, minor)
+                    try {
+                        if (counterOf == null) {
+                            rpcService<IAuctionService>().makeOffer(auction.id, minor, shown.version, shown.lang, shown.sha256)
+                        } else {
+                            rpcService<IAuctionService>().counterOffer(counterOf.id, minor, shown.version, shown.lang, shown.sha256)
+                        }
+                    } catch (e: AuctionOfferNoticeMismatchException) {
+                        noticeChanged = true
+                        throw e
                     }
                 }
-            send.disabled = false
+            // The wording changed while the dialog was open: show the new one (the button comes back with it), never re-send the old echo.
+            if (noticeChanged) {
+                loadNotice()
+            } else if (result == null) {
+                send.disabled = false
+            }
             if (result != null) {
                 modal.hide()
                 notifySuccess(if (counterOf == null) tr("Preisvorschlag gesendet.") else tr("Gegenvorschlag gesendet."))
@@ -171,7 +205,17 @@ private fun declineOfferDialog(
 ) {
     confirmDialog(
         title = tr("Preisvorschlag ablehnen"),
-        message = tr("Möchten Sie diesen Preisvorschlag ablehnen?"),
+        message =
+            if (offer.buyerDeclinesInCycle == AuctionOfferRules.MAX_DECLINES_BEFORE_BLOCK - 1 && !offer.fromSeller) {
+                // The third decline of one buyer blocks him for a week: the seller is told BEFORE he confirms.
+                gettext("Möchten Sie diesen Preisvorschlag ablehnen?") + " " +
+                    gettext(
+                        "Das ist die dritte Ablehnung. Der Käufer kann danach %1 Tage keinen Preisvorschlag für diese Auktion machen.",
+                        AuctionOfferRules.DECLINE_BLOCK_DAYS,
+                    )
+            } else {
+                tr("Möchten Sie diesen Preisvorschlag ablehnen?")
+            },
         confirmLabel = tr("Ablehnen"),
         confirmIcon = ActionIcon.REJECT,
         confirmStyle = ButtonStyle.PRIMARY,
@@ -186,19 +230,41 @@ private fun declineOfferDialog(
 }
 
 private fun withdrawOffer(
+    auction: AuctionDto,
     offer: AuctionOfferDto,
     onDone: () -> Unit,
 ) {
+    // The buyer who withdraws his own proposal may make a new one unless he is blocked or used up his proposals; the seller's counter-offer says nothing.
+    val mayProposeAgain = !offer.fromSeller && !auction.callerOfferBlocked
     confirmDialog(
         title = tr("Preisvorschlag zurückziehen"),
-        message = tr("Möchten Sie diesen Preisvorschlag zurückziehen?"),
+        message =
+            if (mayProposeAgain) {
+                gettext("Möchten Sie diesen Preisvorschlag zurückziehen?") + " " +
+                    gettext("Sie können danach einen neuen Preisvorschlag machen.")
+            } else {
+                tr("Möchten Sie diesen Preisvorschlag zurückziehen?")
+            },
         confirmLabel = tr("Zurückziehen"),
         confirmIcon = ActionIcon.UNDO,
         confirmStyle = ButtonStyle.PRIMARY,
     ) {
         AppScope.launch {
-            if (guarded { rpcService<IAuctionService>().withdrawOffer(offer.id) } != null) {
+            var answeredMeanwhile = false
+            val result =
+                guarded {
+                    try {
+                        rpcService<IAuctionService>().withdrawOffer(offer.id)
+                    } catch (e: AuctionOfferAlreadyAnsweredException) {
+                        answeredMeanwhile = true
+                        throw e
+                    }
+                }
+            if (result != null) {
                 notifySuccess(tr("Preisvorschlag zurückgezogen."))
+                onDone()
+            } else if (answeredMeanwhile) {
+                // The toast already says how it was answered; reload so the row shows the real status and no stale button.
                 onDone()
             }
         }
@@ -231,6 +297,20 @@ private fun renderOfferRow(
     if (offer.belowCurrentPrice && offer.status == AuctionOfferStatus.OFFERED) {
         row.div(tr("Unter dem aktuellen Gebot")) { addCssClasses("small text-danger") }
     }
+    if (asSeller && !offer.fromSeller) {
+        val blockedUntil = offer.buyerBlockedUntil
+        val declines = offer.buyerDeclinesInCycle
+        if (blockedUntil != null) {
+            row.hPanel(spacing = 6) { addCssClasses("align-items-center small text-danger") }.apply {
+                icon("fas fa-lock") { setAttribute("aria-hidden", "true") }
+                div(gettext("Gesperrt bis %1", formatSystemDateTime(blockedUntil)))
+            }
+        } else if (declines != null && declines > 0) {
+            row.div(gettext("Ablehnungen: %1 von %2", declines, AuctionOfferRules.MAX_DECLINES_BEFORE_BLOCK)) {
+                addCssClasses("small text-muted")
+            }
+        }
+    }
     val actions = row.hPanel(spacing = 6) { addCssClasses("flex-wrap") }
     if (offer.callerCanAccept) {
         actions.actionButton(ActionIcon.APPROVE, tr("Annehmen"), ButtonStyle.OUTLINEPRIMARY, small = true) {
@@ -249,7 +329,7 @@ private fun renderOfferRow(
     }
     if (offer.callerCanWithdraw) {
         actions.actionButton(ActionIcon.UNDO, tr("Zurückziehen"), ButtonStyle.OUTLINESECONDARY, small = true) {
-            onClick { withdrawOffer(offer, onDone) }
+            onClick { withdrawOffer(auction, offer, onDone) }
         }
     }
 }
@@ -261,7 +341,19 @@ internal fun renderBuyerOfferControls(
     onChanged: () -> Unit,
 ) {
     val host = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-1") }
-    if (auction.callerOfferBlocked) {
+    val blockedUntil = auction.callerOfferBlockedUntil
+    if (blockedUntil != null) {
+        // No counter ("2 of 3"): the buyer learns only that he is blocked and until when.
+        host.hPanel(spacing = 6) { addCssClasses("align-items-center text-muted small") }.apply {
+            icon("fas fa-lock") { setAttribute("aria-hidden", "true") }
+            div(
+                gettext(
+                    "Der Verkäufer hat drei Ihrer Preisvorschläge abgelehnt. Bis %1 können Sie für diese Auktion keinen neuen machen.",
+                    formatSystemDateTime(blockedUntil),
+                ),
+            )
+        }
+    } else if (auction.callerOfferBlocked) {
         host.div(tr("Sie können auf diese Auktion keine weiteren Preisvorschläge machen.")) { addCssClasses("text-muted small") }
     } else if (!auction.callerHasOpenOffer && auction.buyNowPriceMinor != null) {
         host.actionButton(ActionIcon.SEND, tr("Preis vorschlagen"), ButtonStyle.OUTLINEPRIMARY) {
@@ -287,7 +379,11 @@ internal fun renderSellerOffersPanel(
 ) {
     val count = auction.openOfferCountForSeller ?: 0
     val host = card.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-1") }
-    host.statusBadge(gettext("Offene Preisvorschläge: %1", count), if (count > 0) "warning" else "secondary")
+    val maxOpen = auction.maxOpenOffers
+    host.statusBadge(
+        if (maxOpen != null) gettext("Offene Preisvorschläge: %1 von %2", count, maxOpen) else gettext("Offene Preisvorschläge: %1", count),
+        if (count > 0) "warning" else "secondary",
+    )
     var loaded = false
     var listHost: SimplePanel? = null
     val toggle = host.disclosure(tr("Preisvorschläge anzeigen"), bodyId = "lapis-auction-offers-${auction.id}") { listHost = this }

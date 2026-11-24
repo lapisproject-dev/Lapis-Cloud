@@ -192,7 +192,12 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * loaded ahead or cached); `AuctionScreen.kt` gains two reads in the administrator's switch for euro auctions (`getAuctionSettings(` after each switch, and
  * `getAuctionFiatOperatorDisclaimer(` once on the click that opens the legal notice), both on demand inside `guarded`.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 221
+private const val READ_OUTSIDE_STATE_REGION_MAX = 222
+
+// +1 V1.9.323 (notice version of price offers), in the (already counted) `AuctionOfferUi.kt`: `getAuctionOfferNotice(` is the one-shot read of the notice
+// text inside the offer dialog. The dialog IS its state: until the text is there the "send" button stays off, and a failed read replaces the text box by
+// the sentence "Der Hinweistext konnte nicht geladen werden ..." (plus the toast of `guarded`), so there is no section of its own with loading/empty/error
+// states to present. 221 -> 222, no new file.
 
 // +2 V1.9.322 (auction hints, step c3), both in the (already counted) `AuctionScreen.kt`: `getAuctionFederationAvailability(` (asked once after the list loaded; a
 // failed call or "not visible" simply leaves the section out -- nothing the person did failed) and `listPartnerAuctionHints(` (the section's own loading / error with

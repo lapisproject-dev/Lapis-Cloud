@@ -33761,14 +33761,6 @@ msgid "Gegenvorschlag machen"
 msgstr "Złóż kontrpropozycję"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
-msgid "Ein Preisvorschlag bindet Sie erst, wenn der Verkäufer ihn annimmt. Er gilt höchstens bis zum Auktionsende. Ihre Gebote und der Sofortkauf bleiben davon unberührt."
-msgstr "Propozycja ceny wiąże Państwa dopiero wtedy, gdy sprzedający ją przyjmie. Obowiązuje najpóźniej do końca aukcji. Państwa oferty i opcja Kup teraz pozostają bez zmian."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
-msgid "Ein Gegenvorschlag bindet Sie erst, wenn der Käufer ihn annimmt. Es ist nur ein Gegenvorschlag möglich."
-msgstr "Kontrpropozycja wiąże Państwa dopiero wtedy, gdy kupujący ją przyjmie. Możliwa jest tylko jedna kontrpropozycja."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
 msgid "Ihr Preis (%1)"
 msgstr "Państwa cena (%1)"
 
@@ -34147,3 +34139,68 @@ msgstr "Starsza wersja odtworzona ponownie: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
 msgid "Inhalt bei gleicher Fassung verändert: %1"
 msgstr "Treść zmieniona w tej samej wersji: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Hinweisfassung %1"
+msgstr "Wersja informacji %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Der Hinweistext konnte nicht geladen werden. Bitte schließen Sie das Fenster und versuchen Sie es erneut."
+msgstr "Nie udało się załadować informacji. Proszę zamknąć to okno i spróbować ponownie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Das ist die dritte Ablehnung. Der Käufer kann danach %1 Tage keinen Preisvorschlag für diese Auktion machen."
+msgstr "To trzecie odrzucenie. Potem kupujący przez %1 dni nie będzie mógł złożyć propozycji ceny dla tej aukcji."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Sie können danach einen neuen Preisvorschlag machen."
+msgstr "Mogą Państwo potem złożyć nową propozycję ceny."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Der Verkäufer hat drei Ihrer Preisvorschläge abgelehnt. Bis %1 können Sie für diese Auktion keinen neuen machen."
+msgstr "Sprzedający odrzucił trzy Państwa propozycje ceny. Do %1 nie mogą Państwo złożyć nowej w tej aukcji."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Offene Preisvorschläge: %1 von %2"
+msgstr "Otwarte propozycje ceny: %1 z %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Gesperrt bis %1"
+msgstr "Zablokowany do %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Ablehnungen: %1 von %2"
+msgstr "Odrzucenia: %1 z %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Sie haben für diese Auktion bereits einen offenen Preisvorschlag."
+msgstr "Mają Państwo już otwartą propozycję ceny dla tej aukcji."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Für diese Auktion liegen schon %1 offene Preisvorschläge vor. Bitte versuchen Sie es später noch einmal."
+msgstr "Ta aukcja ma już %1 otwartych propozycji ceny. Proszę spróbować później."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Der Hinweistext wurde aktualisiert. Bitte lesen Sie ihn erneut und senden Sie den Vorschlag noch einmal."
+msgstr "Informacja została zaktualizowana. Proszę przeczytać ją ponownie i wysłać propozycję jeszcze raz."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Dieser Preisvorschlag wurde bereits angenommen."
+msgstr "Ta propozycja ceny została już przyjęta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Dieser Preisvorschlag wurde bereits abgelehnt."
+msgstr "Ta propozycja ceny została już odrzucona."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Der Verkäufer hat bereits einen Gegenvorschlag gemacht."
+msgstr "Sprzedający złożył już kontrpropozycję."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Dieser Preisvorschlag ist bereits abgelaufen."
+msgstr "Ta propozycja ceny już wygasła."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:1
+msgid "Dieser Preisvorschlag wurde bereits zurückgezogen."
+msgstr "Ta propozycja ceny została już wycofana."
+

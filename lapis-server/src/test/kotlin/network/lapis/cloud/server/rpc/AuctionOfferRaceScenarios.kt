@@ -9,10 +9,13 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AuctionBidTable
 import network.lapis.cloud.server.db.generated.AuctionFiatAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.AuctionOfferBuyerRestrictionTable
 import network.lapis.cloud.server.db.generated.AuctionOfferTable
 import network.lapis.cloud.server.db.generated.AuctionPaymentDetailsTable
 import network.lapis.cloud.server.db.generated.AuctionTable
@@ -22,6 +25,7 @@ import network.lapis.cloud.server.gallery.GalleryFixtures
 import network.lapis.cloud.server.gallery.galleryTestApplication
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuctionComplianceAcknowledgmentInput
 import network.lapis.cloud.shared.domain.AuctionDto
 import network.lapis.cloud.shared.domain.AuctionOfferRules
@@ -29,7 +33,10 @@ import network.lapis.cloud.shared.domain.AuctionOfferStatus
 import network.lapis.cloud.shared.domain.AuctionPaymentDetailsInput
 import network.lapis.cloud.shared.domain.AuctionStatus
 import network.lapis.cloud.shared.domain.CreateFiatAuctionListingInput
-import network.lapis.cloud.shared.rpc.AuctionOfferLimitReachedException
+import network.lapis.cloud.shared.rpc.AuctionOfferAlreadyAnsweredException
+import network.lapis.cloud.shared.rpc.AuctionOfferAuctionFullException
+import network.lapis.cloud.shared.rpc.AuctionOfferBlockedException
+import network.lapis.cloud.shared.rpc.AuctionOfferBuyerHasOpenException
 import network.lapis.cloud.shared.rpc.AuctionOfferNotOpenException
 import network.lapis.cloud.shared.rpc.ConflictException
 import org.jetbrains.exposed.v1.core.and
@@ -41,6 +48,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.security.SecureRandom
+import kotlin.time.Duration.Companion.hours
 import kotlin.uuid.Uuid
 
 private val OFFER_RACE_KEY: ByteArray = ByteArray(32).also(SecureRandom()::nextBytes)
@@ -94,6 +102,7 @@ abstract class AuctionOfferRaceScenarios(
         }
         afterEach {
             transaction {
+                AuctionOfferBuyerRestrictionTable.deleteWhere { AuctionOfferBuyerRestrictionTable.auctionId inList fx.auctionIds }
                 AuctionOfferTable.deleteWhere {
                     (AuctionOfferTable.auctionId inList fx.auctionIds) and
                         (AuctionOfferTable.fromSeller eq true)
@@ -279,12 +288,12 @@ abstract class AuctionOfferRaceScenarios(
         }
 
         test(
-            "accept against withdraw: exactly one of them wins, the other gets AuctionOfferNotOpenException, the end state is consistent",
+            "accept against withdraw: exactly one of them wins, the loser gets a typed answer, the end state is consistent",
         ) {
             val seller = fx.member(label = "seller")
             val buyer = fx.member(label = "buyer")
             galleryTestApplication(fixtures = fx) {
-                repeat(OFFER_ROUNDS) {
+                repeat(OFFER_ROUNDS * 3) {
                     val created = list(seller)
                     val offer = call(member = buyer) { svc(it).makeOffer(auctionId = created.id, amountMinor = 3000) }
                     val (accept, withdraw) =
@@ -294,7 +303,9 @@ abstract class AuctionOfferRaceScenarios(
                         )
                     (accept.isSuccess xor withdraw.isSuccess) shouldBe true
                     if (accept.isSuccess) {
-                        withdraw.exceptionOrNull().shouldBeInstanceOf<AuctionOfferNotOpenException>()
+                        // The withdrawal lost: the author is told HOW the offer was answered, never a plain "not open".
+                        withdraw.exceptionOrNull().shouldBeInstanceOf<AuctionOfferAlreadyAnsweredException>().answer shouldBe
+                            AuctionOfferStatus.ACCEPTED
                         auctionOf(created.id)[AuctionTable.winnerMemberId] shouldBe buyer
                         offerStatuses(created.id) shouldBe listOf(AuctionOfferStatus.ACCEPTED)
                     } else {
@@ -306,7 +317,7 @@ abstract class AuctionOfferRaceScenarios(
             }
         }
 
-        test("two offers of the same buyer at once: exactly one is created, the other gets AuctionOfferLimitReachedException") {
+        test("two offers of the same buyer at once: exactly one is created, the other gets AuctionOfferBuyerHasOpenException") {
             val seller = fx.member(label = "seller")
             val buyer = fx.member(label = "buyer")
             galleryTestApplication(fixtures = fx) {
@@ -322,13 +333,15 @@ abstract class AuctionOfferRaceScenarios(
                                 }.awaitAll()
                         }
                     results.count { it.isSuccess } shouldBe 1
-                    results.single { it.isFailure }.exceptionOrNull().shouldBeInstanceOf<AuctionOfferLimitReachedException>()
+                    results.single { it.isFailure }.exceptionOrNull().shouldBeInstanceOf<AuctionOfferBuyerHasOpenException>()
                     offerStatuses(created.id) shouldBe listOf(AuctionOfferStatus.OFFERED)
                 }
             }
         }
 
-        test("two buyers fill the last slot at once: the limit of ${AuctionOfferRules.MAX_OFFERS_PER_AUCTION} offers per auction holds") {
+        test(
+            "two buyers fill the last open slot at once: the limit of ${AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION} open offers holds",
+        ) {
             val seller = fx.member(label = "seller")
             val b1 = fx.member(label = "b1")
             val b2 = fx.member(label = "b2")
@@ -338,7 +351,7 @@ abstract class AuctionOfferRaceScenarios(
                     val created = list(seller)
                     val now = DbClock.nowLocalDateTime()
                     transaction {
-                        repeat(AuctionOfferRules.MAX_OFFERS_PER_AUCTION - 1) {
+                        repeat(AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION - 1) {
                             AuctionOfferTable.insert {
                                 it[AuctionOfferTable.id] = Uuid.random()
                                 it[AuctionOfferTable.auctionId] = Uuid.parse(created.id)
@@ -346,10 +359,11 @@ abstract class AuctionOfferRaceScenarios(
                                 it[AuctionOfferTable.fromSeller] = false
                                 it[AuctionOfferTable.parentOfferId] = null
                                 it[AuctionOfferTable.amountMinor] = 2000
-                                it[AuctionOfferTable.status] = AuctionOfferStatus.EXPIRED
+                                it[AuctionOfferTable.status] = AuctionOfferStatus.OFFERED
                                 it[AuctionOfferTable.createdAt] = now
-                                it[AuctionOfferTable.expiresAt] = now
-                                it[AuctionOfferTable.decidedAt] = now
+                                it[AuctionOfferTable.expiresAt] =
+                                    now.toInstant(ServerClock.zone).plus(1.hours).toLocalDateTime(ServerClock.zone)
+                                it[AuctionOfferTable.decidedAt] = null
                             }
                         }
                     }
@@ -363,8 +377,115 @@ abstract class AuctionOfferRaceScenarios(
                                 }.awaitAll()
                         }
                     results.count { it.isSuccess } shouldBe 1
-                    results.single { it.isFailure }.exceptionOrNull().shouldBeInstanceOf<AuctionOfferLimitReachedException>()
-                    offerStatuses(created.id).size shouldBe AuctionOfferRules.MAX_OFFERS_PER_AUCTION
+                    results.single { it.isFailure }.exceptionOrNull().shouldBeInstanceOf<AuctionOfferAuctionFullException>()
+                    offerStatuses(created.id).size shouldBe AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION
+                }
+            }
+        }
+
+        test(
+            "eleven buyers at once: exactly ${AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION} proposals are made, the eleventh gets AuctionOfferAuctionFullException, nobody gets a 500",
+        ) {
+            val seller = fx.member(label = "seller")
+            val buyers = (1..AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION + 1).map { fx.member(label = "buyer$it") }
+            galleryTestApplication(fixtures = fx) {
+                repeat(OFFER_ROUNDS / 2) {
+                    val created = list(seller)
+                    val results =
+                        coroutineScope {
+                            buyers
+                                .map { b ->
+                                    async(
+                                        Dispatchers.Default,
+                                    ) { attempt(member = b) { c -> svc(c).makeOffer(auctionId = created.id, amountMinor = 3000) } }
+                                }.awaitAll()
+                        }
+                    results.count { it.isSuccess } shouldBe AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION
+                    results.single { it.isFailure }.exceptionOrNull().shouldBeInstanceOf<AuctionOfferAuctionFullException>()
+                    offerStatuses(created.id).count { it == AuctionOfferStatus.OFFERED } shouldBe
+                        AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION
+                }
+            }
+        }
+
+        test("the third decline against a new proposal of the same buyer: never blocked AND holding a new open proposal") {
+            val seller = fx.member(label = "seller")
+            val buyer = fx.member(label = "buyer")
+            galleryTestApplication(fixtures = fx) {
+                repeat(OFFER_ROUNDS) {
+                    val created = list(seller)
+                    repeat(AuctionOfferRules.MAX_DECLINES_BEFORE_BLOCK - 1) { i ->
+                        val p = call(member = buyer) { svc(it).makeOffer(auctionId = created.id, amountMinor = 3000L + i) }
+                        call(member = seller) { svc(it).declineOffer(p.id) }
+                    }
+                    val third = call(member = buyer) { svc(it).makeOffer(auctionId = created.id, amountMinor = 3100) }
+                    val (decline, fresh) =
+                        race(
+                            { attempt(member = seller) { c -> svc(c).declineOffer(third.id) } },
+                            { attempt(member = buyer) { c -> svc(c).makeOffer(auctionId = created.id, amountMinor = 3200) } },
+                        )
+                    decline.isSuccess shouldBe true
+                    // The new proposal never wins: before the decline the buyer still has the third one open, afterwards he is blocked.
+                    fresh.isFailure shouldBe true
+                    val failure = fresh.exceptionOrNull()
+                    (failure is AuctionOfferBuyerHasOpenException || failure is AuctionOfferBlockedException) shouldBe true
+                    val restriction =
+                        transaction {
+                            AuctionOfferBuyerRestrictionTable
+                                .selectAll()
+                                .where { AuctionOfferBuyerRestrictionTable.auctionId eq Uuid.parse(created.id) }
+                                .single()
+                        }
+                    (restriction[AuctionOfferBuyerRestrictionTable.blockedUntil] != null) shouldBe true
+                    offerStatuses(created.id).count { it == AuctionOfferStatus.OFFERED } shouldBe 0
+                }
+            }
+        }
+
+        test("two declines of the buyer's proposals racing: the counter is raised exactly twice, never lost") {
+            val seller = fx.member(label = "seller")
+            val buyer = fx.member(label = "buyer")
+            galleryTestApplication(fixtures = fx) {
+                repeat(OFFER_ROUNDS) {
+                    val created = list(seller)
+                    val now = DbClock.nowLocalDateTime()
+                    // two OPEN proposals of the SAME buyer can only exist as legacy rows (the service allows one): construct them directly
+                    val ids =
+                        List(2) {
+                            val id = Uuid.random()
+                            transaction {
+                                AuctionOfferTable.insert {
+                                    it[AuctionOfferTable.id] = id
+                                    it[AuctionOfferTable.auctionId] = Uuid.parse(created.id)
+                                    it[AuctionOfferTable.buyerMemberId] = buyer
+                                    it[AuctionOfferTable.fromSeller] = false
+                                    it[AuctionOfferTable.parentOfferId] = null
+                                    it[AuctionOfferTable.amountMinor] = 2500
+                                    it[AuctionOfferTable.status] = AuctionOfferStatus.OFFERED
+                                    it[AuctionOfferTable.createdAt] = now
+                                    it[AuctionOfferTable.expiresAt] =
+                                        now.toInstant(ServerClock.zone).plus(1.hours).toLocalDateTime(ServerClock.zone)
+                                    it[AuctionOfferTable.decidedAt] = null
+                                }
+                            }
+                            id
+                        }
+                    val results =
+                        coroutineScope {
+                            ids
+                                .map { id ->
+                                    async(Dispatchers.Default) { attempt(member = seller) { c -> svc(c).declineOffer(id.toString()) } }
+                                }.awaitAll()
+                        }
+                    results.all { it.isSuccess } shouldBe true
+                    val restriction =
+                        transaction {
+                            AuctionOfferBuyerRestrictionTable
+                                .selectAll()
+                                .where { AuctionOfferBuyerRestrictionTable.auctionId eq Uuid.parse(created.id) }
+                                .single()
+                        }
+                    restriction[AuctionOfferBuyerRestrictionTable.declinesInCycle] shouldBe 2
                 }
             }
         }

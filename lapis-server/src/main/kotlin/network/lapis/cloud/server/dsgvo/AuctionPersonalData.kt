@@ -3,11 +3,13 @@ package network.lapis.cloud.server.dsgvo
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import network.lapis.cloud.server.auction.AuctionOfferRestrictionStore
 import network.lapis.cloud.server.auction.federation.AuctionWithdrawals
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AuctionBidTable
 import network.lapis.cloud.server.db.generated.AuctionComplianceAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.AuctionFiatAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.AuctionOfferBuyerRestrictionTable
 import network.lapis.cloud.server.db.generated.AuctionOfferTable
 import network.lapis.cloud.server.db.generated.AuctionPaymentDetailsTable
 import network.lapis.cloud.server.db.generated.AuctionTable
@@ -54,6 +56,10 @@ import kotlin.uuid.Uuid
  * deleted -- they are only useful while the auction runs. A chain with an ACCEPTED offer is the proof of the purchase price of a shared
  * transaction record and is retained like the auction itself; offers on auctions the member only SOLD belong to the buyers' records and stay.
  *
+ * **V1.9.323 decline counters** (`auction_offer_buyer_restriction`): the member's own counters and blocks as a buyer are exported (`priceOfferRestrictions`)
+ * and deleted on erasure. A buyer who is erased while blocked is simply not blocked any more; the auction row is retained and no new offer can come
+ * from an erased member anyway.
+ *
  * **V1.9.322 federation (c4).** The seller's consent to share the hint with partner servers (`federation_opt_in`/`_at`) is part of the export
  * (`auctionsSold` only, never the winner's `auctionsWon`). On erasure [AuctionWithdrawals.onSellerErased] runs FIRST (before any row of the member
  * changes): the hints are withdrawn for everybody (global tombstones) and the consent ends, because the auction row itself is retained. The
@@ -70,6 +76,7 @@ object AuctionPersonalData : MemberPersonalDataContributor {
             AuctionPaymentDetailsTable,
             AuctionFiatAcknowledgmentTable,
             AuctionOfferTable,
+            AuctionOfferBuyerRestrictionTable,
         )
 
     override fun exportMember(memberId: Uuid) =
@@ -123,9 +130,23 @@ object AuctionPersonalData : MemberPersonalDataContributor {
                                 put("status", row[AuctionOfferTable.status].name)
                                 put("createdAt", row[AuctionOfferTable.createdAt].toString())
                                 put("expiresAt", row[AuctionOfferTable.expiresAt].toString())
+                                // Which wording of the notice the author saw (the version only, never the hash or the text).
+                                put("noticeVersion", row[AuctionOfferTable.noticeVersion])
                             },
                         )
                     }
+            }
+            putJsonArray("priceOfferRestrictions") {
+                // V1.9.323: the member's own decline counters and blocks as a BUYER (never the seller's view of other buyers).
+                AuctionOfferRestrictionStore.rowsOfMember(memberId).forEach { row ->
+                    add(
+                        buildJsonObject {
+                            put("auctionId", row[AuctionOfferBuyerRestrictionTable.auctionId].toString())
+                            put("declinesInCycle", row[AuctionOfferBuyerRestrictionTable.declinesInCycle])
+                            put("blockedUntil", row[AuctionOfferBuyerRestrictionTable.blockedUntil]?.toString())
+                        },
+                    )
+                }
             }
             putJsonArray("paymentDetailsStored") {
                 // The sealed ciphertext is never exported -- only the fact that details exist for an own auction, and of which kind.
@@ -231,7 +252,14 @@ object AuctionPersonalData : MemberPersonalDataContributor {
                 .count()
                 .toInt()
 
+        // V1.9.323: the decline counters and blocks only matter while an auction runs; the buyer's own are deleted outright.
+        val restrictionRowsDeleted = AuctionOfferRestrictionStore.deleteForMember(memberId)
+
         return listOf(
+            TableErasureOutcome(
+                table = "auction_offer_buyer_restriction",
+                rowsDeleted = restrictionRowsDeleted,
+            ),
             TableErasureOutcome(
                 table = "auction_offer",
                 rowsDeleted = offerRowsDeleted,

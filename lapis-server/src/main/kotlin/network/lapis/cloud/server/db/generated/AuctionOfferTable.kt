@@ -20,6 +20,9 @@ public object AuctionOfferTable : Table("auction_offer") {
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
     public val expiresAt: Column<LocalDateTime> = datetime("expires_at")
     public val decidedAt: Column<LocalDateTime?> = datetime("decided_at").nullable()
+    public val noticeVersion: Column<String?> = varchar("notice_version", 32).nullable()
+    public val noticeLang: Column<String?> = varchar("notice_lang", 5).nullable()
+    public val noticeSha256: Column<String?> = varchar("notice_sha256", 64).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

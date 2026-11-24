@@ -746,6 +746,12 @@ data class AuctionFiatAuditSnapshot(
     val occurredAt: LocalDateTime,
     /** V1.9.321: the id of the price offer an `AUCTION_OFFER_*` event is about -- never its amount. */
     val offerId: String? = null,
+    /** V1.9.323: which notice wording the author of an offer saw (`AUCTION_OFFER_MADE`/`_COUNTERED`) -- version, language and hash, never the text. */
+    val noticeVersion: String? = null,
+    val noticeLang: String? = null,
+    val noticeSha256: String? = null,
+    /** V1.9.323: the end of a decline block (`AUCTION_OFFER_BUYER_BLOCKED`), UTC -- no name, no amount. */
+    val blockedUntil: LocalDateTime? = null,
 )
 
 /** V1.9.320 -- after-snapshot of the instance switch for Fiat auctions ([AuditEntityType.ORGANIZATION_SETTINGS]). */

@@ -2,6 +2,7 @@ package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.AbstractServiceException
 import dev.kilua.rpc.annotations.RpcServiceException
+import network.lapis.cloud.shared.domain.AuctionOfferStatus
 
 /**
  * The project's typed RPC service exceptions, defined here in `lapis-shared` (not in
@@ -1340,16 +1341,50 @@ class AuctionOfferAmountInvalidException(
     override val message: String = "The offered amount is outside the allowed range",
 ) : AbstractServiceException()
 
-/** The buyer already has an open offer here, or the auction reached its limit of offers. */
+/** The buyer already has an open negotiation (his proposal, or a counter-offer addressed to him) on this auction. */
+@RpcServiceException
+class AuctionOfferBuyerHasOpenException(
+    override val message: String = "You already have an open price offer for this auction",
+) : AbstractServiceException()
+
+/** The auction already holds the most open proposals it takes ([network.lapis.cloud.shared.domain.AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION]). */
+@RpcServiceException
+class AuctionOfferAuctionFullException(
+    override val message: String = "This auction has reached its limit of open price offers",
+    val openCount: Int = 0,
+) : AbstractServiceException()
+
+/** The auction reached the hard cap of offer rows; no further price offer is possible for this auction. */
 @RpcServiceException
 class AuctionOfferLimitReachedException(
     override val message: String = "No further price offer is possible for this auction",
 ) : AbstractServiceException()
 
-/** The buyer had three offers declined on this auction. */
+/**
+ * The buyer cannot make further price offers on this auction: either three of his proposals were declined and the block runs until
+ * [blockedUntil] (ISO date-time, UTC), or (empty [blockedUntil]) he used up the number of proposals one buyer may make on one auction.
+ * Only the blocked buyer himself receives [blockedUntil].
+ */
 @RpcServiceException
 class AuctionOfferBlockedException(
     override val message: String = "You cannot make further price offers on this auction",
+    val blockedUntil: String = "",
+) : AbstractServiceException()
+
+/** The notice text echoed with the offer is not the current one (unknown version or language, or a wrong hash). Fetch the notice again. */
+@RpcServiceException
+class AuctionOfferNoticeMismatchException(
+    override val message: String = "The notice shown does not match the current version; please reload it",
+) : AbstractServiceException()
+
+/**
+ * The offer was answered (or ended) before the caller acted. [answer] is the effective status it has now: ACCEPTED, DECLINED, COUNTERED, EXPIRED,
+ * or WITHDRAWN (a second withdrawal). Only the author of the offer ever receives it.
+ */
+@RpcServiceException
+class AuctionOfferAlreadyAnsweredException(
+    override val message: String = "This offer has already been answered",
+    val answer: AuctionOfferStatus = AuctionOfferStatus.EXPIRED,
 ) : AbstractServiceException()
 
 /** The current price of the auction has overtaken the offered amount. */

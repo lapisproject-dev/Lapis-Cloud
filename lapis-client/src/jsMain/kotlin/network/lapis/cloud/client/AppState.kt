@@ -1,9 +1,13 @@
 package network.lapis.cloud.client
 
 import dev.kilua.rpc.getService
+import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import kotlinx.coroutines.CancellationException
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AuctionOfferRules
+import network.lapis.cloud.shared.domain.AuctionOfferStatus
 import network.lapis.cloud.shared.domain.ConferenceEventCaptureState
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.ActivismInvalidTransitionException
@@ -31,11 +35,15 @@ import network.lapis.cloud.shared.rpc.AuctionFederationUnavailableException
 import network.lapis.cloud.shared.rpc.AuctionFiatDisabledException
 import network.lapis.cloud.shared.rpc.AuctionFiatDisclaimerRequiredException
 import network.lapis.cloud.shared.rpc.AuctionFiatEncryptionUnavailableException
+import network.lapis.cloud.shared.rpc.AuctionOfferAlreadyAnsweredException
 import network.lapis.cloud.shared.rpc.AuctionOfferAmountInvalidException
+import network.lapis.cloud.shared.rpc.AuctionOfferAuctionFullException
 import network.lapis.cloud.shared.rpc.AuctionOfferBlockedException
+import network.lapis.cloud.shared.rpc.AuctionOfferBuyerHasOpenException
 import network.lapis.cloud.shared.rpc.AuctionOfferLimitReachedException
 import network.lapis.cloud.shared.rpc.AuctionOfferNotAllowedException
 import network.lapis.cloud.shared.rpc.AuctionOfferNotOpenException
+import network.lapis.cloud.shared.rpc.AuctionOfferNoticeMismatchException
 import network.lapis.cloud.shared.rpc.AuctionOfferOutbidException
 import network.lapis.cloud.shared.rpc.AuctionOffersImmutableException
 import network.lapis.cloud.shared.rpc.AuctionPaymentDetailsInvalidException
@@ -294,7 +302,16 @@ internal fun typedRefusalText(e: Throwable): String? =
         is AuctionOfferNotAllowedException -> tr("Für diese Auktion ist kein Preisvorschlag möglich.")
         is AuctionOfferAmountInvalidException -> tr("Der Betrag liegt außerhalb des erlaubten Bereichs für einen Preisvorschlag.")
         is AuctionOfferLimitReachedException -> tr("Für diese Auktion sind keine weiteren Preisvorschläge möglich.")
-        is AuctionOfferBlockedException -> tr("Sie können auf diese Auktion keine weiteren Preisvorschläge machen.")
+        is AuctionOfferBlockedException -> auctionOfferBlockedText(e)
+        is AuctionOfferBuyerHasOpenException -> tr("Sie haben für diese Auktion bereits einen offenen Preisvorschlag.")
+        is AuctionOfferAuctionFullException ->
+            gettext(
+                "Für diese Auktion liegen schon %1 offene Preisvorschläge vor. Bitte versuchen Sie es später noch einmal.",
+                AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION,
+            )
+        is AuctionOfferNoticeMismatchException ->
+            tr("Der Hinweistext wurde aktualisiert. Bitte lesen Sie ihn erneut und senden Sie den Vorschlag noch einmal.")
+        is AuctionOfferAlreadyAnsweredException -> auctionOfferAnsweredText(e.answer)
         is AuctionOfferOutbidException -> tr("Das aktuelle Gebot liegt inzwischen über diesem Preisvorschlag.")
         is AuctionOfferNotOpenException -> tr("Dieser Preisvorschlag ist nicht mehr offen.")
         is AuctionOffersImmutableException ->
@@ -392,6 +409,33 @@ internal fun typedRefusalText(e: Throwable): String? =
         is ConferenceStreamReconnectFailedException ->
             tr("Das Ziel konnte nicht neu verbunden werden. Bitte versuchen Sie es in einer Minute erneut.")
         else -> null
+    }
+
+/**
+ * V1.9.323 -- the refusal of a new price proposal: with a date ("until ...") while the decline block runs, else the plain limit text. The date is
+ * the blocked buyer's own; the server sends it to nobody else.
+ */
+internal fun auctionOfferBlockedText(e: AuctionOfferBlockedException): String {
+    val until = runCatching { LocalDateTime.parse(e.blockedUntil) }.getOrNull()
+    return if (until == null) {
+        tr("Sie können auf diese Auktion keine weiteren Preisvorschläge machen.")
+    } else {
+        gettext(
+            "Der Verkäufer hat drei Ihrer Preisvorschläge abgelehnt. Bis %1 können Sie für diese Auktion keinen neuen machen.",
+            formatSystemDateTime(until),
+        )
+    }
+}
+
+/** V1.9.323 -- how an offer was answered before the caller could withdraw it. */
+internal fun auctionOfferAnsweredText(answer: AuctionOfferStatus): String =
+    when (answer) {
+        AuctionOfferStatus.ACCEPTED -> tr("Dieser Preisvorschlag wurde bereits angenommen.")
+        AuctionOfferStatus.DECLINED -> tr("Dieser Preisvorschlag wurde bereits abgelehnt.")
+        AuctionOfferStatus.COUNTERED -> tr("Der Verkäufer hat bereits einen Gegenvorschlag gemacht.")
+        AuctionOfferStatus.EXPIRED -> tr("Dieser Preisvorschlag ist bereits abgelaufen.")
+        AuctionOfferStatus.WITHDRAWN -> tr("Dieser Preisvorschlag wurde bereits zurückgezogen.")
+        AuctionOfferStatus.OFFERED -> tr("Dieser Preisvorschlag ist nicht mehr offen.")
     }
 
 /**

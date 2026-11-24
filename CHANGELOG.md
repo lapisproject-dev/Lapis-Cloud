@@ -6,6 +6,18 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.323 (Fiat wave b2) price offers: limits, decline block, withdrawal, notice version
+
+Schema **V170** (V167 untouched: it may already be applied). **Off by default, not legally reviewed, not released; the legal-review gate stands.**
+
+- **Limits:** at most 10 open buyer proposals per auction (counter-offers and closed rows do not count; replaces the old "20 live rows"), a hard cap of 200 rows per auction, one open negotiation per buyer and the five-proposals cap stay.
+- **Decline block:** three declined proposals of one buyer block him on that auction for 7 days (was: for good); the next cycle starts from zero. New table `auction_offer_buyer_restriction`, written only by `AuctionOfferRestrictionStore` under the auction lock. The blocked buyer sees a lock and the end date, the seller sees the counter per buyer and is warned before the third decline; audit event `AUCTION_OFFER_BUYER_BLOCKED` (no amount, no name).
+- **Withdrawal:** the author gets `AuctionOfferAlreadyAnsweredException` with the effective answer instead of a bare "not open"; the withdrawal dialog tells the buyer that he can propose again. `AuctionOfferLimitReachedException` is split into `AuctionOfferBuyerHasOpenException`, `AuctionOfferAuctionFullException` and (row cap) the old class.
+- **Notice version:** the notice texts of the proposal and the counter-offer are server constants (German, English) with a version and a SHA-256; the client fetches and shows them unchanged (`getAuctionOfferNotice`) and echoes version, language and hash to `makeOffer`/`counterOffer`, which are stored on the row and named in the audit entry. **RPC change:** `makeOffer` and `counterOffer` got three parameters. The two former gettext msgids are gone.
+- **GDPR:** the member's decline counters are exported and erased.
+- Tests: H2 and PostgreSQL scenarios (limits, block with a moved clock, withdrawal answers, tamper cases, races), pinned hashes, DOM tests, i18n guard, migration V170.
+- Not done: version and hash of the binding acceptance texts; browser test on a device; the Postgres lane was not run in the authoring environment unless stated in the release report.
+
 ### V1.9.322 step c4 hardening (auction hints on partner servers)
 
 Hardening and documentation of the auction hint exchange. No schema change (V169 unchanged), no new capability. Off by default, not legally reviewed, not released; the legal-review gate stands.

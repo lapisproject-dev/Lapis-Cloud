@@ -12,6 +12,8 @@ import network.lapis.cloud.shared.domain.AuctionFederationReachDto
 import network.lapis.cloud.shared.domain.AuctionFiatAvailabilityDto
 import network.lapis.cloud.shared.domain.AuctionHintResolutionDto
 import network.lapis.cloud.shared.domain.AuctionOfferDto
+import network.lapis.cloud.shared.domain.AuctionOfferNoticeDto
+import network.lapis.cloud.shared.domain.AuctionOfferNoticeKind
 import network.lapis.cloud.shared.domain.AuctionPaymentDetailsDto
 import network.lapis.cloud.shared.domain.AuctionPaymentDetailsInput
 import network.lapis.cloud.shared.domain.AuctionSettingsDto
@@ -221,12 +223,18 @@ interface IAuctionService {
     suspend fun makeOffer(
         auctionId: String,
         amountMinor: Long,
+        noticeVersion: String,
+        noticeLang: String,
+        noticeSha256: String,
     ): AuctionOfferDto
 
     /** Role: the SELLER. Answers an open proposal with ONE counter-offer (higher than the proposal, below the Sofortkauf price). */
     suspend fun counterOffer(
         offerId: String,
         amountMinor: Long,
+        noticeVersion: String,
+        noticeLang: String,
+        noticeSha256: String,
     ): AuctionOfferDto
 
     /** Role: the seller (for a proposal) or the buyer (for a counter-offer). Awards the auction at the offered price: AWAITING_PAYMENT. */
@@ -235,14 +243,26 @@ interface IAuctionService {
     /** Role: the seller (for a proposal) or the buyer (for a counter-offer). */
     suspend fun declineOffer(offerId: String): AuctionOfferDto
 
-    /** Role: the author of the open offer. */
+    /**
+     * Role: the author of the open offer. A buyer may withdraw his proposal until the seller answered; afterwards the answer is reported with
+     * [network.lapis.cloud.shared.rpc.AuctionOfferAlreadyAnsweredException].
+     */
     suspend fun withdrawOffer(offerId: String): AuctionOfferDto
 
-    /** Role: the SELLER of the auction. All proposals and counter-offers, newest first (at most [network.lapis.cloud.shared.domain.AuctionOfferRules.MAX_OFFERS_PER_AUCTION]). */
+    /** Role: the SELLER of the auction. All proposals and counter-offers, newest first (at most [network.lapis.cloud.shared.domain.AuctionOfferRules.MAX_OFFER_ROWS_PER_AUCTION], open ones first). */
     suspend fun listOffersForAuction(auctionId: String): List<AuctionOfferDto>
 
     /** Role: any active member. The caller's own proposals and the counter-offers addressed to him, newest first, capped. */
     suspend fun listMyOffers(): List<AuctionOfferDto>
+
+    /**
+     * V1.9.323. Role: any active member. The CURRENT notice text (versioned, hashed) for [kind] in [lang] ("de"/"en"; any other language gets the
+     * English text). The text must be shown unchanged and its version/lang/hash echoed to [makeOffer]/[counterOffer]. No secret, no amount.
+     */
+    suspend fun getAuctionOfferNotice(
+        kind: AuctionOfferNoticeKind,
+        lang: String,
+    ): AuctionOfferNoticeDto
 
     // ── V1.9.322 (Fiat wave c, step c2): visibility to partner servers. APPENDED at the end. Not legally reviewed, off by default. ──
 

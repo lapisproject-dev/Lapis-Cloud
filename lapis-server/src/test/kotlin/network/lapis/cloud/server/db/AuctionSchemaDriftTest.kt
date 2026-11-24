@@ -8,6 +8,7 @@ import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.AuctionBidTable
 import network.lapis.cloud.server.db.generated.AuctionComplianceAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.AuctionFiatAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.AuctionOfferBuyerRestrictionTable
 import network.lapis.cloud.server.db.generated.AuctionOfferTable
 import network.lapis.cloud.server.db.generated.AuctionPaymentDetailsTable
 import network.lapis.cloud.server.db.generated.AuctionReceivedHintTable
@@ -47,6 +48,7 @@ class AuctionSchemaDriftTest :
                     "auction_payment_details",
                     "auction_fiat_acknowledgment",
                     "auction_offer",
+                    "auction_offer_buyer_restriction",
                     "partner_server",
                     "auction_teaser_snapshot",
                     "auction_teaser_tombstone",
@@ -175,6 +177,33 @@ class AuctionSchemaDriftTest :
                     values = listOf("OFFERED", "ACCEPTED", "DECLINED", "COUNTERED", "EXPIRED", "WITHDRAWN"),
                     externalFqName = "network.lapis.cloud.shared.domain.AuctionOfferStatus",
                 )
+        }
+
+        // ── auction_offer_buyer_restriction (V1.9.323) ───────────────────────────
+
+        test("auction_offer_buyer_restriction table shape matches the real migrated schema and AuctionOfferBuyerRestrictionTable 1:1") {
+            val entity = model.entities.single { it.name == "auction_offer_buyer_restriction" }
+            val real = transaction { introspectAuctionTable("auction_offer_buyer_restriction") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder AuctionOfferBuyerRestrictionTable.columns.map { it.name }
+            entity.attributes.forEach { attr ->
+                withClue(clue = "column '${attr.name}'") {
+                    real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable
+                }
+            }
+            real.primaryKeyColumns shouldBe setOf("id")
+            real.foreignKeys["auction_id"] shouldBe "auction"
+            real.foreignKeys["buyer_member_id"] shouldBe "member"
+            entity.attributeByName("blocked_until")?.nullable shouldBe true
+            entity.attributeByName("declines_in_cycle")?.nullable shouldBe false
+        }
+
+        test("auction_offer carries the notice columns, all nullable (only rows from before V170 have none)") {
+            val entity = model.entities.single { it.name == "auction_offer" }
+            listOf("notice_version", "notice_lang", "notice_sha256").forEach { column ->
+                withClue(clue = column) { entity.attributeByName(column)?.nullable shouldBe true }
+            }
         }
 
         // ── auction_compliance_acknowledgment ────────────────────────────────────

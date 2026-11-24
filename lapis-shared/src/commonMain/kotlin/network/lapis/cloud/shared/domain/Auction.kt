@@ -4,6 +4,7 @@ import dev.kilua.rpc.types.Decimal
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 
 /**
@@ -124,8 +125,12 @@ data class AuctionDto(
     val openOfferCountForSeller: Int? = null,
     /** Only for the caller: he has an open offer of his own, or an open counter-offer addressed to him. */
     val callerHasOpenOffer: Boolean = false,
-    /** Only for the caller: he cannot make a new offer any more (3 declines, or the auction reached its offer limit), so the button stays hidden. */
+    /** Only for the caller: he cannot make a new offer any more (decline block, proposal limit), so the button stays hidden. */
     val callerOfferBlocked: Boolean = false,
+    /** V1.9.323: only for the caller himself: the end of HIS decline block on this auction (UTC), `null` if he is not blocked by time. */
+    val callerOfferBlockedUntil: LocalDateTime? = null,
+    /** V1.9.323: only for the SELLER: the most open proposals the auction takes at once (so the UI shows "n of m"). */
+    val maxOpenOffers: Int? = null,
     /** V1.9.322 (wave c): the seller shows this auction to partner servers. Only filled for the SELLER (else `false`/`null`). */
     val federationOptIn: Boolean = false,
     val federationOptInAt: LocalDateTime? = null,
@@ -314,14 +319,27 @@ object AuctionOfferRules {
     /** One open negotiation per buyer and auction. */
     const val MAX_OPEN_OFFERS_PER_BUYER_PER_AUCTION: Int = 1
 
-    /** All NOT withdrawn offers and counter-offers of one auction (DoS guard). Withdrawn rows do not count, so make+withdraw cannot fill it. */
-    const val MAX_OFFERS_PER_AUCTION: Int = 20
+    /**
+     * Proposals of buyers whose EFFECTIVE status is OFFERED on ONE auction (V1.9.323). Counter-offers and COUNTERED, EXPIRED, WITHDRAWN and
+     * DECLINED rows do not count, so a seller with ten open proposals has to answer before the eleventh buyer can speak up.
+     */
+    const val MAX_OPEN_OFFERS_PER_AUCTION: Int = 10
+
+    /**
+     * Hard cap on the rows ONE auction may ever hold (DoS guard for the storage and for `listOffersForAuction`). Needed since the decline block
+     * ends after [DECLINE_BLOCK_DAYS]: without it a buyer could cycle forever.
+     */
+    const val MAX_OFFER_ROWS_PER_AUCTION: Int = 200
 
     /** All proposals of ONE buyer on one auction, withdrawn ones included (a make+withdraw loop is bounded by this). */
     const val MAX_PROPOSALS_PER_BUYER_PER_AUCTION: Int = 5
 
-    /** After this many declined offers of one buyer on one auction he can make no more. */
-    const val MAX_DECLINES_PER_BUYER_PER_AUCTION: Int = 3
+    /** This many declined proposals of one buyer in one cycle block him on that auction for [DECLINE_BLOCK_DAYS] days. */
+    const val MAX_DECLINES_BEFORE_BLOCK: Int = 3
+
+    /** How long the decline block lasts; afterwards a NEW cycle starts with a counter of zero. */
+    val DECLINE_BLOCK_DURATION: Duration = 7.days
+    const val DECLINE_BLOCK_DAYS: Int = 7
 
     /** Cap of `listMyOffers`. */
     const val MAX_MY_OFFERS: Int = 200
@@ -353,4 +371,33 @@ data class AuctionOfferDto(
     val callerCanDecline: Boolean,
     val callerCanCounter: Boolean,
     val callerCanWithdraw: Boolean,
+    /** V1.9.323, only for the SELLER (list of the auction): how many proposals of this buyer he declined in the current cycle (0..2). */
+    val buyerDeclinesInCycle: Int? = null,
+    /** V1.9.323, only for the SELLER: the end of the decline block of this buyer (UTC), `null` if the buyer is not blocked. */
+    val buyerBlockedUntil: LocalDateTime? = null,
+    /** V1.9.323: version of the notice the author saw when he made this offer (`null` for rows from before the notice existed). */
+    val noticeVersion: String? = null,
+)
+
+/** Which notice a person has to be shown before he makes an offer (V1.9.323). */
+@Serializable
+enum class AuctionOfferNoticeKind {
+    /** A buyer's price proposal. */
+    BUYER_OFFER,
+
+    /** A seller's counter-offer. */
+    SELLER_COUNTER,
+}
+
+/**
+ * The current, versioned and hashed notice text for one [kind] and [lang] (V1.9.323). The CLIENT shows [text] unchanged (no gettext, no sanitizer)
+ * and sends [version], [lang] and [sha256] back with the offer; the server recomputes the hash from its own constant.
+ */
+@Serializable
+data class AuctionOfferNoticeDto(
+    val kind: AuctionOfferNoticeKind,
+    val version: String,
+    val lang: String,
+    val text: String,
+    val sha256: String,
 )

@@ -89,6 +89,8 @@ class AuctionFiatLedgerTripwireTest :
                     "withdrawOffer",
                     "listOffersForAuction",
                     "listMyOffers",
+                    "getAuctionOfferNotice",
+                    "withdrawRefusal",
                     "lockOfferChain",
                     "offerDto",
                 )

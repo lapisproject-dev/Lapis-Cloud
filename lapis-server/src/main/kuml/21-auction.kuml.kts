@@ -450,6 +450,48 @@ classDiagram(name = "Auction") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "decided_at" }
         }
+        // V170: the notice the AUTHOR was shown (version, language, SHA-256 of "version\ntext"). NULL only on rows from before V170.
+        attribute(name = "noticeVersion", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "notice_version"; "sqlType" to "VARCHAR(32)" }
+        }
+        attribute(name = "noticeLang", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "notice_lang"; "sqlType" to "VARCHAR(5)" }
+        }
+        attribute(name = "noticeSha256", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "notice_sha256"; "sqlType" to "VARCHAR(64)" }
+        }
+    }
+
+    // V170: the decline counter of the current cycle and the end of the decline block, ONE row per (auction, buyer). Written ONLY by
+    // AuctionOfferRestrictionStore and ONLY under the auction row lock. Surrogate id plus a UNIQUE pair (no composite primary key in the ERM profile).
+    val auctionOfferBuyerRestriction = classOf(name = "AuctionOfferBuyerRestriction") {
+        stereotype("Entity") { "tableName" to "auction_offer_buyer_restriction"; "kotlinObjectName" to "AuctionOfferBuyerRestrictionTable" }
+        stereotype("Index") { "columns" to listOf("auction_id", "buyer_member_id"); "unique" to true; "name" to "uq_aobr_auction_buyer" }
+        stereotype("Index") { "columns" to listOf("buyer_member_id"); "name" to "idx_aobr_buyer" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "auctionId", type = "UUID") {
+            stereotype("Column") { "columnName" to "auction_id"; "fkEntity" to "Auction" }
+        }
+        attribute(name = "buyerMemberId", type = "UUID") {
+            stereotype("Column") { "columnName" to "buyer_member_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "declinesInCycle", type = "Int") {
+            stereotype("Column") { "columnName" to "declines_in_cycle" }
+        }
+        attribute(name = "blockedUntil", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "blocked_until" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
     }
 
     // ---- V169 Federation visibility (wave c). id-only stub so the received/tombstone tables can name their partner foreign keys. ----

@@ -5,14 +5,19 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.server.application.ApplicationCall
+import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import network.lapis.cloud.server.auction.AuctionOfferRestrictionStore
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AuctionBidTable
 import network.lapis.cloud.server.db.generated.AuctionFiatAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.AuctionOfferBuyerRestrictionTable
 import network.lapis.cloud.server.db.generated.AuctionOfferTable
 import network.lapis.cloud.server.db.generated.AuctionPaymentDetailsTable
 import network.lapis.cloud.server.db.generated.AuctionTable
@@ -26,9 +31,13 @@ import network.lapis.cloud.server.gallery.GalleryFixtures
 import network.lapis.cloud.server.gallery.galleryTestApplication
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
+import network.lapis.cloud.server.time.MutableTestClock
+import network.lapis.cloud.server.time.ServerClock
+import network.lapis.cloud.server.time.TimeTestSupport
 import network.lapis.cloud.shared.domain.AuctionComplianceAcknowledgmentInput
 import network.lapis.cloud.shared.domain.AuctionDto
 import network.lapis.cloud.shared.domain.AuctionOfferDto
+import network.lapis.cloud.shared.domain.AuctionOfferNoticeKind
 import network.lapis.cloud.shared.domain.AuctionOfferRules
 import network.lapis.cloud.shared.domain.AuctionOfferStatus
 import network.lapis.cloud.shared.domain.AuctionPaymentDetailsInput
@@ -42,11 +51,15 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.UpdateAuctionTermsInput
 import network.lapis.cloud.shared.rpc.AuctionCurrencyMismatchException
 import network.lapis.cloud.shared.rpc.AuctionFiatDisabledException
+import network.lapis.cloud.shared.rpc.AuctionOfferAlreadyAnsweredException
 import network.lapis.cloud.shared.rpc.AuctionOfferAmountInvalidException
+import network.lapis.cloud.shared.rpc.AuctionOfferAuctionFullException
 import network.lapis.cloud.shared.rpc.AuctionOfferBlockedException
+import network.lapis.cloud.shared.rpc.AuctionOfferBuyerHasOpenException
 import network.lapis.cloud.shared.rpc.AuctionOfferLimitReachedException
 import network.lapis.cloud.shared.rpc.AuctionOfferNotAllowedException
 import network.lapis.cloud.shared.rpc.AuctionOfferNotOpenException
+import network.lapis.cloud.shared.rpc.AuctionOfferNoticeMismatchException
 import network.lapis.cloud.shared.rpc.AuctionOfferOutbidException
 import network.lapis.cloud.shared.rpc.AuctionOffersImmutableException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -61,6 +74,8 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
 import java.security.SecureRandom
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
 
 private val OFFER_KEY: ByteArray = ByteArray(32).also(SecureRandom()::nextBytes)
@@ -143,6 +158,57 @@ abstract class AuctionOfferServiceScenarios(
             }
         }
 
+        fun restrictionOf(
+            auctionId: String,
+            buyer: Uuid,
+        ) = transaction {
+            AuctionOfferBuyerRestrictionTable
+                .selectAll()
+                .where {
+                    (AuctionOfferBuyerRestrictionTable.auctionId eq Uuid.parse(auctionId)) and
+                        (AuctionOfferBuyerRestrictionTable.buyerMemberId eq buyer)
+                }.singleOrNull()
+        }
+
+        fun restrictionRows(auctionIds: Collection<Uuid>): Long =
+            transaction {
+                AuctionOfferBuyerRestrictionTable
+                    .selectAll()
+                    .where {
+                        AuctionOfferBuyerRestrictionTable.auctionId inList
+                            auctionIds
+                    }.count()
+            }
+
+        fun offerRowCount(auctionId: String): Long =
+            transaction { AuctionOfferTable.selectAll().where { AuctionOfferTable.auctionId eq Uuid.parse(auctionId) }.count() }
+
+        fun auditTexts(auctionId: String): List<String> =
+            transaction {
+                AuditLogEntryTable
+                    .selectAll()
+                    .where {
+                        (AuditLogEntryTable.entityType eq AuditEntityType.AUCTION) and
+                            (AuditLogEntryTable.entityId eq Uuid.parse(auctionId))
+                    }.map { (it[AuditLogEntryTable.beforeSnapshot] ?: "") + (it[AuditLogEntryTable.afterSnapshot] ?: "") }
+            }
+
+        suspend fun GalleryApp.declineAsSeller(
+            seller: Uuid,
+            offerId: String,
+        ) = call(member = seller) { svc(it).declineOffer(offerId) }
+
+        /** The caller's fixed German notice echo, with single parts replaced for the tamper cases. */
+        suspend fun GalleryApp.offerWithNotice(
+            buyer: Uuid,
+            auctionId: String,
+            version: String = AuctionOfferNotice.VERSION,
+            lang: String = "de",
+            sha256: String = AuctionOfferNotice.sha256(kind = AuctionOfferNoticeKind.BUYER_OFFER, lang = "de")!!,
+        ) = attempt(member = buyer) {
+            svc(it).makeOffer(auctionId = auctionId, amountMinor = 3000, noticeVersion = version, noticeLang = lang, noticeSha256 = sha256)
+        }
+
         beforeSpec {
             db.activate()
             if (!db.isPostgres) DevSeedData.seedIfEmpty(force = true)
@@ -155,6 +221,7 @@ abstract class AuctionOfferServiceScenarios(
         }
         afterEach {
             transaction {
+                AuctionOfferBuyerRestrictionTable.deleteWhere { AuctionOfferBuyerRestrictionTable.auctionId inList fx.auctionIds }
                 AuctionOfferTable.deleteWhere {
                     (AuctionOfferTable.auctionId inList fx.auctionIds) and
                         (AuctionOfferTable.fromSeller eq true)
@@ -182,6 +249,7 @@ abstract class AuctionOfferServiceScenarios(
             start: Long = 1000,
             buyNow: Long? = 9000,
             offers: Boolean = true,
+            hours: Int = 24,
         ): AuctionDto {
             val availability = call(member = seller) { svc(it).getAuctionFiatAvailability() }
             if (!availability.sellerAcknowledgedCurrentVersion) {
@@ -203,7 +271,7 @@ abstract class AuctionOfferServiceScenarios(
                             currency = "EUR",
                             startingPriceMinor = start,
                             buyNowPriceMinor = buyNow,
-                            durationHours = 24,
+                            durationHours = hours,
                             paymentDetails =
                                 AuctionPaymentDetailsInput(
                                     accountHolder = "Sabine Verkäufer",
@@ -369,7 +437,7 @@ abstract class AuctionOfferServiceScenarios(
                 val second = offer(buyer, created.id, 3100)
                 refused(
                     buyer,
-                ) { svc(it).makeOffer(auctionId = created.id, amountMinor = 3200) }.shouldBeInstanceOf<AuctionOfferLimitReachedException>()
+                ) { svc(it).makeOffer(auctionId = created.id, amountMinor = 3200) }.shouldBeInstanceOf<AuctionOfferBuyerHasOpenException>()
                 call(member = buyer) { svc(it).withdrawOffer(second.id) }.status shouldBe AuctionOfferStatus.WITHDRAWN
                 refused(seller) { svc(it).withdrawOffer(second.id) }.shouldBeInstanceOf<NotFoundException>()
                 val third = offer(buyer, created.id, 3300)
@@ -390,17 +458,29 @@ abstract class AuctionOfferServiceScenarios(
             }
         }
 
-        test("the 21st live offer of an auction is refused; withdrawn rows do not count towards the cap") {
+        test(
+            "the hard row cap of an auction refuses further offers, withdrawn rows count towards it; the open cap is not touched by closed rows",
+        ) {
             val seller = fx.member(label = "seller")
             val buyer = fx.member(label = "buyer")
             val filler = fx.member(label = "filler")
             galleryTestApplication(fixtures = fx) {
                 val created = listFiat(seller)
-                insertOffers(created.id, filler, count = 20, status = AuctionOfferStatus.WITHDRAWN)
-                // 20 withdrawn rows are no budget use: a different buyer can still offer
+                insertOffers(
+                    created.id,
+                    filler,
+                    count = AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION + 5,
+                    status = AuctionOfferStatus.WITHDRAWN,
+                )
+                // closed rows are no use of the OPEN cap: a different buyer can still offer
                 val ok = offer(buyer, created.id, 3000)
                 call(member = buyer) { svc(it).withdrawOffer(ok.id) }
-                insertOffers(created.id, filler, count = 20, status = AuctionOfferStatus.EXPIRED)
+                insertOffers(
+                    created.id,
+                    filler,
+                    count = AuctionOfferRules.MAX_OFFER_ROWS_PER_AUCTION - (AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION + 5) - 1,
+                    status = AuctionOfferStatus.EXPIRED,
+                )
                 refused(
                     buyer,
                 ) { svc(it).makeOffer(auctionId = created.id, amountMinor = 3100) }.shouldBeInstanceOf<AuctionOfferLimitReachedException>()
@@ -823,6 +903,447 @@ abstract class AuctionOfferServiceScenarios(
                             }.map { it[AuctionOfferTable.id] }
                     }
                 left.toSet() shouldBe setOf(parentId, counterId, acceptedId)
+            }
+        }
+
+        // ── V1.9.323 (Fiat wave b2): notice, limits, decline block, withdrawal ────────────────────────────────────────────
+
+        test("notice: a proposal and a counter-offer store version, language and hash; the audit names them, never the text or an amount") {
+            val seller = fx.member(label = "seller")
+            val buyer = fx.member(label = "buyer")
+            val enBuyer = fx.member(label = "enbuyer")
+            galleryTestApplication(fixtures = fx) {
+                val created = listFiat(seller)
+                val made = offer(buyer, created.id, 3000)
+                val row = offerRow(made.id)
+                row[AuctionOfferTable.noticeVersion] shouldBe AuctionOfferNotice.VERSION
+                row[AuctionOfferTable.noticeLang] shouldBe "de"
+                row[AuctionOfferTable.noticeSha256] shouldBe
+                    AuctionOfferNotice.sha256(kind = AuctionOfferNoticeKind.BUYER_OFFER, lang = "de")
+                made.noticeVersion shouldBe AuctionOfferNotice.VERSION
+                // the English wording is accepted with its own hash and stored as such
+                val en = AuctionOfferNotice.dto(kind = AuctionOfferNoticeKind.BUYER_OFFER, requestedLang = "en")
+                val madeEn =
+                    call(member = enBuyer) {
+                        svc(
+                            it,
+                        ).makeOffer(
+                            auctionId = created.id,
+                            amountMinor = 3100,
+                            noticeVersion = en.version,
+                            noticeLang = en.lang,
+                            noticeSha256 = en.sha256,
+                        )
+                    }
+                offerRow(madeEn.id)[AuctionOfferTable.noticeLang] shouldBe "en"
+                // the counter-offer needs the SELLER_COUNTER wording, not the buyer's
+                val wrongKind = AuctionOfferNotice.dto(kind = AuctionOfferNoticeKind.BUYER_OFFER, requestedLang = "de")
+                refused(seller) {
+                    svc(it).counterOffer(
+                        offerId = made.id,
+                        amountMinor = 5000,
+                        noticeVersion = wrongKind.version,
+                        noticeLang = wrongKind.lang,
+                        noticeSha256 = wrongKind.sha256,
+                    )
+                }.shouldBeInstanceOf<AuctionOfferNoticeMismatchException>()
+                offerRow(made.id)[AuctionOfferTable.status] shouldBe AuctionOfferStatus.OFFERED
+                val counter = call(member = seller) { svc(it).counterOffer(offerId = made.id, amountMinor = 5000) }
+                offerRow(counter.id)[AuctionOfferTable.noticeLang] shouldBe "de"
+                offerRow(counter.id)[AuctionOfferTable.noticeSha256] shouldBe
+                    AuctionOfferNotice.sha256(kind = AuctionOfferNoticeKind.SELLER_COUNTER, lang = "de")
+                val audit = auditTexts(created.id)
+                audit.any { it.contains("AUCTION_OFFER_MADE") && it.contains(AuctionOfferNotice.VERSION) } shouldBe true
+                audit.forEach {
+                    it.shouldNotContain("Preisvorschlag bindet")
+                    Regex("""[:"](3000|3100|5000)[,}"]""").containsMatchIn(it) shouldBe false
+                }
+            }
+        }
+
+        test("notice: getAuctionOfferNotice hands out the current text, hash and version; an unknown language gets English") {
+            val member = fx.member(label = "member")
+            galleryTestApplication(fixtures = fx) {
+                val de = call(member = member) { svc(it).getAuctionOfferNotice(kind = AuctionOfferNoticeKind.BUYER_OFFER, lang = "de") }
+                de.version shouldBe AuctionOfferNotice.VERSION
+                de.lang shouldBe "de"
+                de.text shouldBe AuctionOfferNotice.text(kind = AuctionOfferNoticeKind.BUYER_OFFER, lang = "de")
+                de.sha256 shouldBe AuctionOfferNotice.sha256(kind = AuctionOfferNoticeKind.BUYER_OFFER, lang = "de")
+                call(
+                    member = member,
+                ) { svc(it).getAuctionOfferNotice(kind = AuctionOfferNoticeKind.SELLER_COUNTER, lang = "fr") }.lang shouldBe
+                    "en"
+                // a deactivated member gets nothing
+                val gone = fx.member(label = "gone")
+                setStatus(gone, MemberStatus.WITHDRAWN)
+                refused(
+                    gone,
+                ) {
+                    svc(
+                        it,
+                    ).getAuctionOfferNotice(kind = AuctionOfferNoticeKind.BUYER_OFFER, lang = "de")
+                }.shouldBeInstanceOf<ForbiddenException>()
+            }
+        }
+
+        test("notice tamper: every wrong echo is refused BEFORE anything is written (no row, no audit entry, no restriction row)") {
+            val seller = fx.member(label = "seller")
+            val buyer = fx.member(label = "buyer")
+            galleryTestApplication(fixtures = fx) {
+                val created = listFiat(seller)
+                val good = AuctionOfferNotice.sha256(kind = AuctionOfferNoticeKind.BUYER_OFFER, lang = "de")!!
+                val auditBefore = auditTexts(created.id).size
+                val attempts =
+                    listOf(
+                        Triple(AuctionOfferNotice.VERSION, "de", good.replaceRange(0, 1, if (good[0] == 'a') "b" else "a")),
+                        Triple(AuctionOfferNotice.VERSION, "de", good.uppercase()),
+                        Triple(AuctionOfferNotice.VERSION, "de", good.dropLast(1)),
+                        Triple(AuctionOfferNotice.VERSION, "de", good + "0"),
+                        Triple(AuctionOfferNotice.VERSION, "de", "z".repeat(64)),
+                        Triple(AuctionOfferNotice.VERSION, "de", ""),
+                        Triple("", "de", good),
+                        Triple("x", "de", good),
+                        Triple("2026-11-23.v1", "de", good),
+                        Triple("v".repeat(33), "de", good),
+                        Triple(AuctionOfferNotice.VERSION, "fr", good),
+                        Triple(AuctionOfferNotice.VERSION, "", good),
+                        Triple(AuctionOfferNotice.VERSION, "de-DE", good),
+                        Triple(AuctionOfferNotice.VERSION, "l".repeat(6), good),
+                        // the valid hash of the English text under "de"
+                        Triple(
+                            AuctionOfferNotice.VERSION,
+                            "de",
+                            AuctionOfferNotice.sha256(kind = AuctionOfferNoticeKind.BUYER_OFFER, lang = "en")!!,
+                        ),
+                        // the valid hash of the OTHER kind
+                        Triple(
+                            AuctionOfferNotice.VERSION,
+                            "de",
+                            AuctionOfferNotice.sha256(kind = AuctionOfferNoticeKind.SELLER_COUNTER, lang = "de")!!,
+                        ),
+                    )
+                attempts.forEach { (version, lang, sha) ->
+                    offerWithNotice(buyer = buyer, auctionId = created.id, version = version, lang = lang, sha256 = sha)
+                        .exceptionOrNull()
+                        .shouldBeInstanceOf<AuctionOfferNoticeMismatchException>()
+                }
+                offerRowCount(created.id) shouldBe 0
+                auditTexts(created.id).size shouldBe auditBefore
+                restrictionRows(fx.auctionIds) shouldBe 0
+                // and the correct echo works afterwards
+                offerWithNotice(buyer = buyer, auctionId = created.id).isSuccess shouldBe true
+            }
+        }
+
+        test(
+            "limit: ten open proposals fill an auction, the eleventh is refused with the count; a free slot comes from withdrawal, not from counter-offers",
+        ) {
+            val seller = fx.member(label = "seller")
+            val late = fx.member(label = "late")
+            val buyers = (1..AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION).map { fx.member(label = "b$it") }
+            galleryTestApplication(fixtures = fx) {
+                val created = listFiat(seller)
+                val made = buyers.map { offer(it, created.id, 3000) }
+                val full =
+                    refused(
+                        late,
+                    ) {
+                        svc(
+                            it,
+                        ).makeOffer(auctionId = created.id, amountMinor = 3100)
+                    }.shouldBeInstanceOf<AuctionOfferAuctionFullException>()
+                full.openCount shouldBe AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION
+                call(member = seller) { svc(it).getAuction(created.id) }.openOfferCountForSeller shouldBe
+                    AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION
+                call(member = seller) { svc(it).getAuction(created.id) }.maxOpenOffers shouldBe
+                    AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION
+                call(member = late) { svc(it).getAuction(created.id) }.maxOpenOffers shouldBe null
+                // a counter-offer turns the proposal COUNTERED (no longer open) and is itself no proposal: the slot is free, ten still hold
+                call(member = seller) { svc(it).counterOffer(offerId = made[0].id, amountMinor = 5000) }
+                offer(late, created.id, 3100).status shouldBe AuctionOfferStatus.OFFERED
+                // ... which fills the auction again
+                val other = fx.member(label = "other")
+                refused(
+                    other,
+                ) { svc(it).makeOffer(auctionId = created.id, amountMinor = 3200) }.shouldBeInstanceOf<AuctionOfferAuctionFullException>()
+                // the first buyer still has an open negotiation (the counter-offer): a second proposal is refused as such, not as "full"
+                refused(
+                    buyers[0],
+                ) { svc(it).makeOffer(auctionId = created.id, amountMinor = 3300) }.shouldBeInstanceOf<AuctionOfferBuyerHasOpenException>()
+                // withdrawal frees a slot
+                call(member = buyers[1]) { svc(it).withdrawOffer(made[1].id) }
+                offer(other, created.id, 3200).status shouldBe AuctionOfferStatus.OFFERED
+            }
+        }
+
+        test("limit: a lapsed proposal (not yet persisted as expired) gives its slot back, a declined one too") {
+            val seller = fx.member(label = "seller")
+            val late = fx.member(label = "late")
+            val buyers = (1..AuctionOfferRules.MAX_OPEN_OFFERS_PER_AUCTION).map { fx.member(label = "b$it") }
+            galleryTestApplication(fixtures = fx) {
+                val created = listFiat(seller)
+                val made = buyers.map { offer(it, created.id, 3000) }
+                refused(
+                    late,
+                ) { svc(it).makeOffer(auctionId = created.id, amountMinor = 3100) }.shouldBeInstanceOf<AuctionOfferAuctionFullException>()
+                expireOffer(made[0].id)
+                call(member = late) { svc(it).makeOffer(auctionId = created.id, amountMinor = 3100) }.status shouldBe
+                    AuctionOfferStatus.OFFERED
+                val other = fx.member(label = "other")
+                refused(
+                    other,
+                ) { svc(it).makeOffer(auctionId = created.id, amountMinor = 3200) }.shouldBeInstanceOf<AuctionOfferAuctionFullException>()
+                declineAsSeller(seller, made[1].id)
+                call(member = other) { svc(it).makeOffer(auctionId = created.id, amountMinor = 3200) }.status shouldBe
+                    AuctionOfferStatus.OFFERED
+            }
+        }
+
+        test(
+            "block: the third declined proposal blocks the buyer for seven days on THIS auction; the audit names the event, never an amount",
+        ) {
+            val seller = fx.member(label = "seller")
+            val buyer = fx.member(label = "buyer")
+            galleryTestApplication(fixtures = fx) {
+                val created = listFiat(seller)
+                val other = listFiat(seller)
+                val first = offer(buyer, created.id, 3000)
+                declineAsSeller(seller, first.id)
+                val second = offer(buyer, created.id, 3100)
+                // the seller sees the counter, the buyer sees nothing yet
+                call(member = seller) { svc(it).listOffersForAuction(created.id) }
+                    .first { it.id == second.id }
+                    .buyerDeclinesInCycle shouldBe 1
+                call(member = buyer) { svc(it).getAuction(created.id) }.callerOfferBlockedUntil shouldBe null
+                declineAsSeller(seller, second.id)
+                val third = offer(buyer, created.id, 3200)
+                val before = DbClock.nowLocalDateTime()
+                declineAsSeller(seller, third.id)
+                val row = restrictionOf(created.id, buyer)!!
+                row[AuctionOfferBuyerRestrictionTable.declinesInCycle] shouldBe 0
+                val until = row[AuctionOfferBuyerRestrictionTable.blockedUntil]!!
+                val seven = AuctionOfferRules.DECLINE_BLOCK_DAYS
+                (until >= before.toInstant(ServerClock.zone).plus(seven.days).toLocalDateTime(ServerClock.zone)) shouldBe true
+                // the blocked buyer is told the end date; nobody else is
+                val blocked =
+                    refused(buyer) {
+                        svc(it).makeOffer(auctionId = created.id, amountMinor = 3300)
+                    }.shouldBeInstanceOf<AuctionOfferBlockedException>()
+                blocked.blockedUntil shouldBe until.toString()
+                val dto = call(member = buyer) { svc(it).getAuction(created.id) }
+                dto.callerOfferBlocked shouldBe true
+                dto.callerOfferBlockedUntil shouldBe until
+                call(member = seller) { svc(it).getAuction(created.id) }.callerOfferBlockedUntil shouldBe null
+                val sellerView = call(member = seller) { svc(it).listOffersForAuction(created.id) }
+                sellerView.forEach { it.buyerBlockedUntil shouldBe until }
+                // another auction of the same seller is free
+                offer(buyer, other.id, 3000).status shouldBe AuctionOfferStatus.OFFERED
+                val audit = auditTexts(created.id)
+                audit.any { it.contains("AUCTION_OFFER_BUYER_BLOCKED") } shouldBe true
+                audit.forEach { text ->
+                    Regex("""[:"](3000|3100|3200)[,}"]""").containsMatchIn(text) shouldBe false
+                    text.shouldNotContain("Gallery-Test")
+                }
+                // the reading paths wrote nothing
+                val updatedAt = restrictionOf(created.id, buyer)!![AuctionOfferBuyerRestrictionTable.updatedAt]
+                repeat(2) {
+                    call(member = seller) { svc(it).listOffersForAuction(created.id) }
+                    call(member = buyer) { svc(it).getAuction(created.id) }
+                }
+                restrictionOf(created.id, buyer)!![AuctionOfferBuyerRestrictionTable.updatedAt] shouldBe updatedAt
+                restrictionRows(listOf(Uuid.parse(created.id))) shouldBe 1
+            }
+        }
+
+        test(
+            "block: seconds before the end the buyer is blocked, seconds after he is free; a new cycle starts from zero (a counter-offer, a lapse and a withdrawal never count)",
+        ) {
+            val seller = fx.member(label = "seller")
+            val buyer = fx.member(label = "buyer")
+            galleryTestApplication(fixtures = fx) {
+                // an auction long enough to outlast the block
+                val created = listFiat(seller, hours = 24 * 30)
+                // a declined COUNTER-OFFER, a withdrawn and a lapsed proposal count for nothing
+                val p0 = offer(buyer, created.id, 3000)
+                val c0 = call(member = seller) { svc(it).counterOffer(offerId = p0.id, amountMinor = 5000) }
+                call(member = buyer) { svc(it).declineOffer(c0.id) }
+                restrictionOf(created.id, buyer) shouldBe null
+                val ids = mutableListOf<String>()
+                repeat(AuctionOfferRules.MAX_DECLINES_BEFORE_BLOCK - 1) { i ->
+                    val p = offer(buyer, created.id, 3100L + i)
+                    declineAsSeller(seller, p.id)
+                    ids += p.id
+                }
+                restrictionOf(created.id, buyer)!![AuctionOfferBuyerRestrictionTable.declinesInCycle] shouldBe 2
+                call(
+                    member = seller,
+                ) { svc(it).listOffersForAuction(created.id) }.first { it.fromSeller.not() }.buyerDeclinesInCycle shouldBe
+                    2
+                // proposals so far: p0 + two = 3 of 5. The third decline blocks.
+                val p3 = offer(buyer, created.id, 3500)
+                val blockedAt = DbClock.nowLocalDateTime()
+                declineAsSeller(seller, p3.id)
+                val until = restrictionOf(created.id, buyer)!![AuctionOfferBuyerRestrictionTable.blockedUntil]!!
+                val clock = MutableTestClock(initial = blockedAt.toInstant(ServerClock.zone).toString())
+                TimeTestSupport.withMutableServerClock(clock = clock) {
+                    clock.advance(AuctionOfferRules.DECLINE_BLOCK_DURATION - 5.seconds)
+                    runBlocking {
+                        refused(
+                            buyer,
+                        ) {
+                            svc(
+                                it,
+                            ).makeOffer(auctionId = created.id, amountMinor = 3600)
+                        }.shouldBeInstanceOf<AuctionOfferBlockedException>()
+                    }
+                    clock.advance(10.seconds)
+                    // the block is over; the counter starts at zero (and the F2 cap of five proposals still holds: four were made, one is left)
+                    runBlocking {
+                        call(member = buyer) { svc(it).getAuction(created.id) }.callerOfferBlockedUntil shouldBe null
+                        val p4 = call(member = buyer) { svc(it).makeOffer(auctionId = created.id, amountMinor = 3600) }
+                        call(
+                            member = seller,
+                        ) { svc(it).listOffersForAuction(created.id) }.first { it.id == p4.id }.buyerDeclinesInCycle shouldBe
+                            0
+                        declineAsSeller(seller, p4.id)
+                        call(
+                            member = seller,
+                        ) { svc(it).listOffersForAuction(created.id) }.first { it.id == p4.id }.buyerDeclinesInCycle shouldBe
+                            1
+                    }
+                }
+                (until > blockedAt) shouldBe true
+            }
+        }
+
+        test("block: the store itself starts a fresh cycle after the end of a block and blocks again with the third decline") {
+            val seller = fx.member(label = "seller")
+            val buyer = fx.member(label = "buyer")
+            galleryTestApplication(fixtures = fx) {
+                val created = listFiat(seller)
+                val auctionId = Uuid.parse(created.id)
+                val t0 = DbClock.nowLocalDateTime()
+
+                fun record(at: LocalDateTime) =
+                    transaction {
+                        AuctionOfferRestrictionStore.recordDeclineLocked(auctionId = auctionId, buyerId = buyer, now = at)
+                    }
+                record(t0) shouldBe null
+                record(t0) shouldBe null
+                val firstBlock = record(t0)!!
+                // a decline "during" a block changes nothing (it cannot happen through the service, the store is defensive)
+                record(t0) shouldBe null
+                restrictionOf(created.id, buyer)!![AuctionOfferBuyerRestrictionTable.blockedUntil] shouldBe firstBlock
+                // after the end: counter back to zero, three declines block again
+                val later = firstBlock.toInstant(ServerClock.zone).plus(1.seconds).toLocalDateTime(ServerClock.zone)
+                record(later) shouldBe null
+                record(later) shouldBe null
+                transaction { AuctionOfferRestrictionStore.declinesInCycle(auctionId = auctionId, buyerId = buyer, now = later) } shouldBe 2
+                val secondBlock = record(later)!!
+                (secondBlock > firstBlock) shouldBe true
+                transaction { AuctionOfferRestrictionStore.blockedUntil(auctionId = auctionId, buyerId = buyer, now = later) } shouldBe
+                    secondBlock
+                transaction {
+                    AuctionOfferRestrictionStore.blockedUntil(
+                        auctionId = auctionId,
+                        buyerId = buyer,
+                        now = secondBlock,
+                    )
+                } shouldBe
+                    null
+                restrictionRows(listOf(auctionId)) shouldBe 1
+            }
+        }
+
+        test(
+            "withdrawal: after every kind of answer the author gets AlreadyAnswered with that answer; a second withdrawal says WITHDRAWN",
+        ) {
+            val seller = fx.member(label = "seller")
+            val buyer = fx.member(label = "buyer")
+            val b2 = fx.member(label = "b2")
+            val b3 = fx.member(label = "b3")
+            val b4 = fx.member(label = "b4")
+            galleryTestApplication(fixtures = fx) {
+                val created = listFiat(seller)
+                val declined = offer(buyer, created.id, 3000)
+                declineAsSeller(seller, declined.id)
+                refused(
+                    buyer,
+                ) { svc(it).withdrawOffer(declined.id) }.shouldBeInstanceOf<AuctionOfferAlreadyAnsweredException>().answer shouldBe
+                    AuctionOfferStatus.DECLINED
+                val countered = offer(b2, created.id, 3000)
+                call(member = seller) { svc(it).counterOffer(offerId = countered.id, amountMinor = 5000) }
+                refused(
+                    b2,
+                ) { svc(it).withdrawOffer(countered.id) }.shouldBeInstanceOf<AuctionOfferAlreadyAnsweredException>().answer shouldBe
+                    AuctionOfferStatus.COUNTERED
+                val lapsing = offer(b3, created.id, 3000)
+                expireOffer(lapsing.id)
+                refused(b3) { svc(it).withdrawOffer(lapsing.id) }.shouldBeInstanceOf<AuctionOfferAlreadyAnsweredException>().answer shouldBe
+                    AuctionOfferStatus.EXPIRED
+                val own = offer(b4, created.id, 3000)
+                call(member = b4) { svc(it).withdrawOffer(own.id) }.status shouldBe AuctionOfferStatus.WITHDRAWN
+                refused(b4) { svc(it).withdrawOffer(own.id) }.shouldBeInstanceOf<AuctionOfferAlreadyAnsweredException>().answer shouldBe
+                    AuctionOfferStatus.WITHDRAWN
+                // the accepted one: the buyer's own offer, accepted by the seller
+                val third = fx.member(label = "b5")
+                val accepted = offer(third, created.id, 4000)
+                call(member = seller) { svc(it).acceptOffer(accepted.id) }
+                refused(
+                    third,
+                ) { svc(it).withdrawOffer(accepted.id) }.shouldBeInstanceOf<AuctionOfferAlreadyAnsweredException>().answer shouldBe
+                    AuctionOfferStatus.ACCEPTED
+                // a stranger and an unknown id still get the SAME NotFoundException, never a typed answer
+                val stranger = refused(seller) { svc(it).withdrawOffer(declined.id) }.shouldBeInstanceOf<NotFoundException>()
+                refused(seller) { svc(it).withdrawOffer(Uuid.random().toString()) }.message shouldBe stranger.message
+                refused(seller) { svc(it).withdrawOffer("not-an-id") }.message shouldBe stranger.message
+            }
+        }
+
+        test("withdrawal: callerCanWithdraw agrees with the server's decision in every state") {
+            val seller = fx.member(label = "seller")
+            val buyer = fx.member(label = "buyer")
+            galleryTestApplication(fixtures = fx) {
+                val created = listFiat(seller)
+                val open = offer(buyer, created.id, 3000)
+                open.callerCanWithdraw shouldBe true
+                // the seller never sees a withdraw button on the buyer's proposal
+                call(member = seller) { svc(it).listOffersForAuction(created.id) }.single().callerCanWithdraw shouldBe false
+                val counter = call(member = seller) { svc(it).counterOffer(offerId = open.id, amountMinor = 5000) }
+                // after the answer: no button for the buyer on the old row, a button for the seller on his own counter-offer
+                call(member = buyer) { svc(it).listMyOffers() }.first { it.id == open.id }.callerCanWithdraw shouldBe false
+                counter.callerCanWithdraw shouldBe true
+                call(member = seller) { svc(it).withdrawOffer(counter.id) }.status shouldBe AuctionOfferStatus.WITHDRAWN
+                call(member = seller) { svc(it).listOffersForAuction(created.id) }.forEach { it.callerCanWithdraw shouldBe false }
+                call(member = buyer) { svc(it).listMyOffers() }.forEach { it.callerCanWithdraw shouldBe false }
+            }
+        }
+
+        test("DSGVO: the member's own decline counters are exported and erased; the retained offers stay") {
+            val seller = fx.member(label = "seller")
+            val buyer = fx.member(label = "buyer")
+            galleryTestApplication(fixtures = fx) {
+                val created = listFiat(seller)
+                val p = offer(buyer, created.id, 3000)
+                declineAsSeller(seller, p.id)
+                val export = transaction { AuctionPersonalData.exportMember(buyer) }.jsonObject.getValue("priceOfferRestrictions").jsonArray
+                export.size shouldBe 1
+                export
+                    .single()
+                    .jsonObject
+                    .getValue("declinesInCycle")
+                    .jsonPrimitive.content shouldBe "1"
+                transaction {
+                    AuctionPersonalData.exportMember(
+                        seller,
+                    )
+                }.jsonObject.getValue("priceOfferRestrictions").jsonArray.size shouldBe
+                    0
+                val outcome =
+                    transaction { AuctionPersonalData.eraseMember(memberId = buyer, mode = ErasureMode.ANONYMIZE) }
+                        .single { it.table == "auction_offer_buyer_restriction" }
+                outcome.rowsDeleted shouldBe 1
+                restrictionRows(listOf(Uuid.parse(created.id))) shouldBe 0
             }
         }
     })

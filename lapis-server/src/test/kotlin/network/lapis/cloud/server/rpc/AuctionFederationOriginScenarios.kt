@@ -37,6 +37,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AuctionBidTable
 import network.lapis.cloud.server.db.generated.AuctionFiatAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.AuctionOfferBuyerRestrictionTable
 import network.lapis.cloud.server.db.generated.AuctionOfferTable
 import network.lapis.cloud.server.db.generated.AuctionPaymentDetailsTable
 import network.lapis.cloud.server.db.generated.AuctionTable
@@ -255,6 +256,7 @@ abstract class AuctionFederationOriginScenarios(
                 AuctionTeaserTombstoneTable.deleteAll()
                 AuctionTeaserSnapshotTable.deleteAll()
                 AuctionPaymentDetailsTable.deleteWhere { AuctionPaymentDetailsTable.auctionId inList fx.auctionIds }
+                AuctionOfferBuyerRestrictionTable.deleteWhere { AuctionOfferBuyerRestrictionTable.auctionId inList fx.auctionIds }
                 AuctionOfferTable.deleteWhere { AuctionOfferTable.auctionId inList fx.auctionIds }
                 AuctionBidTable.deleteWhere { AuctionBidTable.auctionId inList fx.auctionIds }
                 AuctionTable.deleteWhere { AuctionTable.id inList fx.auctionIds }

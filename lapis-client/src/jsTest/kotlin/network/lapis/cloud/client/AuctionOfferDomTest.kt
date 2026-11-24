@@ -7,6 +7,8 @@ import kotlinx.serialization.builtins.ListSerializer
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuctionDto
 import network.lapis.cloud.shared.domain.AuctionOfferDto
+import network.lapis.cloud.shared.domain.AuctionOfferNoticeDto
+import network.lapis.cloud.shared.domain.AuctionOfferNoticeKind
 import network.lapis.cloud.shared.domain.AuctionOfferStatus
 import network.lapis.cloud.shared.domain.AuctionStatus
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -41,6 +43,8 @@ class AuctionOfferDomTest {
         hasOpen: Boolean = false,
         blocked: Boolean = false,
         openForSeller: Int? = null,
+        blockedUntil: LocalDateTime? = null,
+        maxOpen: Int? = null,
     ) = AuctionDto(
         id = "a1",
         title = "Fahrrad",
@@ -69,7 +73,9 @@ class AuctionOfferDomTest {
         offersEnabled = offersEnabled,
         openOfferCountForSeller = openForSeller,
         callerHasOpenOffer = hasOpen,
-        callerOfferBlocked = blocked,
+        callerOfferBlocked = blocked || blockedUntil != null,
+        callerOfferBlockedUntil = blockedUntil,
+        maxOpenOffers = maxOpen,
     )
 
     private fun offer(
@@ -80,6 +86,8 @@ class AuctionOfferDomTest {
         endedByAuction: Boolean = false,
         below: Boolean = false,
         asSeller: Boolean = false,
+        declines: Int? = null,
+        buyerBlockedUntil: LocalDateTime? = null,
     ) = AuctionOfferDto(
         id = id,
         auctionId = "a1",
@@ -99,7 +107,15 @@ class AuctionOfferDomTest {
         callerCanDecline = status == AuctionOfferStatus.OFFERED && (asSeller != fromSeller),
         callerCanCounter = status == AuctionOfferStatus.OFFERED && asSeller && !fromSeller,
         callerCanWithdraw = status == AuctionOfferStatus.OFFERED && (asSeller == fromSeller),
+        buyerDeclinesInCycle = declines,
+        buyerBlockedUntil = buyerBlockedUntil,
     )
+
+    private fun notice(
+        kind: AuctionOfferNoticeKind = AuctionOfferNoticeKind.BUYER_OFFER,
+        text: String = NOTICE_TEXT,
+        version: String = "2026-11-24.v1",
+    ) = AuctionOfferNoticeDto(kind = kind, version = version, lang = "de", text = text, sha256 = "a".repeat(64))
 
     private fun HTMLElement.shows(text: String): Boolean = textContent.orEmpty().contains(text)
 
@@ -134,20 +150,196 @@ class AuctionOfferDomTest {
         }
 
     @Test
-    fun theDialog_saysThatTheProposalBindsNobody_andShowsTheAllowedRange(): Promise<Unit> =
+    fun theDialog_showsTheServerNoticeUnchanged_withItsVersion_andEchoesItWithTheOffer(): Promise<Unit> =
         formTest {
             AppState.setSession(member)
-            mountedForm("offer-dialog") { root, element ->
-                renderAuctionCard(root, auction(), "member-1") {}
-                element().buttonNamed("Preis vorschlagen").click()
-                awaitUntil("the dialog is shown") { document.querySelector(".modal.show") != null }
-                val dialog = document.querySelector(".modal.show") as HTMLElement
-                assertTrue(dialog.shows("bindet Sie erst, wenn der Verkäufer ihn annimmt"))
-                assertTrue(dialog.shows("höchstens bis zum Auktionsende"))
-                assertTrue(dialog.shows("Erlaubt: ab"))
-                assertTrue(dialog.hasButton("Vorschlag senden"))
-                assertFalse(dialog.shows("Angebot"), "a price offer is never called Angebot")
+            val noticeRoute = routeOf { rpcService<IAuctionService>().getAuctionOfferNotice(AuctionOfferNoticeKind.BUYER_OFFER, "de") }
+            val makeRoute = routeOf { rpcService<IAuctionService>().makeOffer("a1", 1L, "v", "de", "h") }
+            withFetchStub(
+                respond = { request ->
+                    when {
+                        request.isRpc && request.rpcRoute == noticeRoute ->
+                            request.answerWith(jsonOf(AuctionOfferNoticeDto.serializer(), notice()))
+                        request.isRpc && request.rpcRoute == makeRoute ->
+                            request.answerWith(jsonOf(AuctionOfferDto.serializer(), offer("m1", amount = 3000)))
+                        else -> request.answerWith("[]")
+                    }
+                },
+            ) { calls ->
+                mountedForm("offer-dialog") { root, element ->
+                    renderAuctionCard(root, auction(), "member-1") {}
+                    element().buttonNamed("Preis vorschlagen").click()
+                    awaitUntil("the dialog is shown") { document.querySelector(".modal.show") != null }
+                    val dialog = document.querySelector(".modal.show") as HTMLElement
+                    awaitUntil("the notice is shown") { dialog.shows(NOTICE_TEXT) }
+                    // the notice text is the server's text, byte for byte, in ONE text node (no gettext, no sanitizer)
+                    assertTrue(dialog.allOf("div").any { it.textContent == NOTICE_TEXT }, "exactly the delivered string")
+                    assertTrue(dialog.shows("Hinweisfassung 2026-11-24.v1"))
+                    assertTrue(dialog.shows("Erlaubt: ab"))
+                    assertTrue(dialog.hasButton("Vorschlag senden"))
+                    assertFalse(dialog.shows("Angebot"), "a price offer is never called Angebot")
+                    assertEquals(1, calls.toRoute(noticeRoute).size)
+                    assertEquals(
+                        "BUYER_OFFER",
+                        calls
+                            .toRoute(noticeRoute)
+                            .single()
+                            .rpcParam(0)
+                            .toString()
+                            .trim('"'),
+                    )
+                    // an amount, then send: version, language and hash go back exactly as delivered
+                    dialog.typeInto("Ihr Preis (EUR)", "40")
+                    dialog.buttonNamed("Vorschlag senden").click()
+                    awaitUntil("the offer is sent") { calls.toRoute(makeRoute).isNotEmpty() }
+                    val sent = calls.toRoute(makeRoute).single()
+                    assertEquals("2026-11-24.v1", sent.rpcParam(2).toString())
+                    assertEquals("de", sent.rpcParam(3).toString())
+                    assertEquals("a".repeat(64), sent.rpcParam(4).toString())
+                }
             }
+        }
+
+    @Test
+    fun withoutTheNotice_theSendButtonStaysOff(): Promise<Unit> =
+        formTest {
+            AppState.setSession(member)
+            val noticeRoute = routeOf { rpcService<IAuctionService>().getAuctionOfferNotice(AuctionOfferNoticeKind.BUYER_OFFER, "de") }
+            withFetchStub(
+                respond = { request ->
+                    if (request.isRpc && request.rpcRoute == noticeRoute) StubResponse(networkError = true) else request.answerWith("[]")
+                },
+            ) { _ ->
+                mountedForm("offer-no-notice") { root, element ->
+                    renderAuctionCard(root, auction(), "member-1") {}
+                    element().buttonNamed("Preis vorschlagen").click()
+                    awaitUntil("the dialog is shown") { document.querySelector(".modal.show") != null }
+                    val dialog = document.querySelector(".modal.show") as HTMLElement
+                    awaitUntil("the failure is said") { dialog.shows("Hinweistext konnte nicht geladen werden") }
+                    val send = dialog.buttonNamed("Vorschlag senden") as org.w3c.dom.HTMLButtonElement
+                    assertTrue(send.disabled, "nobody sends a proposal without having been shown the wording")
+                }
+            }
+        }
+
+    @Test
+    fun aBlockedBuyer_seesALockAndTheEndDate_notACounter_andNoButton(): Promise<Unit> =
+        formTest {
+            AppState.setSession(member)
+            mountedForm("offer-blocked-until") { root, element ->
+                renderAuctionCard(root, auction(blockedUntil = LocalDateTime(2099, 1, 8, 10, 0)), "member-1") {}
+                val card = element()
+                assertFalse(card.hasButton("Preis vorschlagen"))
+                assertTrue(card.shows("drei Ihrer Preisvorschläge abgelehnt"))
+                assertTrue(card.shows("keinen neuen machen"))
+                assertTrue(card.querySelector(".fa-lock") != null, "the lock symbol")
+                assertFalse(card.shows("von 3"), "no counter for the buyer")
+            }
+        }
+
+    @Test
+    fun theSeller_seesOpenOfOfMax_andTheDeclineCounterPerBuyer_andTheLockOfABlockedBuyer(): Promise<Unit> =
+        formTest {
+            AppState.setSession(member)
+            val route = routeOf { rpcService<IAuctionService>().listOffersForAuction("a1") }
+            withFetchStub(
+                respond = { request ->
+                    if (request.isRpc && request.rpcRoute == route) {
+                        request.answerWith(
+                            jsonOf(
+                                ListSerializer(AuctionOfferDto.serializer()),
+                                listOf(
+                                    offer("o1", asSeller = true, declines = 1),
+                                    offer(
+                                        "o2",
+                                        status = AuctionOfferStatus.DECLINED,
+                                        asSeller = true,
+                                        buyerBlockedUntil = LocalDateTime(2099, 1, 8, 10, 0),
+                                    ),
+                                ),
+                            ),
+                        )
+                    } else {
+                        request.answerWith("[]")
+                    }
+                },
+            ) { _ ->
+                mountedForm("offer-seller-restrictions") { root, element ->
+                    renderAuctionCard(root, auction(seller = true, openForSeller = 3, maxOpen = 10), "member-1") {}
+                    val card = element()
+                    assertTrue(card.shows("Offene Preisvorschläge: 3 von 10"))
+                    card.buttonNamed("Preisvorschläge anzeigen").click()
+                    awaitUntil("the list") { card.shows("Bea Käuferin") }
+                    assertTrue(card.shows("Ablehnungen: 1 von 3"))
+                    assertTrue(card.shows("Gesperrt bis"))
+                    assertTrue(card.querySelector(".fa-lock") != null)
+                }
+            }
+        }
+
+    @Test
+    fun theThirdDecline_isAnnouncedToTheSellerBeforeHeConfirms_theSecondIsNot(): Promise<Unit> =
+        formTest {
+            AppState.setSession(member)
+            val route = routeOf { rpcService<IAuctionService>().listOffersForAuction("a1") }
+            var declines = 2
+            withFetchStub(
+                respond = { request ->
+                    if (request.isRpc && request.rpcRoute == route) {
+                        request.answerWith(
+                            jsonOf(ListSerializer(AuctionOfferDto.serializer()), listOf(offer("o1", asSeller = true, declines = declines))),
+                        )
+                    } else {
+                        request.answerWith("[]")
+                    }
+                },
+            ) { _ ->
+                mountedForm("offer-third-decline") { root, element ->
+                    renderAuctionCard(root, auction(seller = true, openForSeller = 1, maxOpen = 10), "member-1") {}
+                    val card = element()
+                    card.buttonNamed("Preisvorschläge anzeigen").click()
+                    awaitUntil("the list") { card.shows("Bea Käuferin") }
+                    card.buttonNamed("Ablehnen").click()
+                    awaitUntil("the confirmation") { document.querySelector(".modal.show") != null }
+                    val dialog = document.querySelector(".modal.show") as HTMLElement
+                    assertTrue(dialog.shows("Das ist die dritte Ablehnung"))
+                    assertTrue(dialog.shows("7 Tage"))
+                }
+            }
+        }
+
+    @Test
+    fun aWithdrawalOfOwnProposal_saysThatANewOneIsPossible_unlessTheBuyerIsBlocked(): Promise<Unit> =
+        formTest {
+            AppState.setSession(member)
+            val route = routeOf { rpcService<IAuctionService>().listMyOffers() }
+            withFetchStub(
+                respond = { request ->
+                    if (request.isRpc && request.rpcRoute == route) {
+                        request.answerWith(jsonOf(ListSerializer(AuctionOfferDto.serializer()), listOf(offer("m1", amount = 3000))))
+                    } else {
+                        request.answerWith("[]")
+                    }
+                },
+            ) { _ ->
+                mountedForm("offer-withdraw-free") { root, element ->
+                    renderAuctionCard(root, auction(hasOpen = true), "member-1") {}
+                    val card = element()
+                    awaitUntil("the own proposal") { card.shows("Ihr Preisvorschlag") }
+                    card.buttonNamed("Zurückziehen").click()
+                    awaitUntil("the confirmation") { document.querySelector(".modal.show") != null }
+                    val dialog = document.querySelector(".modal.show") as HTMLElement
+                    assertTrue(dialog.shows("Sie können danach einen neuen Preisvorschlag machen."))
+                }
+            }
+        }
+
+    @Test
+    fun everyAnswerOfAnOffer_hasItsOwnText(): Promise<Unit> =
+        formTest {
+            val texts = AuctionOfferStatus.entries.map { auctionOfferAnsweredText(it) }
+            assertEquals(texts.size, texts.toSet().size, "one distinct text per answer")
+            assertTrue(auctionOfferAnsweredText(AuctionOfferStatus.WITHDRAWN).contains("zurückgezogen"))
         }
 
     @Test
@@ -252,4 +444,9 @@ class AuctionOfferDomTest {
                 assertTrue(table.shows("Zurückgezogen"))
             }
         }
+
+    private companion object {
+        const val NOTICE_TEXT =
+            "Ein Preisvorschlag bindet Sie erst, wenn der Verkäufer ihn annimmt. Er gilt höchstens bis zum Auktionsende."
+    }
 }

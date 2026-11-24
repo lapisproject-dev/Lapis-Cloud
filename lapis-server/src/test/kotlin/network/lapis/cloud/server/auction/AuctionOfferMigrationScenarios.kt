@@ -3,6 +3,7 @@ package network.lapis.cloud.server.auction
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.db.generated.AuctionOfferBuyerRestrictionTable
 import network.lapis.cloud.server.db.generated.AuctionOfferTable
 import network.lapis.cloud.server.db.generated.AuctionTable
 import network.lapis.cloud.server.gallery.GalleryFixtures
@@ -31,6 +32,7 @@ abstract class AuctionOfferMigrationScenarios(
         installLaneGuards(db = db)
         afterEach {
             transaction {
+                AuctionOfferBuyerRestrictionTable.deleteWhere { AuctionOfferBuyerRestrictionTable.auctionId inList auctions }
                 AuctionOfferTable.deleteWhere { (AuctionOfferTable.auctionId inList auctions) and (AuctionOfferTable.fromSeller eq true) }
                 AuctionOfferTable.deleteWhere { AuctionOfferTable.auctionId inList auctions }
                 AuctionTable.deleteWhere { AuctionTable.id inList auctions }
@@ -124,5 +126,64 @@ abstract class AuctionOfferMigrationScenarios(
             shouldThrow<Exception> { offerRow(a, buyer, amount = 0) }
             shouldThrow<Exception> { offerRow(a, buyer, expires = "TIMESTAMP '2025-01-01 00:00:00'") }
             listOf("ACCEPTED", "DECLINED", "COUNTERED", "EXPIRED", "WITHDRAWN").forEach { offerRow(a, buyer, status = it) }
+        }
+
+        // ── V170 (V1.9.323): the notice columns and the decline counters ───────────────────────────────────────────────
+
+        val sha = "a".repeat(64)
+
+        fun noticeRow(
+            auction: Uuid,
+            buyer: Uuid,
+            version: String,
+            lang: String,
+            hash: String,
+        ) = sql(
+            "INSERT INTO auction_offer (id, auction_id, buyer_member_id, from_seller, parent_offer_id, amount_minor, status, created_at, " +
+                "expires_at, notice_version, notice_lang, notice_sha256) " +
+                "VALUES ('${Uuid.random()}', '$auction', '$buyer', FALSE, NULL, 2000, " +
+                "'OFFERED', $ts, $later, $version, $lang, $hash)",
+        )
+
+        test(
+            "V170: rows without a notice stay valid (all three NULL); a notice needs all three parts, a known language and a 64-character hash",
+        ) {
+            val seller = fx.member(label = "seller")
+            val buyer = fx.member(label = "buyer")
+            val a = eurAuction(seller, offers = "TRUE", buyNow = "9000")
+            // the V167 shape: no notice columns at all
+            offerRow(a, buyer)
+            noticeRow(a, buyer, "'2026-11-24.v1'", "'de'", "'$sha'")
+            noticeRow(a, buyer, "'2026-11-24.v1'", "'en'", "'$sha'")
+            // mixed states and bad values are refused
+            shouldThrow<Exception> { noticeRow(a, buyer, "'2026-11-24.v1'", "NULL", "NULL") }
+            shouldThrow<Exception> { noticeRow(a, buyer, "NULL", "'de'", "'$sha'") }
+            shouldThrow<Exception> { noticeRow(a, buyer, "'2026-11-24.v1'", "'fr'", "'$sha'") }
+            shouldThrow<Exception> { noticeRow(a, buyer, "'2026-11-24.v1'", "'de'", "'${sha.dropLast(1)}'") }
+            shouldThrow<Exception> { noticeRow(a, buyer, "'2026-11-24.v1'", "'de'", "'${sha}0'") }
+        }
+
+        test("V170: the decline counter row is unique per auction and buyer, the counter stays below three, both foreign keys hold") {
+            val seller = fx.member(label = "seller")
+            val buyer = fx.member(label = "buyer")
+            val a = eurAuction(seller, offers = "TRUE", buyNow = "9000")
+
+            fun restriction(
+                auction: Any,
+                member: Any,
+                declines: Int,
+            ) = sql(
+                "INSERT INTO auction_offer_buyer_restriction " +
+                    "(id, auction_id, buyer_member_id, declines_in_cycle, blocked_until, updated_at) " +
+                    "VALUES ('${Uuid.random()}', '$auction', '$member', $declines, NULL, $ts)",
+            )
+            restriction(a, buyer, 2)
+            shouldThrow<Exception> { restriction(a, buyer, 1) }
+            val other = fx.member(label = "other")
+            restriction(a, other, 0)
+            shouldThrow<Exception> { restriction(a, fx.member(label = "third"), 3) }
+            shouldThrow<Exception> { restriction(a, fx.member(label = "fourth"), -1) }
+            shouldThrow<Exception> { restriction(Uuid.random(), fx.member(label = "fifth"), 0) }
+            shouldThrow<Exception> { restriction(a, Uuid.random(), 0) }
         }
     })
