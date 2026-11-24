@@ -1,0 +1,42 @@
+= Staging test plan: auction hints between two real servers (V1.9.322)
+:toc:
+
+== Purpose
+
+Steps c1 to c4 of the auction hint exchange are covered by unit, scenario (H2 and PostgreSQL), DOM and tripwire tests. The scenario tests run every store and the feed/pull path in **one** database and one JVM. What only two **real** servers can show: real TLS, real DNS, the real HTTP stack and clocks, the pins from a real partner poll, and the behaviour of both databases over hours. This plan is the part of the acceptance that a human must do. **It is not executed by the pipeline and it was not executed by the author of the wave.** Until somebody has run it, the sentence "tested against a real partner" must not be written anywhere.
+
+WARNING: Run it on **staging servers only**, never on a production instance (PdV, ELB, Apolda). The feature is off by default and has not been legally reviewed.
+
+== Set-up
+
+. Two servers, **A** and **B**, both on the same version (V1.9.322 or newer), each with its own database, a real hostname and a valid certificate, `LAPIS_SECRET_ENCRYPTION_KEY` set, and an ADMIN account.
+. On each: the auction module and the Euro module on; at least two ACTIVE members (A1, A2 and B1, B2), one guest, one friend. A1 owns an open euro auction with a presentable title and at least 3 hours left.
+. A way to see the database (`psql`) and the logs of both servers. A second channel (phone) between the two administrators.
+. A partner pair "A and B", not yet added to each other. The exchange is off on both.
+
+== Steps
+
+[cols="1,4,4",options="header"]
+|===
+| # | Action | Expected
+| 1 | On A: add B as partner. On B: add A. Compare the fingerprints of the pinned keys by phone | the numbers match the other server's own key
+| 2 | Both switches off (instance and partner). A1 tries to give the consent | the consent box says that sharing is not possible; `SELECT federation_opt_in FROM auction` stays false
+| 3 | On both: switch the instance on (hop limit 1). On A: share auctions with B. A1 gives the consent | no hint on B yet (B has not allowed A); `auction_received_hint` on B is empty
+| 4 | On B: allow auctions from A. Wait one pull tick | the pull state is READY; B1 (active) sees the auction in "Auktionen von Partnerservern" with host A, price and age; the guest and the friend see no section
+| 5 | On B read `SELECT teaser_id, origin_host, hops FROM auction_received_hint` | exactly one row, hops 1, origin host A; no member, no description, no payment data
+| 6 | B switches the auction module off, then on again | B shows nothing while it is off (the display needs both switches)
+| 7 | B2 bids on A (through A's own site). Look at B within 30 minutes, then after 31 minutes and one pull | B still shows the old price, afterwards the new one; the price age is shown
+| 8 | On A: Sofortkauf of the auction | after the next pull the hint is gone at B; a tombstone row exists on A
+| 9 | A1 shares a second auction; on B the administrator hides the hint | the hint is gone on B and does not come back after a pull; A learns nothing; the audit entry holds host and id, no amount
+| 10 | On A: switch the partner switch for B off | B's copies are gone after one pull; a tombstone scoped to B exists on A
+| 11 | Rotate A's signing key | B shows "key changed", stops pulling and drops the hints; after the fingerprint check by phone B pulls again
+| 12 | A1 switches a shared auction from EUR to LTR (before the first bid) | the hint is withdrawn at once; the consent is gone; switching back does not share again
+| 13 | GDPR: export the data of A1; then erase A1 (member with a shared auction) | the export shows `sharedWithPartnerServers=true`; after the erasure the hint is gone at B after one pull, `federation_opt_in` is false, the auction row is retained
+| 14 | Backup on A, A1 shares another auction, then restore the backup on a fresh instance A' with A's hostname (or on A with the allow-non-empty option) | the exchange is off on A', no consent stands, an audit entry `AUCTION_RESET_BY_RESTORE` exists; B drops the hint of the old state after its next pull (a trailing withdrawal)
+| 15 | Optional: add C as a partner of B and raise the hop limit to 2 on B | C shows the hint with hops 2 and host A; the withdrawal at A reaches C through B within about an hour (24 hours worst case)
+| 16 | Read the logs of both servers for the whole test | no hint id, no title, no amount, no key and no signature in any line
+|===
+
+== Evidence to attach
+
+The date and the versions of both servers, the database queries used, the fingerprints compared, and for each failed step the log excerpt. A step that was not run must be marked "not run", never "ok".

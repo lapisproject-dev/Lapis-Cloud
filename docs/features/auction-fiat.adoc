@@ -51,11 +51,11 @@ The feature needs `LAPIS_SECRET_ENCRYPTION_KEY` (the key that also protects the 
 
 == Auctions from partner servers
 
-When the administrator switches the exchange on and the auction module is on, an active member sees below the own list a section "Auktionen von Partnerservern": short hints of auctions that partner servers offer (title, price with its age, Sofortkauf price, end, the badge "Preisvorschlag möglich"). A card has one link that opens the auction on the offering server; **bidding and buying are only possible there**, never here. The card carries the host of the offering server first; the price of a running auction is refreshed at most every 30 minutes and its age is shown. A hint disappears at the moment its auction ends. Guests, friends and donors do not see the section. An administrator can hide a hint; it then does not come back, also not if the partner server reports it again. The feature is off by default and has not been legally reviewed.
+When the administrator switches the exchange on and the auction module is on, an active member sees below the own list a section "Auktionen von Partnerservern": short hints of auctions that partner servers offer (title, price with its age, Sofortkauf price, end, the badge "Preisvorschlag möglich"). A card has one link that opens the auction on the offering server; **bidding and buying are only possible there**, never here. The card carries the host of the offering server first; the price of a running auction is refreshed at most every 30 minutes and its age is shown. A hint disappears at the moment its auction ends. Guests, friends and donors do not see the section. An administrator can hide a hint; it then does not come back, also not if the partner server reports it again. The feature is off by default and has not been legally reviewed. Operators: see xref:auction-federation-runbook.adoc[the runbook].
 
 == Data protection
 
-The payment details of the seller are deleted at once when the auction closes without a sale, 30 days after the later confirmation, 180 days after the award if it never completes, and when the seller is erased. They are in no list, no audit entry and no log. See xref:../architecture/dsgvo.adoc[dsgvo.adoc].
+The payment details of the seller are deleted at once when the auction closes without a sale, 30 days after the later confirmation, 180 days after the award if it never completes, and when the seller is erased. They are in no list, no audit entry and no log. A seller's consent to show an auction to partner servers is part of his data export; when he is erased, his hints are withdrawn from the partners first and the consent ends. See xref:../architecture/dsgvo.adoc[dsgvo.adoc].
 
 == Limits
 

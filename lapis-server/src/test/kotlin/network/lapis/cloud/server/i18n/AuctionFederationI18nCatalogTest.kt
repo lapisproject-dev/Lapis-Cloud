@@ -21,6 +21,12 @@ class AuctionFederationI18nCatalogTest :
                 "PartnerServersScreen.kt",
                 // V1.9.322 c3: the receiving side
                 "PartnerAuctionHintsUi.kt",
+                // V1.9.322 c4: the files that carry the badge (c2), the focused card (c2/c3), the audit label (c1) and the typed refusals (c2)
+                "AuctionCard.kt",
+                "AuctionScreen.kt",
+                "ComplianceLabels.kt",
+                "AuditLogScreen.kt",
+                "AppState.kt",
             )
         val expected =
             listOf(
@@ -79,6 +85,8 @@ class AuctionFederationI18nCatalogTest :
                 "Preisstand ungültig: %1",
                 "Ältere Fassung wiedereingespielt: %1",
                 "Inhalt bei gleicher Fassung verändert: %1",
+                // V1.9.322 c1: the audit label of a feed request (ComplianceLabels.kt)
+                "Auktionshinweise abgerufen",
             )
         val plurals =
             mapOf(

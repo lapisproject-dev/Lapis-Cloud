@@ -70,6 +70,11 @@ class AuctionFederationTripwireTest :
                         Regex("""AuctionFederationStore\s*\.\s*resetAfterRestore""").containsMatchIn(SourceScan.blank(it.readText()))
                     }.map { it.name }
             callers shouldBe listOf("OrganizationRestoreService.kt")
+            // c4-b: the same for the tombstones that tell the partners about a restore
+            main
+                .filter { it.name != "AuctionFederationStore.kt" }
+                .filter { Regex("""withdrawAfterRestore""").containsMatchIn(SourceScan.blank(it.readText())) }
+                .map { it.name } shouldBe listOf("OrganizationRestoreService.kt")
         }
 
         test("(d) no log line in the federation package names a title, a price or a hint id") {
@@ -262,6 +267,8 @@ class AuctionFederationTripwireTest :
                             "AuctionTeaserFeedBuilder.kt",
                             // c3: the pull tick runs the same bounded consent sweep as the feed build.
                             "AuctionPullPoller.kt",
+                            // c4: the GDPR erasure of a seller withdraws his hints first.
+                            "AuctionPersonalData.kt",
                         )
                 }.filter { Regex("""AuctionWithdrawals\s*\.""").containsMatchIn(it.code()) }
                 .map { it.name }
@@ -451,5 +458,87 @@ class AuctionFederationTripwireTest :
             val code = main.single { it.name == "AuctionReceivedStore.kt" }.code()
             val del = bodyOf(code, "clearWithdrawnBlock")
             del.contains("KIND_WITHDRAWN") shouldBe true
+        }
+
+        test("(c4-a) the GDPR erasure of a member withdraws his shared hints BEFORE any row of the member is changed") {
+            val code = main.single { it.name == "AuctionPersonalData.kt" }.code()
+            val body = bodyOf(code, "eraseMember")
+            val first = body.indexOf("AuctionWithdrawals.onSellerErased")
+            (first >= 0) shouldBe true
+            listOf("deleteWhere", ".update(", "AuctionTable.update").forEach { call ->
+                val at = body.indexOf(call)
+                if (at >= 0) (first < at) shouldBe true
+            }
+        }
+
+        test("(c4-c) the member-exit sweep filters the seller in the database (join), not after a limited scan") {
+            val body = bodyOf(main.single { it.name == "AuctionFederationStore.kt" }.code(), "optedInNoLongerShareable")
+            body.contains("MemberTable") shouldBe true
+            body.contains("JoinType.INNER") shouldBe true
+            // the old shape: a limited scan of open auctions followed by an in-memory filter on active sellers
+            body.contains("activeSellers(") shouldBe false
+        }
+
+        test("(c4-d) only AuctionFederationStore touches the snapshot table (insert, update, delete)") {
+            main
+                .filter { it.name != "AuctionFederationStore.kt" && it.name != "AuctionTeaserSnapshotTable.kt" }
+                .filter { Regex("""AuctionTeaserSnapshotTable\b""").containsMatchIn(it.code()) }
+                .map { it.name }
+                .filter { it != "OrganizationSchemaCatalog.kt" }
+                .shouldBeEmpty()
+        }
+
+        test("(c4-e) no audit snapshot of the federation code carries an amount") {
+            val sinks = Regex("""(PartnerAuditSnapshot|AuctionFederationFeedAuditSnapshot|AuctionFiatAuditSnapshot)\s*\(([^)]*)\)""")
+            val amount = Regex("""price|Minor|buyNow|amount""", RegexOption.IGNORE_CASE)
+            val files =
+                main.filter {
+                    it.inFederationPackage() ||
+                        it.name in setOf("AuctionService.kt", "PartnerServerService.kt", "AuctionTeaserFeedRoutes.kt")
+                }
+            // Only the federation package and the two partner/feed audit types are scanned for amounts: a fiat audit in AuctionService
+            // legitimately carries the currency and the status, never an amount either.
+            files
+                .flatMap { f -> sinks.findAll(f.code()).map { f.name to it.groupValues[2] }.toList() }
+                .filter { (_, args) -> amount.containsMatchIn(args) }
+                .shouldBeEmpty()
+        }
+
+        test("(c4-f) everything is off by default: V169 pins DEFAULT FALSE, hop limit 1, range 1..2, and the code caps at 2") {
+            val sql =
+                SourceScan
+                    .mainRoot()
+                    .parentFile
+                    .resolve("resources/db/migration")
+                    .listFiles()!!
+                    .single {
+                        it.name.startsWith("V169__")
+                    }.readText()
+            Regex(
+                """auction_federation_enabled\s+BOOLEAN\s+NOT NULL\s+DEFAULT\s+FALSE""",
+                RegexOption.IGNORE_CASE,
+            ).containsMatchIn(sql) shouldBe
+                true
+            Regex("""federation_opt_in\s+BOOLEAN\s+NOT NULL\s+DEFAULT\s+FALSE""", RegexOption.IGNORE_CASE).containsMatchIn(sql) shouldBe
+                true
+            Regex("""auction_sharing\s+BOOLEAN\s+NOT NULL\s+DEFAULT\s+FALSE""", RegexOption.IGNORE_CASE).containsMatchIn(sql) shouldBe true
+            Regex("""DEFAULT\s+1\b""").containsMatchIn(sql) shouldBe true
+            Regex("""BETWEEN\s+1\s+AND\s+2""", RegexOption.IGNORE_CASE).containsMatchIn(sql) shouldBe true
+            network.lapis.cloud.shared.domain.AuctionFederationLimits.MAX_HOPS shouldBe 2
+        }
+
+        test("(c4-g) no federation route is mounted under /api/public or /api/embed, and the application mounts the feed route") {
+            val app = main.single { it.name == "Application.kt" }.code()
+            app.contains("registerAuctionTeaserFeedRoutes") shouldBe true
+            main
+                .filter { Regex("""auction-feed""").containsMatchIn(it.readText()) }
+                .filter { Regex("""/api/(public|embed)[^"]*auction-feed""").containsMatchIn(it.readText()) }
+                .map { it.name }
+                .shouldBeEmpty()
+        }
+
+        test("(c4-h) a received hint in LTR is refused twice: by the validator and again when the members are served") {
+            main.single { it.name == "AuctionTeaserValidator.kt" }.code().contains("AuctionCurrencies.LTR") shouldBe true
+            main.single { it.name == "AuctionReceivedStore.kt" }.code().contains("AuctionCurrencies.LTR") shouldBe true
         }
     })

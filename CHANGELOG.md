@@ -6,6 +6,18 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.322 step c4 hardening (auction hints on partner servers)
+
+Hardening and documentation of the auction hint exchange. No schema change (V169 unchanged), no new capability. Off by default, not legally reviewed, not released; the legal-review gate stands.
+
+- GDPR: the export of a seller shows whether his auction is shared and since when (never to the winner); the erasure withdraws his hints first (global tombstones) and ends the consent.
+- Member exit: the consent sweep filters the seller in the database, so more than the scan limit of auctions of active sellers can no longer hide the auction of a seller who left.
+- Restore: after the reset, one global tombstone is written for every auction that was shared in the backup and is still open, so partners drop the stale copy; a stale consent moment is cleared too.
+- Retention: snapshots without consent are deleted 14 days after their last change (the revision stays monotone).
+- Tests: scenarios on H2 and PostgreSQL, a real restore run, eight new tripwires, i18n guard for the client files of c1/c2.
+- Docs: overview rewritten, staging test plan, operator runbook.
+- Not done: restore tombstones for the carpool exchange, a reporting path to the origin, clarification of Art. 26 GDPR, an end-to-end test with several independent servers.
+
 Wave V1.9.322, step c3 "receiving side" (**no schema change, stays V169**). **Off by default, not legally reviewed, the legal-review gate is not lifted.**
 
 * **Added (server):** `AuctionPullPoller` and `AuctionTeaserFeedClient` (pull of the auction feed of direct partners, signed over the auction path, same SSRF chain as the carpool client); `AuctionTeaserFeedReader` (own strict Json, key sets checked before the decode: an unknown field is `UNKNOWN_FIELD` and never stored, hop limit applied on receipt); `AuctionTeaserValidator` (the content rules in one place, also applied by the feed builder before it signs); `AuctionReceivedStore` (the only reader and writer of the received tables: signature against the pinned key, `REPLAY`/`TAMPER`/newer revision, caps without displacement, `WITHDRAWN` and final `HIDDEN` blocks, pass-on of withdrawals, relay with hop limit 2, retention, staleness); the pull state of `PartnerServerStore` (`dueForAuctionPull`, `recordAuctionPullSuccess/Failure`, `resetAuctionPull`, `clearAuctionPullEtag`); relay items and pass-on tombstones in the feed builder; the housekeeping of the pull tick also deletes expired own tombstones (nobody did before). RPC `listPartnerAuctionHints` (ACTIVE member, empty while a switch is off) and `hidePartnerAuctionHint` (ADMIN, audited without title and amount); `AuctionFederationAvailabilityDto.partnerHintsVisible`.

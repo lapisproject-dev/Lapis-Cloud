@@ -131,6 +131,8 @@ internal class AuctionPullPoller(
                 .onFailure { logger.warn { "AuctionPullPoller: expired sweep failed (${it::class.simpleName})" } }
             runCatching { transaction { AuctionFederationStore.deleteExpiredTombstones(now = now, limit = EXPIRED_SWEEP_LIMIT) } }
                 .onFailure { logger.warn { "AuctionPullPoller: tombstone sweep failed (${it::class.simpleName})" } }
+            runCatching { transaction { AuctionFederationStore.deleteStaleSnapshots(now = now, limit = EXPIRED_SWEEP_LIMIT) } }
+                .onFailure { logger.warn { "AuctionPullPoller: snapshot sweep failed (${it::class.simpleName})" } }
             runCatching { transaction { AuctionReceivedStore.dropStale(now) } }
                 .onFailure { logger.warn { "AuctionPullPoller: stale sweep failed (${it::class.simpleName})" } }
             runCatching {

@@ -65,7 +65,9 @@ class CarpoolFederationTripwireTest :
                             // the writer monopoly of that column is pinned by AuctionFederationTripwireTest (a).
                             it.name != "AuctionService.kt" &&
                             it.name != "AuctionTeaserFeedBuilder.kt" &&
-                            it.name != "AuctionWithdrawals.kt"
+                            it.name != "AuctionWithdrawals.kt" &&
+                            // V1.9.322 (c4): the GDPR export reads the consent of the seller.
+                            it.name != "AuctionPersonalData.kt"
                     }.filter { Regex("""\bfederationOptIn\b""").containsMatchIn(SourceScan.blank(it.readText())) }
                     .map { it.name }
                     .toSet()

@@ -3,6 +3,8 @@ package network.lapis.cloud.server.dsgvo
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import network.lapis.cloud.server.auction.federation.AuctionWithdrawals
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AuctionBidTable
 import network.lapis.cloud.server.db.generated.AuctionComplianceAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.AuctionFiatAcknowledgmentTable
@@ -51,6 +53,11 @@ import kotlin.uuid.Uuid
  * amounts and status. On erasure the negotiation chains of the member as BUYER that did NOT lead to an award (no ACCEPTED row in the chain) are
  * deleted -- they are only useful while the auction runs. A chain with an ACCEPTED offer is the proof of the purchase price of a shared
  * transaction record and is retained like the auction itself; offers on auctions the member only SOLD belong to the buyers' records and stay.
+ *
+ * **V1.9.322 federation (c4).** The seller's consent to share the hint with partner servers (`federation_opt_in`/`_at`) is part of the export
+ * (`auctionsSold` only, never the winner's `auctionsWon`). On erasure [AuctionWithdrawals.onSellerErased] runs FIRST (before any row of the member
+ * changes): the hints are withdrawn for everybody (global tombstones) and the consent ends, because the auction row itself is retained. The
+ * federation tables (`auction_teaser_*`) carry no member FK and are therefore not listed in [coveredTables].
  */
 object AuctionPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "auction"
@@ -71,7 +78,7 @@ object AuctionPersonalData : MemberPersonalDataContributor {
                 AuctionTable
                     .selectAll()
                     .where { AuctionTable.sellerMemberId eq memberId }
-                    .forEach { row -> add(auctionSummaryJson(row)) }
+                    .forEach { row -> add(soldAuctionJson(row)) }
             }
             putJsonArray("auctionsWon") {
                 AuctionTable
@@ -171,6 +178,9 @@ object AuctionPersonalData : MemberPersonalDataContributor {
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {
+        // V1.9.322 c4: FIRST withdraw every hint this member shared with partner servers and end the consent (the auction row is retained, the
+        // consent must not outlive the erasure). Before any row of the member is changed; the member row lock is held by the caller.
+        AuctionWithdrawals.onSellerErased(memberId = memberId, now = DbClock.nowLocalDateTime())
         val auctionCondition = (AuctionTable.sellerMemberId eq memberId) or (AuctionTable.winnerMemberId eq memberId)
         val auctionCount = AuctionTable.selectAll().where { auctionCondition }.count()
 
@@ -266,15 +276,24 @@ object AuctionPersonalData : MemberPersonalDataContributor {
     }
 }
 
-private fun auctionSummaryJson(row: ResultRow) =
+/** The seller's own view: the summary plus whether (and since when) the hint is shared with partner servers. Never shown to the winner. */
+private fun soldAuctionJson(row: ResultRow) =
     buildJsonObject {
-        put("id", row[AuctionTable.id].toString())
-        put("title", row[AuctionTable.title])
-        put("status", row[AuctionTable.status].name)
-        put("sellerMemberId", row[AuctionTable.sellerMemberId].toString())
-        put("winnerMemberId", row[AuctionTable.winnerMemberId]?.toString())
-        put("finalPriceLtr", row[AuctionTable.finalPriceLtr]?.toPlainString())
-        put("currency", row[AuctionTable.currency])
-        put("finalPriceMinor", row[AuctionTable.finalPriceMinor])
-        put("createdAt", row[AuctionTable.createdAt].toString())
+        auctionSummaryFields(row)
+        put("sharedWithPartnerServers", row[AuctionTable.federationOptIn])
+        put("sharedWithPartnerServersSince", row[AuctionTable.federationOptInAt]?.toString())
     }
+
+private fun auctionSummaryJson(row: ResultRow) = buildJsonObject { auctionSummaryFields(row) }
+
+private fun kotlinx.serialization.json.JsonObjectBuilder.auctionSummaryFields(row: ResultRow) {
+    put("id", row[AuctionTable.id].toString())
+    put("title", row[AuctionTable.title])
+    put("status", row[AuctionTable.status].name)
+    put("sellerMemberId", row[AuctionTable.sellerMemberId].toString())
+    put("winnerMemberId", row[AuctionTable.winnerMemberId]?.toString())
+    put("finalPriceLtr", row[AuctionTable.finalPriceLtr]?.toPlainString())
+    put("currency", row[AuctionTable.currency])
+    put("finalPriceMinor", row[AuctionTable.finalPriceMinor])
+    put("createdAt", row[AuctionTable.createdAt].toString())
+}

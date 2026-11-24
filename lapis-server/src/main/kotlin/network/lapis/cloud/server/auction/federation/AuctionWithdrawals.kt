@@ -68,6 +68,28 @@ internal object AuctionWithdrawals {
         )
     }
 
+    /**
+     * GDPR erasure: withdraw every shared hint of the seller for everybody and end the consent. Runs BEFORE any row of the member is changed; the
+     * caller holds the member row lock (member before auction rows). The auction row is retained, so the consent must end here (unlike carpool).
+     * @return the number of auctions that carried a consent.
+     */
+    fun onSellerErased(
+        memberId: Uuid,
+        now: LocalDateTime,
+    ): Int {
+        val locked = AuctionFederationStore.lockOptedInTargetsOfSeller(memberId)
+        if (locked.isEmpty()) return 0
+        AuctionFederationStore.withdraw(
+            targets = locked,
+            partnerId = null,
+            ids = AuctionFederationKey.current(),
+            now = now,
+            clearOptIn = true,
+            requireServed = true,
+        )
+        return locked.size
+    }
+
     /** The auction module or the Euro module went off: every shared hint is withdrawn for everybody, the consents stay. */
     fun onModuleOff(now: LocalDateTime) = withdrawAllShared(partnerId = null, now = now)
 

@@ -20,9 +20,11 @@ import network.lapis.cloud.shared.domain.AuctionStatus
 import network.lapis.cloud.shared.domain.AuctionTeaserPriceKind
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.PartnerAuditKind
 import network.lapis.cloud.shared.domain.PartnerAuditSnapshot
+import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -32,6 +34,7 @@ import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.or
@@ -93,6 +96,9 @@ internal object AuctionTeaserTombstonePolicy {
     const val MAX_WITHDRAWN = 1000
     const val WITHDRAWN_SCAN_LIMIT = 5000
     const val MAX_LAZY_SWEEP_PER_BUILD = 50
+
+    /** A snapshot without consent is kept this long (= the longest tombstone life), then it is deleted. The revision stays monotone (epoch based). */
+    const val SNAPSHOT_RETENTION_DAYS = TTL_DAYS
 
     /** `min(createdAt + 14 days, endsAt + 2 days)`. A partner never needs the tombstone longer than it may hold the hint (it drops it at the end anyway). */
     fun expiresAt(
@@ -403,24 +409,38 @@ internal object AuctionFederationStore {
                 }.orderBy(AuctionTable.id to SortOrder.ASC)
                 .limit(limit)
                 .toList()
+        // One query with a join (no starvation: the filter on the seller runs in the database, BEFORE the limit). The FK
+        // `auction.seller_member_id -> member.id` is NOT NULL, so a seller row that is gone cannot exist; no left join needed.
+        val inactiveStatuses = MemberStatus.entries.filter { it !in MemberStatusSets.ORGANIZATION_MEMBER }
         val inactiveSeller =
             AuctionTable
-                .selectAll()
+                .join(MemberTable, JoinType.INNER, AuctionTable.sellerMemberId, MemberTable.id)
+                .select(AuctionTable.id, AuctionTable.endsAt)
                 .where {
                     (AuctionTable.federationOptIn eq true) and (AuctionTable.status eq AuctionStatus.OPEN) and
-                        (AuctionTable.endsAt greater now)
+                        (AuctionTable.endsAt greater now) and
+                        ((MemberTable.status inList inactiveStatuses) or MemberTable.anonymizedAt.isNotNull())
                 }.orderBy(AuctionTable.id to SortOrder.ASC)
                 .limit(limit)
-                .toList()
-                .let { open ->
-                    val active = activeSellers(open.map { it[AuctionTable.sellerMemberId] })
-                    open.filter { it[AuctionTable.sellerMemberId] !in active }
-                }
-        return (rows + inactiveSeller)
-            .distinctBy { it[AuctionTable.id] }
-            .sortedBy { it[AuctionTable.id] }
+                .map { AuctionWithdrawalTarget(auctionId = it[AuctionTable.id], endsAt = it[AuctionTable.endsAt]) }
+        val ended = rows.map { AuctionWithdrawalTarget(auctionId = it[AuctionTable.id], endsAt = it[AuctionTable.endsAt]) }
+        return (ended + inactiveSeller)
+            .distinctBy { it.auctionId }
+            .sortedBy { it.auctionId }
             .take(limit)
-            .map { AuctionWithdrawalTarget(auctionId = it[AuctionTable.id], endsAt = it[AuctionTable.endsAt]) }
+    }
+
+    /**
+     * GDPR erasure (V1.9.322 c4): locks the opted-in auctions of [memberId] (ascending id, `forUpdate`) and returns them as withdrawal targets. The
+     * caller holds the member row lock (member before auction rows).
+     */
+    fun lockOptedInTargetsOfSeller(memberId: Uuid): List<AuctionWithdrawalTarget> {
+        val candidates =
+            AuctionTable
+                .select(AuctionTable.id, AuctionTable.endsAt)
+                .where { (AuctionTable.sellerMemberId eq memberId) and (AuctionTable.federationOptIn eq true) }
+                .map { AuctionWithdrawalTarget(auctionId = it[AuctionTable.id], endsAt = it[AuctionTable.endsAt]) }
+        return lockOptedIn(candidates)
     }
 
     /** Locks the given auctions (ascending id) and keeps those that STILL carry a consent. */
@@ -796,9 +816,49 @@ internal object AuctionFederationStore {
                 it[federationOptInAt] = null
             }
         }
+        // A row without consent but with a stale consent moment (a manipulated or older backup): the moment goes as well.
+        AuctionTable.update({ AuctionTable.federationOptInAt.isNotNull() }) { it[federationOptInAt] = null }
         if (!wasEnabled && consents == 0L) return false
         auditResetByRestore(consents = consents, now = now)
         return true
+    }
+
+    /**
+     * Called ONLY by `OrganizationRestoreService`: global tombstones for the auctions that were shared in the restored backup and are still open, so
+     * partners drop their stale copies on the next (trailing) pull. No consent is touched (already cleared at write time). Without the teaser key:
+     * nothing, returns 0. No auction row is locked: a restore runs exclusively against an empty target and nothing else writes these rows meanwhile.
+     * `requireServed = false`, because the snapshots (and the served moment) are not part of a backup.
+     */
+    fun withdrawAfterRestore(
+        targets: List<AuctionWithdrawalTarget>,
+        now: LocalDateTime,
+    ): Int {
+        if (targets.isEmpty()) return 0
+        val ids = AuctionFederationKey.current() ?: return 0
+        return withdraw(targets = targets, partnerId = null, ids = ids, now = now, clearOptIn = false, requireServed = false)
+    }
+
+    /**
+     * Deletes snapshots of auctions that carry no consent any more and whose snapshot is older than the snapshot retention (14 days = the longest
+     * tombstone life). Bounded by [limit]. Safe: the revision is epoch based (`newRevision`), a recreated snapshot never falls behind.
+     * @return rows deleted.
+     */
+    fun deleteStaleSnapshots(
+        now: LocalDateTime,
+        limit: Int,
+    ): Int {
+        require(limit > 0) { "limit must be positive" }
+        val cutoff = (now.toInstant(TimeZone.UTC) - AuctionTeaserTombstonePolicy.SNAPSHOT_RETENTION_DAYS.days).toLocalDateTime(TimeZone.UTC)
+        val ids =
+            AuctionTeaserSnapshotTable
+                .join(AuctionTable, JoinType.INNER, AuctionTeaserSnapshotTable.auctionId, AuctionTable.id)
+                .select(AuctionTeaserSnapshotTable.auctionId)
+                .where { (AuctionTable.federationOptIn eq false) and (AuctionTeaserSnapshotTable.updatedAt less cutoff) }
+                .orderBy(AuctionTeaserSnapshotTable.auctionId to SortOrder.ASC)
+                .limit(limit)
+                .map { it[AuctionTeaserSnapshotTable.auctionId] }
+        ids.chunked(CHUNK).forEach { chunk -> AuctionTeaserSnapshotTable.deleteWhere { AuctionTeaserSnapshotTable.auctionId inList chunk } }
+        return ids.size
     }
 
     /** The audit entry of [resetAfterRestore]: the number of consents cleared, nothing else (no auction id, no title, no amount). */

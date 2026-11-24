@@ -231,11 +231,11 @@ object PersonalDataRegistry {
             "auction_teaser_snapshot" to
                 "The last published state of a shared auction: the keyed HMAC pseudonym of the hint, a revision counter " +
                 "and the shown price. " +
-                "No member id, no bidder, no text (see AuctionPersonalData).",
+                "No member id, no bidder, no text. A snapshot without consent is deleted 14 days after its last change (retention in AuctionPullPoller).",
             "auction_teaser_tombstone" to
                 "A withdrawn auction hint: only the keyed HMAC pseudonym (not derivable or linkable without the server " +
                 "key), the partner scope and a short life. No member id, no auction id, no title, no amount. " +
-                "Written before the auction is erased (see AuctionPersonalData).",
+                "Written FIRST when a seller is erased (AuctionPersonalData.eraseMember), then the consent ends.",
             "auction_received_hint" to
                 "A pseudonymous FOREIGN auction hint (title, price, end, the HMAC pseudonym of its origin, the " +
                 "signature of the origin): no member, no bidder, no payment data, no contact. Life until the auction ends.",

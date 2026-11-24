@@ -4,7 +4,7 @@
 :toc-placement: preamble
 :icons: font
 
-WARNING: **Wave (a) "currency per auction and direct payment, including buy now in fiat" is implemented (V1.9.320, schema V166) and wave (b) "price offer" is implemented on a feature branch (V1.9.321, schema V167); everything else in this document is still concept.** Wave (c) "federation visibility" is implemented up to step c3 (origin side and receiving side: consent, signed feed, withdrawal, landing route, pull, verification, display, hiding, relay; schema V169, see link:auction-federation.adoc[Auction hints on partner servers]); c4 (restore, GDPR, exit, hardening) is not. The feature is **off by default** (instance switch) and **has not been legally reviewed**. **Nothing in it is legal advice and nothing has been reviewed by a lawyer.** Every legal statement below is a question for a lawyer, not a finding. The first country is **Germany**.
+WARNING: **Wave (a) "currency per auction and direct payment, including buy now in fiat" is implemented (V1.9.320, schema V166) and wave (b) "price offer" is implemented on a feature branch (V1.9.321, schema V167); everything else in this document is still concept.** Wave (c) "federation visibility" is implemented up to step c4 (origin side and receiving side: consent, signed feed, withdrawal, landing route, pull, verification, display, hiding, relay, restore, GDPR export and erasure, member exit, retention, staging notes; schema V169, see link:auction-federation.adoc[Auction hints on partner servers]). The legal-review gate is NOT lifted. The feature is **off by default** (instance switch) and **has not been legally reviewed**. **Nothing in it is legal advice and nothing has been reviewed by a lawyer.** Every legal statement below is a question for a lawyer, not a finding. The first country is **Germany**.
 
 == Decisions taken
 
@@ -146,7 +146,7 @@ Template: the carpool exchange (`carpool-federation.adoc`): a signed teaser feed
 
 . Currency per auction and the direct-payment flow, including buy now in fiat. **Done (V1.9.320), behind the instance switch, not legally reviewed.**
 . Price offer. **Implemented on a feature branch (V1.9.321), opt-in per auction, not legally reviewed. The legal-review gate below was NOT lifted by this change: the project owner has to decide before a release whether wave (b) may ship ahead of the review.**
-. Visibility in the federation (carpool pattern). **Origin side (c2) and receiving side (c3) implemented on a feature branch, off by default, not legally reviewed; the legal-review gate is not lifted.**
+. Visibility in the federation (carpool pattern). **Steps c1 to c4 implemented, off by default, not legally reviewed, not released; the legal-review gate is not lifted.**
 . Tenders analogously.
 
 Wave (a) went ahead before the legal review as an opt-in, off by default and limited to a pilot (EUR, Germany, at most 100,000.00 EUR per auction); the operator and seller notices say so and recommend a lawyer. The other waves are not started before the legal review of the open questions.

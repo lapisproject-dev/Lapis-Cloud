@@ -1,0 +1,46 @@
+= Operator runbook: auction hints on partner servers
+:toc:
+
+== 0. Before you start
+
+WARNING: The exchange is **off by default, not legally reviewed and not released**. A lawyer has to clarify the open questions first: distance-selling rules, joint controllership between the organisations (Art. 26 GDPR) and the platform liability for foreign hints. **Nothing here is legal advice. Do not switch it on in production.** Use staging only (see xref:../architecture/auction-federation-staging-test.adoc[the staging test plan]).
+
+What leaves your server: for an auction the seller chose to share, one short hint (title, price, end, buy-now price, "offers possible"), signed with a pseudonymous id. Never the seller, a bidder, a bid, an offer, payment data, a description or a URL. LTR auctions are never shared. Bidding and buying happen on your server only.
+
+Needed: the auction module and the Euro module on, a stable `LAPIS_SECRET_ENCRYPTION_KEY` (it derives the pseudonymous ids and signs nothing else; changing it makes every id new), a valid certificate and a real hostname.
+
+== 1. Switch the exchange on (instance)
+
+Administration, partner servers, "Auktionen auf Partnerservern": switch the instance on and choose the hop limit (1 or 2, default 1). Both modules must be on, otherwise the exchange stays silent.
+
+== 2. Partners
+
+Add the partner and pin its key (compare the fingerprint with the other administrator by phone). Switch "Auktionen teilen" on for that partner to hand out hints; the other side has to allow you in return. Receiving needs only the instance switch and the auction module.
+
+== 3. Members
+
+An ACTIVE seller gives the consent per auction (euro only, still open, at least a few hours left, a presentable title). Only active members of the receiving server see hints. The consent ends with the auction, with a switch to LTR, with the erasure of the seller and when the seller leaves.
+
+== 4. Emergency stop
+
+Switch the instance off: every shared hint is withdrawn for every partner at once; consents stay. Switch one partner off: its hints are withdrawn for that partner only.
+
+== 5. A hostile or misbehaving partner
+
+Switch the partner off (its copies are deleted at once), hide single hints, or remove the partner. Hidden hints do not come back.
+
+== 6. A key changed
+
+A partner whose signing key changed is held back: no pull until you compare the new fingerprint with its administrator and accept it.
+
+== 7. Backup and restore
+
+A backup keeps the consents, a restore never does: the exchange is switched off and every consent cleared. For every auction that was shared in the backup and is still open, your server writes a withdrawal so the partners drop the stale copy on their next pull. After a restore, ask the sellers to give the consent again.
+
+== 8. GDPR requests
+
+The export of a seller shows whether his auction was shared and since when. An erasure withdraws his hints first and ends the consent; the auction row is kept. The retention is 14 days for snapshots without consent and `min(14 days, end + 2 days)` for withdrawals.
+
+== 9. Monitoring
+
+The partner page shows the pull state, the number of received hints, rejected hints with their causes, and the number of hints currently shared. Logs contain counts and class names only, never an id, a title or an amount. A counter of withdrawals that found no key (`skippedNoKey`) above zero means the encryption key was missing when a consent ended.

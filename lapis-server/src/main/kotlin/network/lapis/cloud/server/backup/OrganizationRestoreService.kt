@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.backup
 
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -7,9 +9,11 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import network.lapis.cloud.server.auction.federation.AuctionFederationStore
+import network.lapis.cloud.server.auction.federation.AuctionWithdrawalTarget
 import network.lapis.cloud.server.backup.OrganizationSchemaCatalog.TableMetadata
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.shared.domain.AuctionCurrencies
 import network.lapis.cloud.shared.domain.BackupOperationStatus
 import network.lapis.cloud.shared.domain.BackupOperationType
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -21,6 +25,9 @@ import java.sql.Connection
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
+import kotlin.uuid.Uuid
+
+private val logger = KotlinLogging.logger {}
 
 /** Thrown when a restore bundle's `formatVersion`/`schemaChecksum` does not match this server's live schema, or its structure is otherwise unreadable/incomplete. */
 class IncompatibleBundleException(
@@ -191,6 +198,8 @@ class OrganizationRestoreService(
         val auctionNeutralized =
             java.util.concurrent.atomic
                 .AtomicLong()
+        // V1.9.322 c4: the still-open auctions that were shared in the backup (partners must be told at the end of the restore).
+        val restoredConsents = RestoredAuctionConsents(restoreNow = nowLocalDateTime())
         var blobsRestored = 0
         var blobBytesRestored = 0L
         var assetsRestored = 0
@@ -261,6 +270,7 @@ class OrganizationRestoreService(
                             referencedAssetIds = referencedAssetIds,
                             carpoolNeutralized = carpoolNeutralized,
                             auctionNeutralized = auctionNeutralized,
+                            restoredConsents = restoredConsents,
                         )
                     totalRowCount += rowCount
                     restored += manifestEntry.copy(rowCount = rowCount)
@@ -304,7 +314,7 @@ class OrganizationRestoreService(
                 }
             }
             // V1.9.319 (carpool federation wave 7): consents withdrawn after the backup came back with it, their tombstones did not -- reset them.
-            // The rows are already written switched off / without consent (see `neutralizeCarpoolRow`); this is the safety net for what a
+            // The rows are already written switched off / without consent (see `neutralizeFederationRow`); this is the safety net for what a
             // non-empty target held beyond the bundle, and it keeps the audit entry when the neutralization left nothing to reset.
             val resetNow = nowLocalDateTime()
             val didReset = transaction(database) { CarpoolFederationStore.resetAfterRestore(resetNow) }
@@ -316,6 +326,8 @@ class OrganizationRestoreService(
             if (!didResetAuction && auctionNeutralized.get() > 0) {
                 transaction(database) { AuctionFederationStore.auditResetByRestore(consents = auctionNeutralized.get(), now = resetNow) }
             }
+            // V1.9.322 c4: partners still hold the hints of the old state -- one global tombstone per shared, still open auction.
+            tellPartnersAboutRestoredAuctions(consents = restoredConsents, now = resetNow)
             status = BackupOperationStatus.SUCCEEDED
         } catch (e: IncompatibleBundleException) {
             errorMessage = e.message
@@ -335,6 +347,8 @@ class OrganizationRestoreService(
                 try {
                     transaction(database) { CarpoolFederationStore.resetAfterRestore(nowLocalDateTime()) }
                     transaction(database) { AuctionFederationStore.resetAfterRestore(nowLocalDateTime()) }
+                    // Better too many withdrawals than too few.
+                    tellPartnersAboutRestoredAuctions(consents = restoredConsents, now = nowLocalDateTime())
                 } catch (resetFailure: Exception) {
                     if (errorMessage == null) throw resetFailure
                 }
@@ -403,6 +417,7 @@ class OrganizationRestoreService(
         referencedAssetIds: Map<BackupAssetKind, MutableSet<String>>,
         carpoolNeutralized: java.util.concurrent.atomic.AtomicLong,
         auctionNeutralized: java.util.concurrent.atomic.AtomicLong,
+        restoredConsents: RestoredAuctionConsents,
     ): Long {
         val assetKinds = BACKUP_ASSET_KINDS.filter { it.tableName == table.tableName }
         val digest = MessageDigest.getInstance("SHA-256")
@@ -415,11 +430,12 @@ class OrganizationRestoreService(
                         digest.update(line.toByteArray(Charsets.UTF_8))
                         digest.update(NEWLINE_BYTE)
                         val row =
-                            neutralizeCarpoolRow(
+                            neutralizeFederationRow(
                                 table = table,
                                 row = Json.parseToJsonElement(line).jsonObject,
                                 counter = carpoolNeutralized,
                                 auctionCounter = auctionNeutralized,
+                                restoredConsents = restoredConsents,
                             )
                         upsertRow(connection = connection, table = table, row = row)
                         for (kind in assetKinds) {
@@ -450,11 +466,12 @@ class OrganizationRestoreService(
      * F4: the exchange switch and the consents are written already neutral (in the SAME transaction as the row), so no partner pull can ever see the
      * restored consents -- not between two tables, not after a later table or blob failed. The content checksum is computed over the original line.
      */
-    private fun neutralizeCarpoolRow(
+    private fun neutralizeFederationRow(
         table: TableMetadata,
         row: JsonObject,
         counter: java.util.concurrent.atomic.AtomicLong,
         auctionCounter: java.util.concurrent.atomic.AtomicLong,
+        restoredConsents: RestoredAuctionConsents,
     ): JsonObject =
         when (table.tableName) {
             "organization_settings" -> {
@@ -471,7 +488,10 @@ class OrganizationRestoreService(
             }
             "auction" -> {
                 val consented = (row["federation_opt_in"] as? JsonPrimitive)?.contentOrNull == "true"
-                if (consented) auctionCounter.incrementAndGet()
+                if (consented) {
+                    auctionCounter.incrementAndGet()
+                    restoredConsents.note(row)
+                }
                 if (consented || (row["federation_opt_in_at"] != null && row["federation_opt_in_at"] != JsonNull)) {
                     JsonObject(row + mapOf("federation_opt_in" to JsonPrimitive(false), "federation_opt_in_at" to JsonNull))
                 } else {
@@ -489,6 +509,21 @@ class OrganizationRestoreService(
             }
             else -> row
         }
+
+    /** Writes the global tombstones for [consents] in their own transaction. Never throws (the restore result must not depend on it); logs a number only. */
+    private fun tellPartnersAboutRestoredAuctions(
+        consents: RestoredAuctionConsents,
+        now: LocalDateTime,
+    ) {
+        val targets = consents.targets()
+        if (targets.isEmpty()) return
+        try {
+            val written = transaction(database) { AuctionFederationStore.withdrawAfterRestore(targets = targets, now = now) }
+            logger.info { "restore: $written auction hint withdrawal(s) written${if (consents.truncated) " (list truncated)" else ""}" }
+        } catch (e: Exception) {
+            logger.warn { "restore: writing auction hint withdrawals failed (${e::class.simpleName})" }
+        }
+    }
 
     /** UPDATE-by-primary-key first, INSERT only if that matched zero rows -- a portable upsert with no `ON CONFLICT` dialect dependency, working identically on H2 and Postgres. */
     private fun upsertRow(
@@ -625,3 +660,42 @@ class OrganizationRestoreService(
 private val NEWLINE_BYTE = "\n".toByteArray(Charsets.UTF_8)
 
 private const val ASSET_WARNING_NAME_LIMIT = 120
+
+/**
+ * V1.9.322 c4: collects (id, end) of the auctions that carried a consent in the restored backup and are still open (status OPEN, Euro, end in the
+ * future). Only values of the backup's own rows are kept, so a manipulated backup cannot name foreign ids that are not its own auctions. Capped at
+ * [CAP] entries ([truncated] says so). Thread-safe.
+ */
+internal class RestoredAuctionConsents(
+    private val restoreNow: LocalDateTime,
+) {
+    private val items = java.util.concurrent.ConcurrentLinkedQueue<AuctionWithdrawalTarget>()
+    private val count =
+        java.util.concurrent.atomic
+            .AtomicInteger()
+
+    @Volatile
+    var truncated: Boolean = false
+        private set
+
+    fun note(row: JsonObject) {
+        val status = (row["status"] as? JsonPrimitive)?.contentOrNull
+        val currency = (row["currency"] as? JsonPrimitive)?.contentOrNull
+        if (status != "OPEN" || currency == AuctionCurrencies.LTR) return
+        val id = (row["id"] as? JsonPrimitive)?.contentOrNull?.let { runCatching { Uuid.parse(it) }.getOrNull() } ?: return
+        val endsAt =
+            (row["ends_at"] as? JsonPrimitive)?.contentOrNull?.let { runCatching { LocalDateTime.parse(it) }.getOrNull() } ?: return
+        if (endsAt <= restoreNow) return
+        if (count.incrementAndGet() > CAP) {
+            truncated = true
+            return
+        }
+        items.add(AuctionWithdrawalTarget(auctionId = id, endsAt = endsAt))
+    }
+
+    fun targets(): List<AuctionWithdrawalTarget> = items.toList()
+
+    companion object {
+        const val CAP = 10_000
+    }
+}

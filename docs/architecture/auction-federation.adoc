@@ -1,7 +1,7 @@
-= Auction hints on partner servers (origin side)
+= Auction hints on partner servers
 :toc:
 
-WARNING: This describes step **c2 "origin side"** of wave (c) of link:auction-fiat-and-federation.adoc[Auctions in euros]. The feed is **off by default** (instance switch, partner switch, seller consent) and **has not been legally reviewed**. Receiving hints from partners (c3) and restore, GDPR export/erasure and member exit (c4) are **not implemented yet**.
+WARNING: Status: **implemented (steps c1 to c4), off by default (instance switch, partner switch, seller consent), not legally reviewed, not released. The legal-review gate of wave (c) is NOT lifted.** Whether the organisations are joint controllers in the sense of Art. 26 GDPR is not clarified (same open question as with the carpool exchange). Staging only: see link:auction-federation-staging-test.adoc[the staging test plan] and the link:../features/auction-federation-runbook.adoc[operator runbook].
 
 == Goal
 
@@ -162,6 +162,69 @@ Hiding writes one `PARTNER_SERVER` entry `AUCTION_RECEIVED_HINT_HIDDEN` with the
 * Lowering the hop limit does not write explicit withdrawals.
 * Hidden hints are not un-hidden in this step (a hidden hint comes back only after its block ran out, which is after the auction ended).
 
-== What c3 deliberately does not do
+== Decisions of 2026-11-24
 
-No message between servers, no LTR hints, no bidding over the federation, no images. No tombstones at restore, GDPR export or erasure, member exit, no staging notes (c4). No release: the legal-review gate of wave (c) stands.
+. Euro auctions only; an LTR auction is never shared (consent, builder filter, sweep and the receiving validator all refuse it).
+. The shown price of a running auction (`CURRENT`) is refreshed at most once per 30 minutes (one revision per 30 minutes).
+. Hop limit at most 2, default 1.
+. A hint shows the badge "Preisvorschlag möglich" when price offers are possible.
+. Only active members of the receiving server see hints (guests, friends and donors do not).
+. The local administrator can hide a hint on his own server only; nothing is told to the origin.
+. Showing needs both switches: the instance switch and the auction module.
+. Everything is off by default.
+
+== Retention (c4)
+
+[cols="2,2,3",options="header"]
+|===
+| Table | Life | Deleted by
+| `auction_teaser_snapshot` | while the seller's consent stands, then 14 days after its last change | `AuctionPullPoller` tick via `deleteStaleSnapshots` (bounded); the revision stays monotone (epoch based), so a later consent never falls behind an old revision
+| `auction_teaser_tombstone` | `min(created + 14 days, end + 2 days)` | `deleteExpiredTombstones` (every tick, also with the switch off)
+| `auction_received_hint` | until the auction ends, 24 hours without a refresh | `deleteExpired`, `dropStale`
+| `auction_received_tombstone` | until two days after the end | `deleteExpired`
+|===
+
+== GDPR (c4)
+
+* *Export.* `AuctionPersonalData.exportMember` lists, for an auction the member SOLD, `sharedWithPartnerServers` and `sharedWithPartnerServersSince`. The winner's export (`auctionsWon`) does not show the seller's consent.
+* *Erasure of a seller.* `AuctionWithdrawals.onSellerErased` is the FIRST call of `eraseMember`, before any row of the member changes: the opted-in auctions of the seller are locked (the caller holds the member row lock), a global tombstone is written for every hint that was handed out, and the consent ends (the auction row itself is retained, so the consent must not outlive the erasure). Without the teaser key the consent still ends and the miss is counted.
+* *Registry.* `PersonalDataRegistry` describes the four tables; none carries a member id (the pseudonym is a keyed HMAC).
+* *Joint controllership* between the organisations (Art. 26 GDPR) is **not clarified**; the operator runbook says so.
+
+== Backup and restore (c4)
+
+* The snapshot, the received hints and the received tombstones are *not* in a backup; `auction_teaser_tombstone` is.
+* While the rows are written, `neutralizeFederationRow` switches the exchange off and clears every consent and every stale consent moment in the same transaction as the row, so no partner pull can see a restored consent.
+* The ids and ends of the auctions that carried a consent in the backup, that are still open (status `OPEN`, not LTR, end in the future), are collected (at most 10,000). After `resetAfterRestore`, `AuctionFederationStore.withdrawAfterRestore` writes ONE global tombstone for each, in its own transaction. This runs on success and also after a failed restore (better too many withdrawals than too few). Without the teaser key nothing is written.
+* The tombstone id is derived from (teaser id, scope), so a tombstone that came back with the backup is not duplicated. The audit entry `AUCTION_RESET_BY_RESTORE` carries the number of consents only.
+* An ETag that came back with the backup is handled by the poller (a `304` after a restore forgets the ETag).
+
+== Member exit (c4)
+
+The consent sweep (`AuctionWithdrawals.sweep`, run by the feed build and by the poller tick) finds consented auctions whose seller is no longer an active member (status outside the member set, or anonymized). Since c4 the filter on the seller runs in the database (a join), before the limit, so more than `limit` auctions of active sellers can no longer hide the auction of a seller who left.
+
+== Lock order
+
+[cols="1,3",options="header"]
+|===
+| Step | Rows
+| 1 | the partner row (feed route, `setPartnerAuctionSharing`)
+| 2 | the member row (`forMemberUpdate`, erasure)
+| 3 | auction rows, ascending id
+| 4 | tombstones and snapshots
+| 5 | the audit entry, always last
+|===
+
+A restore needs no auction lock: it runs exclusively against an empty target.
+
+== Known limits (c4)
+
+* The feed commits its served moment together with its body; a feed transaction that is still open while a consent is withdrawn is not seen by `requireServed`.
+* The restore withdraws at most 10,000 hints; a larger set is cut and logged as truncated.
+* The carpool restore does not write tombstones (it only resets); closing that gap is a separate wave.
+* A partner with an incomplete feed keeps a copy until the end of the auction or 24 hours without refresh.
+* Joint controllership (Art. 26 GDPR), the distance-selling rules and the platform liability for foreign hints are not clarified.
+
+== What this step does not do
+
+No new capability: no new field on the wire, no schema change (V169 unchanged), no new route, no message between servers, no LTR hints, no bidding over the federation, no images, no route from a member to the origin to report a hint. No release: the legal-review gate of wave (c) stands.
