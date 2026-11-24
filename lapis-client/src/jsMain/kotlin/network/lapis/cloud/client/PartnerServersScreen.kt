@@ -16,6 +16,7 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
+import network.lapis.cloud.shared.domain.AuctionFederationSettingsDto
 import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
 import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerBlockDto
@@ -50,8 +51,9 @@ fun renderPartnerServersScreen(container: SimplePanel) {
                 val recursion = overview?.let { guarded { service.getPartnerRecursionSettings() } }
                 val discovered = recursion?.let { guarded { service.listDiscoveredPartnerServers() } }
                 val carpool = discovered?.let { guarded { service.getCarpoolFederationSettings() } }
-                if (overview != null && recursion != null && discovered != null && carpool != null) {
-                    PartnerPageData(overview, recursion, discovered, carpool)
+                val auction = carpool?.let { guarded { service.getAuctionFederationSettings() } }
+                if (overview != null && recursion != null && discovered != null && carpool != null && auction != null) {
+                    PartnerPageData(overview, recursion, discovered, carpool, auction)
                 } else {
                     null
                 }
@@ -69,6 +71,7 @@ private data class PartnerPageData(
     val recursion: PartnerRecursionSettingsDto,
     val discovered: List<DiscoveredPartnerServerDto>,
     val carpool: CarpoolFederationSettingsDto,
+    val auction: AuctionFederationSettingsDto,
 )
 
 private fun renderPartnerServers(
@@ -80,13 +83,14 @@ private fun renderPartnerServers(
 ) {
     val overview = page.overview
     renderCarpoolExchange(panel, page.carpool, reload)
+    renderAuctionExchange(panel, page.auction, reload)
     renderAddForm(panel, savedMessage, onSaved, reload)
     panel.h2(tr("Eingetragene Partner")) { addCssClasses("h5 mt-3") }
     if (overview.partners.isEmpty()) {
         panel.p(tr("Noch kein Partner eingetragen.")) { addCssClasses("text-muted") }
     }
     val list = panel.div { setAttribute("role", "list") }
-    overview.partners.forEach { renderPartnerRow(list, it, page.carpool.enabled, reload) }
+    overview.partners.forEach { renderPartnerRow(list, it, page.carpool.enabled, page.auction.enabled, page.auction.sharedActive, reload) }
     renderHiddenSwitch(panel, overview.partnerListHidden, reload)
     renderRecursion(panel, page.recursion, page.discovered, reload)
     renderBlocklist(panel, overview.blocklist, reload)
@@ -168,6 +172,63 @@ private fun renderCarpoolExchange(
     }
 }
 
+private const val AUCTION_EXCHANGE_INFO =
+    "Mitglieder entscheiden für jede Euro-Auktion selbst, ob ein Kurzhinweis an freigegebene Partner geht: " +
+        "Titel, Preis, Ende und Sofortkaufpreis. Verkäufer, Bieter, Gebote und Zahlungsangaben werden nie weitergegeben. " +
+        "Bieten und Kaufen ist nur beim anbietenden Server möglich."
+
+/** "Auktionen auf Partnerservern": the instance switch and the reach. The partners themselves are switched in their rows below. Only the sending side exists so far. */
+private fun renderAuctionExchange(
+    panel: SimplePanel,
+    settings: AuctionFederationSettingsDto,
+    reload: () -> Unit,
+) {
+    panel.h2(tr("Auktionen auf Partnerservern")) { addCssClasses("h5 mt-1") }
+    val box = panel.vPanel(spacing = 2)
+    val toggle = box.checkBox(value = settings.enabled, label = tr("Euro-Auktionen mit freigegebenen Partnern teilen"))
+    box.div(tr(AUCTION_EXCHANGE_INFO), className = "text-muted small")
+    val reach =
+        if (PartnerServersLogic.hopSelectVisible(settings.enabled)) {
+            box.select(
+                options = listOf("1" to tr("Nur direkte Partner"), "2" to tr("Auch Partner unserer Partner")),
+                value = PartnerServersLogic.auctionHopSelection(settings.hopLimit).toString(),
+                label = tr("Reichweite"),
+            )
+        } else {
+            null
+        }
+
+    fun save(
+        enabled: Boolean,
+        hopLimit: Int,
+    ) {
+        toggle.disabled = true
+        reach?.disabled = true
+        runGuardedAction(button = null) {
+            guarded { rpcService<IPartnerServerService>().setAuctionFederationSettings(enabled = enabled, hopLimit = hopLimit) }
+            reload()
+        }
+    }
+    toggle.onClick {
+        val wanted = toggle.value == true
+        if (!wanted && PartnerServersLogic.auctionDialogNeeded(settings.sharedActive)) {
+            // The box jumps back until the person confirms (the reload after a refusal resets it as well).
+            toggle.value = true
+            confirmDialog(
+                title = tr("Auktionsaustausch ausschalten?"),
+                message = PartnerServersLogic.auctionSwitchOffText(settings.sharedActive),
+                confirmLabel = tr("Ausschalten"),
+            ) { save(enabled = false, hopLimit = settings.hopLimit) }
+        } else {
+            save(enabled = wanted, hopLimit = settings.hopLimit)
+        }
+    }
+    reach?.onEvent { change = { save(enabled = settings.enabled, hopLimit = reach.value?.toIntOrNull() ?: settings.hopLimit) } }
+    PartnerServersLogic.auctionSettingsLines(settings).forEach {
+        box.div(it, className = "text-muted small") { setAttribute("role", "status") }
+    }
+}
+
 private fun renderAddForm(
     panel: SimplePanel,
     savedMessage: String?,
@@ -215,6 +276,8 @@ private fun renderPartnerRow(
     list: Container,
     partner: PartnerServerDto,
     carpoolExchangeOn: Boolean,
+    auctionExchangeOn: Boolean,
+    auctionSharedActive: Int,
     reload: () -> Unit,
 ) {
     val row =
@@ -249,6 +312,9 @@ private fun renderPartnerRow(
         PartnerServersLogic.carpoolFeedLines(partner = partner, exchangeOn = carpoolExchangeOn).forEach {
             info.div(it, className = "text-muted small partner-carpool-feed")
         }
+        PartnerServersLogic.auctionFeedLines(partner = partner, exchangeOn = auctionExchangeOn).forEach {
+            info.div(it, className = "text-muted small partner-auction-feed")
+        }
     }
     val actions = head.div { addCssClasses("d-flex align-items-center gap-2") }
     // V1.9.319: the partner announced another signing key (or none). The exchange is paused until an administrator accepts the new key.
@@ -262,6 +328,31 @@ private fun renderPartnerRow(
             runGuardedAction(button = null) {
                 guarded { rpcService<IPartnerServerService>().setPartnerCarpoolSharing(partner.id, wanted) }
                 reload()
+            }
+        }
+    }
+    // V1.9.322: per-partner consent to exchange auction hints; only while the auction exchange is switched on.
+    if (PartnerServersLogic.auctionPartnerSharingVisible(auctionExchangeOn)) {
+        val sharing = actions.checkBox(value = partner.auctionSharing, label = tr("Auktionen teilen"))
+        sharing.onClick {
+            val wanted = sharing.value == true
+
+            fun save() {
+                sharing.disabled = true
+                runGuardedAction(button = null) {
+                    guarded { rpcService<IPartnerServerService>().setPartnerAuctionSharing(partner.id, wanted) }
+                    reload()
+                }
+            }
+            if (!wanted && PartnerServersLogic.auctionDialogNeeded(auctionSharedActive)) {
+                sharing.value = true
+                confirmDialog(
+                    title = tr("Auktionen für diesen Partner zurückziehen?"),
+                    message = PartnerServersLogic.partnerAuctionOffText(partner.host),
+                    confirmLabel = tr("Zurückziehen"),
+                ) { save() }
+            } else {
+                save()
             }
         }
     }

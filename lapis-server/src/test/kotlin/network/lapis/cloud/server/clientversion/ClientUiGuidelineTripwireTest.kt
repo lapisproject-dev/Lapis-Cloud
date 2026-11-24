@@ -916,6 +916,11 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
                 "val toggle = box.checkBox(value = settings.enabled, label = tr(\"Fahrtangebote mit freigegebenen Partnern austauschen\"))",
                 "box.select( [label \"Reichweite\"]",
                 "val sharing = actions.checkBox(value = partner.carpoolSharing, label = tr(\"Fahrten teilen\"))",
+                // Welle V1.9.322 "Auktionen auf Partnerservern" -- the same IMMEDIATE SWITCHES reason: the auction exchange switch, its reach and the
+                // "Auktionen teilen" box of a partner save themselves on change (a confirmation dialog first while auctions are shared, then the page reloads).
+                "val toggle = box.checkBox(value = settings.enabled, label = tr(\"Euro-Auktionen mit freigegebenen Partnern teilen\"))",
+                "box.select( [label \"Reichweite\"]",
+                "val sharing = actions.checkBox(value = partner.auctionSharing, label = tr(\"Auktionen teilen\"))",
             ),
         // Welle V1.9.246 "Aktionen A1" -- FILTER_IS_NOT_A_FORM: the status chips narrow the list, never submitted.
         "ActivismScreen.kt" to listOf("val box = chips.checkBox(value = status in selected, label = ActivismTexts.status(status))"),
@@ -970,7 +975,8 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
  * a checkbox whose value feeds `setEventCaptureAllowed` after the event is saved -- a genuine field, not a filter, so it cannot be justified). The new consent screen
  * (`EventCaptureConsent.kt`) and the guest page were built with the form grammar and add nothing here. 71 -> 72.
  */
-private const val R24B_REMAINING_MAX = 86 // +1 V1.9.321 (the "Preisvorschläge erlauben" tick of the euro listing form),
+private const val R24B_REMAINING_MAX = 87 // +1 V1.9.322 (the consent tick of the euro auction to partners: a genuine field),
+// +1 V1.9.321 (the "Preisvorschläge erlauben" tick of the euro listing form),
 // +2 V1.9.320 (euro auction listing form: the currency choice "Bezahlung" and the one
 // acknowledgment tick of the seller notice -- genuine fields of the same unmigrated form, answered by its own submit button),
 // +1 V1.9.294 (layout select of the recording start dialog, next to the access select that is

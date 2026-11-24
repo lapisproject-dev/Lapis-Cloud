@@ -228,6 +228,8 @@ data class AuctionFederationSettingsDto(
     val receivedAcceptedSinceStart: Long = 0,
     val hiddenActive: Int = 0,
     val serverStartedAt: kotlinx.datetime.LocalDateTime? = null,
+    /** V1.9.322 c2: how many auctions are shared with partners right now ("Derzeit geteilt: N"). */
+    val sharedActive: Int = 0,
 )
 
 @Serializable
@@ -295,3 +297,61 @@ data class AuctionFederationReachDto(
     val maxHops: Int,
     val partnersTruncated: Boolean,
 )
+
+/**
+ * V1.9.322 (step c2): THE one projection of local auction values onto the wire. The server feed AND the client preview call it (like
+ * `projectCarpoolTeaser`), so the owner sees exactly what a partner sees. Pinned by `AuctionFederationTripwireTest`.
+ */
+object AuctionTeaserProjection {
+    /** The ONE switch of the badge "Preisvorschlag möglich" (decision 2026-11-24). `false` = never sent, never previewed. */
+    const val OFFERS_BADGE_SHARED: Boolean = true
+
+    /** Preview id for the client (64 zeros). Never sent anywhere. */
+    const val PREVIEW_ID: String = "0000000000000000000000000000000000000000000000000000000000000000"
+
+    /** The ONLY producer of the wire value `offersPossible`. */
+    fun offersPossible(
+        offersEnabled: Boolean,
+        buyNowMinor: Long?,
+        fiatEnabled: Boolean,
+    ): Boolean = OFFERS_BADGE_SHARED && offersEnabled && buyNowMinor != null && fiatEnabled
+
+    /** Floors an instant to the full minute (a feed must not reveal the second of a bid). */
+    fun floorToMinute(i: Instant): Instant = Instant.fromEpochSeconds(i.epochSeconds.floorDiv(60L) * 60L)
+
+    /**
+     * `null` when the auction cannot be projected: LTR (never shared), a title that is not presentable (the caller normalises to NFC BEFORE the call),
+     * or a price outside the accepted range. A Sofortkauf price is only sent when it lies above the transferred price.
+     */
+    fun project(
+        teaserId: String,
+        revision: Long,
+        localTitle: String,
+        currency: String,
+        priceKind: AuctionTeaserPriceKind,
+        priceMinor: Long,
+        buyNowMinor: Long?,
+        offersEnabled: Boolean,
+        fiatEnabled: Boolean,
+        endsAt: Instant,
+        priceAsOf: Instant,
+    ): AuctionTeaser? {
+        if (currency !in AuctionCurrencies.SUPPORTED) return null
+        val title = AuctionTeaserRules.projectTitle(localTitle) ?: return null
+        if (priceMinor !in 1..AuctionCurrencies.MAX_MINOR) return null
+        if (!AuctionTeaser.TEASER_ID_REGEX.matches(teaserId) || revision < 1) return null
+        val buyNow = buyNowMinor?.takeIf { it > priceMinor && it <= AuctionCurrencies.MAX_MINOR }
+        return AuctionTeaser(
+            teaserId = teaserId,
+            revision = revision,
+            title = title,
+            currency = currency,
+            priceKind = priceKind,
+            priceMinor = priceMinor,
+            buyNowMinor = buyNow,
+            offersPossible = offersPossible(offersEnabled = offersEnabled, buyNowMinor = buyNow, fiatEnabled = fiatEnabled),
+            endsAt = floorToMinute(endsAt),
+            priceAsOf = floorToMinute(priceAsOf),
+        )
+    }
+}

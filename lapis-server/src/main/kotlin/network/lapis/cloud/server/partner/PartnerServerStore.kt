@@ -3,6 +3,7 @@ package network.lapis.cloud.server.partner
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toKotlinLocalDateTime
+import network.lapis.cloud.server.auction.federation.AuctionFederationStore
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
 import network.lapis.cloud.server.carpool.CarpoolReceivedStore
 import network.lapis.cloud.server.db.DbClock
@@ -78,6 +79,11 @@ internal data class PartnerRow(
     val carpoolPullEtag: String? = null,
     val carpoolPullLastAccepted: Int? = null,
     val carpoolPullLastRejected: Int? = null,
+    /** V1.9.322 (wave c, step c2): this direct partner may pull our auction hints; the feed served state (the pull state comes with c3). */
+    val auctionSharing: Boolean = false,
+    val auctionFeedServedAt: LocalDateTime? = null,
+    val auctionFeedServedCount: Long = 0,
+    val auctionFeedLastItems: Int? = null,
 )
 
 internal data class BlockRow(
@@ -178,6 +184,10 @@ internal object PartnerServerStore {
             carpoolPullEtag = this[PartnerServerTable.carpoolPullEtag],
             carpoolPullLastAccepted = this[PartnerServerTable.carpoolPullLastAccepted],
             carpoolPullLastRejected = this[PartnerServerTable.carpoolPullLastRejected],
+            auctionSharing = this[PartnerServerTable.auctionSharing],
+            auctionFeedServedAt = this[PartnerServerTable.auctionFeedServedAt],
+            auctionFeedServedCount = this[PartnerServerTable.auctionFeedServedCount],
+            auctionFeedLastItems = this[PartnerServerTable.auctionFeedLastItems],
         )
 
     /** Ordered by host IN KOTLIN: the database collation decides how `-` and `.` sort (PostgreSQL ignores punctuation at first level, H2 does not). */
@@ -694,12 +704,51 @@ internal object PartnerServerStore {
         return row
     }
 
+    /**
+     * V1.9.322 (step c2): sets the auction-exchange flag of a DIRECT partner. Returns the row as it was BEFORE (null = no such partner). The ONLY
+     * writer of `partner_server.auction_*` (pinned by `AuctionFederationTripwireTest`).
+     */
+    fun setAuctionSharing(
+        id: Uuid,
+        enabled: Boolean,
+    ): PartnerRow? {
+        val row = lockPartner(id) ?: return null
+        if (row.auctionSharing != enabled) {
+            PartnerServerTable.update({ PartnerServerTable.id eq id }) { it[auctionSharing] = enabled }
+        }
+        return row
+    }
+
+    /** V1.9.322: the latest moment any partner fetched the auction teaser feed (200 or 304), `null` when none ever did. */
+    fun latestAuctionFeedServedAt(): LocalDateTime? =
+        PartnerServerTable
+            .select(PartnerServerTable.auctionFeedServedAt)
+            .where { PartnerServerTable.auctionFeedServedAt.isNotNull() }
+            .orderBy(PartnerServerTable.auctionFeedServedAt to SortOrder.DESC)
+            .limit(1)
+            .firstOrNull()
+            ?.get(PartnerServerTable.auctionFeedServedAt)
+
+    /** V1.9.322: counts one answered auction teaser feed request (`200` or `304`); [itemCount] is `null` for a `304` (the last count stays). */
+    fun recordAuctionFeedServed(
+        id: Uuid,
+        itemCount: Int?,
+        now: LocalDateTime,
+    ) {
+        PartnerServerTable.update({ PartnerServerTable.id eq id }) {
+            it[auctionFeedServedAt] = now
+            it[auctionFeedServedCount] = PartnerServerTable.auctionFeedServedCount + 1L
+            if (itemCount != null) it[auctionFeedLastItems] = itemCount
+        }
+    }
+
     fun remove(id: Uuid): PartnerRow? {
         val row = lockPartner(id) ?: return null
         // The events of the whole sub-tree and the discovered rows follow by ON DELETE CASCADE (V132).
         PartnerEventTable.deleteWhere { PartnerEventTable.partnerServerId eq id }
         // V1.9.313: the tombstones scoped to this partner go explicitly (independent of the foreign key's ON DELETE rule).
         CarpoolFederationStore.deletePartnerTombstones(id)
+        AuctionFederationStore.deletePartnerTombstones(id)
         // V1.9.314: the hints received from this partner go too (reported as withdrawn when they could have been handed on), explicitly and BEFORE the
         // row, independent of the foreign key's ON DELETE rule. The partner row is already locked by the caller's read order (partner first).
         CarpoolReceivedStore.dropFromSource(sourceId = id, now = DbClock.nowLocalDateTime())

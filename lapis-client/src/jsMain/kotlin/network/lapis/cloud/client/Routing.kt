@@ -237,6 +237,12 @@ object Routes {
     // `auctionEnabled` gate"), since it is the only path an ADMIN has to switch the feature back on.
     const val AUCTION = "/auction"
 
+    /**
+     * V1.9.322 (Fiat wave c, step c2): the landing page of a partner hint link (`#/auction/hint/<64 hex>`), `requireAuth` like [AUCTION]. A visitor who is
+     * not signed in has the validated id remembered (see `AuctionHintScreen.kt`) and returns here after the login. Not in the navigation.
+     */
+    const val AUCTION_HINT = "/auction/hint/:id"
+
     // LTR-Wirtschaft UI wave, screen 4 of 5 -- "Politiker" (`IPoliticianService`, self-contained
     // domain: politician profiles, member+guest Like/Dislike ranking, BOARD/ADMIN grant/revoke/
     // mandate-text administration, weight snapshots) plus a small ADMIN-only inline toggle for
@@ -871,7 +877,7 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.LOGIN) {
         if (AppState.isAuthenticated) {
             // V1.9.89: an already signed-in caller who followed an OAuth authorize link goes on to the consent page.
-            if (!continueToReturnTo() && !continueToRoomPollViewer()) routing.navigate(Routes.DASHBOARD)
+            if (!continueToReturnTo() && !continueToRoomPollViewer() && !continueToAuctionHint()) routing.navigate(Routes.DASHBOARD)
         } else {
             show(Routes.LOGIN, ::renderLoginScreen)
         }
@@ -1163,6 +1169,16 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.AUCTION) {
         requireAuth(routing) { show(Routes.AUCTION, ::renderAuctionScreen) }
+    }
+    // V1.9.322: the id is read off Navigo's own `Match.data`; a visitor who is not signed in comes back after the login (narrow sessionStorage return).
+    routing.kvOn(Routes.AUCTION_HINT) { params ->
+        val id = params.asDynamic().data.id as? String
+        if (!AppState.isAuthenticated) {
+            rememberAuctionHintReturn(id)
+            routing.navigate(Routes.LOGIN)
+        } else {
+            show(Routes.AUCTION_HINT) { container -> renderAuctionHintScreen(container, id) }
+        }
     }
     routing.kvOn(Routes.POLITICIANS) {
         requireAuth(routing) { show(Routes.POLITICIANS, ::renderPoliticianScreen) }
@@ -1515,14 +1531,14 @@ fun initRouting(pageContainer: SimplePanel) {
     // Room polls, wave B: the start page an SSO / federation round trip lands on continues to the viewer page when one is remembered.
     routing.kvOn("/") {
         if (AppState.isAuthenticated) {
-            if (!continueToRoomPollViewer()) routing.navigate(Routes.DASHBOARD)
+            if (!continueToRoomPollViewer() && !continueToAuctionHint()) routing.navigate(Routes.DASHBOARD)
         } else {
             routing.navigate(Routes.LOGIN)
         }
     }
     routing.notFound(handler = {
         if (AppState.isAuthenticated) {
-            if (!continueToRoomPollViewer()) routing.navigate(Routes.DASHBOARD)
+            if (!continueToRoomPollViewer() && !continueToAuctionHint()) routing.navigate(Routes.DASHBOARD)
         } else {
             routing.navigate(Routes.LOGIN)
         }

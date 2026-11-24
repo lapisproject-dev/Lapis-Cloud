@@ -7,7 +7,10 @@ import network.lapis.cloud.shared.domain.AuctionBidResultDto
 import network.lapis.cloud.shared.domain.AuctionComplianceAcknowledgmentInput
 import network.lapis.cloud.shared.domain.AuctionComplianceDisclaimerDto
 import network.lapis.cloud.shared.domain.AuctionDto
+import network.lapis.cloud.shared.domain.AuctionFederationAvailabilityDto
+import network.lapis.cloud.shared.domain.AuctionFederationReachDto
 import network.lapis.cloud.shared.domain.AuctionFiatAvailabilityDto
+import network.lapis.cloud.shared.domain.AuctionHintResolutionDto
 import network.lapis.cloud.shared.domain.AuctionOfferDto
 import network.lapis.cloud.shared.domain.AuctionPaymentDetailsDto
 import network.lapis.cloud.shared.domain.AuctionPaymentDetailsInput
@@ -239,4 +242,28 @@ interface IAuctionService {
 
     /** Role: any active member. The caller's own proposals and the counter-offers addressed to him, newest first, capped. */
     suspend fun listMyOffers(): List<AuctionOfferDto>
+
+    // ── V1.9.322 (Fiat wave c, step c2): visibility to partner servers. APPENDED at the end. Not legally reviewed, off by default. ──
+
+    /** Role: any active member. Whether sharing auctions with partner servers is possible right now (instance on, Euro auctions on, key present). */
+    suspend fun getAuctionFederationAvailability(): AuctionFederationAvailabilityDto
+
+    /**
+     * Role: the SELLER (an active member who confirmed the Fiat notice). Gives or takes back the consent to show a Euro auction to partner servers.
+     * Lock order: auction row, then member row, then snapshot/tombstone, audit last. A stranger's and an unknown auction get the SAME NotFoundException.
+     * Taking the consent back is always allowed (also while the exchange is off) and withdraws the hint.
+     */
+    suspend fun setAuctionFederationOptIn(
+        auctionId: String,
+        optIn: Boolean,
+    ): AuctionDto
+
+    /**
+     * Role: any active member. Resolves the id of a hint link to one of OUR auctions. Everything that is not a plainly open, shared Euro auction
+     * (unknown, ended, withdrawn, switched off, malformed, rate limited) is ONE answer: [AuctionHintResolutionDto.Unavailable]. Writes nothing.
+     */
+    suspend fun resolveAuctionHint(teaserId: String): AuctionHintResolutionDto
+
+    /** Role: any active member. To which partner servers the hints of this server travel (host names only, capped). */
+    suspend fun getAuctionFederationReach(): AuctionFederationReachDto
 }

@@ -3,6 +3,9 @@ package network.lapis.cloud.server.rpc
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.auction.federation.AuctionFederationStore
+import network.lapis.cloud.server.auction.federation.AuctionWithdrawals
+import network.lapis.cloud.server.auction.federation.feed.AuctionTeaserFeedCounters
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
 import network.lapis.cloud.server.carpool.CarpoolPullCounters
@@ -31,6 +34,8 @@ import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AuctionFederationLimits
+import network.lapis.cloud.shared.domain.AuctionFederationSettingsDto
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CarpoolFederationLimits
@@ -74,6 +79,9 @@ internal class PartnerServerService(
     /** V1.9.312: the in-memory counters of the carpool teaser feed and whether its key is configured (both for the admin view only). */
     private val carpoolFeedCounters: CarpoolTeaserFeedCounters? = null,
     private val carpoolFeedKeyAvailable: Boolean = false,
+    /** V1.9.322 (step c2): the same for the auction hint feed. */
+    private val auctionFeedCounters: AuctionTeaserFeedCounters? = null,
+    private val auctionFeedKeyAvailable: Boolean = false,
 ) : IPartnerServerService {
     override suspend fun list(): PartnerServerOverviewDto {
         resolveCurrentMember(call).requireRole(AccountRole.ADMIN)
@@ -604,6 +612,97 @@ internal class PartnerServerService(
         )
     }
 
+    // ---- V1.9.322 (Fiat wave c, step c2): auction hints. Only the ORIGIN side exists so far (the pull and the received hints come with c3). ----
+
+    override suspend fun getAuctionFederationSettings(): AuctionFederationSettingsDto {
+        resolveCurrentMember(call).requireRole(AccountRole.ADMIN)
+        return transaction {
+            val s = AuctionFederationStore.settings()
+            val c = auctionFeedCounters?.snapshot()
+            val now = clock()
+            AuctionFederationSettingsDto(
+                enabled = s.enabled,
+                hopLimit = s.hopLimit,
+                feedKeyAvailable = auctionFeedKeyAvailable,
+                feedServedSinceStart = c?.served ?: 0,
+                feedNotModifiedSinceStart = c?.notModified ?: 0,
+                feedRefusedSinceStart = c?.refusedTotal ?: 0,
+                feedRateLimitedSinceStart = c?.rateLimited ?: 0,
+                withdrawalsActive = AuctionFederationStore.countLiveWithdrawals(now),
+                sharedActive = AuctionFederationStore.countSharedActive(now),
+            )
+        }
+    }
+
+    override suspend fun setAuctionFederationSettings(
+        enabled: Boolean,
+        hopLimit: Int,
+    ) {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        if (hopLimit !in AuctionFederationLimits.MIN_HOPS..AuctionFederationLimits.MAX_HOPS) throw BadRequestException("Invalid hop limit")
+        val now = clock()
+        transaction {
+            val before = AuctionFederationStore.setSettings(enabled = enabled, hopLimit = hopLimit)
+            // Switched off: every shared hint is reported as withdrawn for every partner. The consents stay.
+            if (before.enabled && !enabled) AuctionWithdrawals.onInstanceOff(now)
+            if (before.enabled != enabled) {
+                val kind = if (enabled) PartnerAuditKind.AUCTION_EXCHANGE_ENABLED else PartnerAuditKind.AUCTION_EXCHANGE_DISABLED
+                audit(
+                    actor = current,
+                    entityType = AuditEntityType.PARTNER_SERVER,
+                    entityId = ORGANIZATION_SETTINGS_ID,
+                    action = AuditAction.UPDATE,
+                    kind = kind,
+                    subject = null,
+                    now = now,
+                )
+            }
+            if (before.hopLimit != hopLimit) {
+                audit(
+                    actor = current,
+                    entityType = AuditEntityType.PARTNER_SERVER,
+                    entityId = ORGANIZATION_SETTINGS_ID,
+                    action = AuditAction.UPDATE,
+                    kind = PartnerAuditKind.AUCTION_HOP_LIMIT_CHANGED,
+                    subject = hopLimit.toString(),
+                    now = now,
+                )
+            }
+        }
+    }
+
+    override suspend fun setPartnerAuctionSharing(
+        partnerId: String,
+        enabled: Boolean,
+    ) {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val uuid = runCatching { Uuid.parse(partnerId) }.getOrElse { throw NotFoundException("Partner not found") }
+        val now = clock()
+        transaction {
+            val row = PartnerServerStore.setAuctionSharing(id = uuid, enabled = enabled) ?: throw NotFoundException("Partner not found")
+            if (row.auctionSharing && !enabled) {
+                // Switched off for this partner: the shared hints are reported as withdrawn for THIS partner only.
+                AuctionWithdrawals.onPartnerOff(partnerId = uuid, now = now)
+            } else if (!row.auctionSharing && enabled) {
+                AuctionFederationStore.forgetPartnerTombstones(uuid)
+            }
+            if (row.auctionSharing != enabled) {
+                val kind = if (enabled) PartnerAuditKind.PARTNER_AUCTION_SHARING_ON else PartnerAuditKind.PARTNER_AUCTION_SHARING_OFF
+                audit(
+                    actor = current,
+                    entityType = AuditEntityType.PARTNER_SERVER,
+                    entityId = uuid,
+                    action = AuditAction.UPDATE,
+                    kind = kind,
+                    subject = row.host,
+                    now = now,
+                )
+            }
+        }
+    }
+
     private fun audit(
         actor: CurrentMember,
         entityType: AuditEntityType,
@@ -651,6 +750,10 @@ private fun PartnerRow.toDto(blocked: Boolean) =
         lastError = lastError?.let { code -> PartnerFetchErrorCode.entries.firstOrNull { it.name == code } },
         carpoolSharing = carpoolSharing,
         carpoolKeyPinned = signingPublicKeyPem != null,
+        auctionSharing = auctionSharing,
+        auctionFeedServedAt = auctionFeedServedAt,
+        auctionFeedServedCount = auctionFeedServedCount,
+        auctionFeedLastItemCount = auctionFeedLastItems,
         carpoolFeedServedAt = carpoolFeedServedAt,
         carpoolFeedServedCount = carpoolFeedServedCount,
         carpoolFeedLastItemCount = carpoolFeedLastItems,

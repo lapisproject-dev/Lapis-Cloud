@@ -118,7 +118,17 @@ import network.lapis.cloud.shared.rpc.IAuctionService
  * [AuctionBidResultDto]/[AuctionDto] figures returned by the server are shown verbatim, never
  * re-summed or re-derived client-side.
  */
-fun renderAuctionScreen(container: SimplePanel) {
+fun renderAuctionScreen(container: SimplePanel) = renderAuctionScreenWithFocus(container, null)
+
+/**
+ * V1.9.322 (step c2): the auction screen with ONE auction put on top as a highlighted card (the target of a partner hint link): the normal card
+ * with the normal rights, no extra page. [focusAuctionId] is the id of OUR auction, resolved by the server from the hint; the hint id itself never
+ * reaches this function.
+ */
+internal fun renderAuctionScreenWithFocus(
+    container: SimplePanel,
+    focusAuctionId: String?,
+) {
     val canAdmin = AppState.hasRole(AccountRole.ADMIN)
     val currentMemberId = AppState.session?.memberId
 
@@ -129,6 +139,21 @@ fun renderAuctionScreen(container: SimplePanel) {
     // ---- Neues Angebot (V1.9.49, R36B: collapsed behind the header button; the form incl. D3's balance line lives in
     // AuctionCreateListingForm.kt) -- always visible, like the form was: the server's 409 on a disabled auction is shown by `guarded`.
     val listingHost = root.vPanel(spacing = 6)
+
+    // ---- Verlinkte Auktion (V1.9.322): the target of a partner hint link, on top, with its normal card and rights.
+    val focusPanel = root.vPanel(spacing = 6) { addCssClasses("border border-primary rounded p-1") }
+    focusPanel.hide()
+
+    fun loadFocused() {
+        val id = focusAuctionId ?: return
+        AppScope.launch {
+            val dto = guarded { rpcService<IAuctionService>().getAuction(id) } ?: return@launch
+            focusPanel.removeAll()
+            focusPanel.show()
+            renderAuctionCard(focusPanel, dto, currentMemberId) { loadFocused() }
+        }
+    }
+    loadFocused()
 
     // ---- Auktionen (browse) ---------------------------------------------------------------
     root.h2(tr("Auktionen")) { addCssClass("h5") }

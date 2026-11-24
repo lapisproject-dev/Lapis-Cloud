@@ -135,6 +135,10 @@ internal fun renderAuctionCard(
     if (!isSeller && auction.effectiveStatus == AuctionStatus.OPEN) {
         renderBidAndBuyNowControls(card, auction, onChanged)
     }
+    // V1.9.322 (step c2): the seller shows an open Euro auction to partner servers (badge and consent box).
+    if (isSeller && isFiat && auction.effectiveStatus == AuctionStatus.OPEN) {
+        renderSellerFederationPanel(card, auction, onChanged)
+    }
     // V1.9.321: price offers of a Fiat auction with a Sofortkauf price (fixed by the seller at creation).
     if (isFiat && auction.offersEnabled && auction.effectiveStatus == AuctionStatus.OPEN) {
         if (isSeller) renderSellerOffersPanel(card, auction, onChanged) else renderBuyerOfferControls(card, auction, onChanged)

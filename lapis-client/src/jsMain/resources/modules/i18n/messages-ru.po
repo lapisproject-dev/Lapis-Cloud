@@ -33913,3 +33913,109 @@ msgstr "Условия этого аукциона больше нельзя и�
 msgid "Auktionshinweise abgerufen"
 msgstr "Уведомления об аукционах получены"
 
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFederationUi.kt:1
+msgid "Diese Auktion als Kurzhinweis an Partnerorganisationen weitergeben"
+msgstr "Передать этот аукцион партнёрским организациям в виде краткой заметки"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFederationUi.kt:1
+msgid "Sofortkauf %1"
+msgstr "Купить сразу %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFederationUi.kt:1
+msgid "Preisvorschlag möglich"
+msgstr "Можно предложить цену"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFederationUi.kt:1
+msgid "So sehen Partner Ihre Auktion: %1 · %2 %3 · endet %4"
+msgstr "Так партнёры видят ваш аукцион: %1 · %2 %3 · заканчивается %4"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFederationUi.kt:1
+msgid "Partner erhalten Titel, Preis, Ende und – falls vorhanden – den Sofortkaufpreis. Der Preis wird höchstens alle %1 Minuten aktualisiert; ein Preissprung lässt erkennen, ob geboten wurde."
+msgstr "Партнёры получают название, цену, срок окончания и – если есть – цену немедленной покупки. Цена обновляется не чаще чем раз в %1 мин.; скачок цены показывает, что были ставки."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFederationUi.kt:1
+msgid "Bieten und Kaufen ist nur bei uns möglich. Verkäufer, Bieter, Gebote und Zahlungsangaben werden nie weitergegeben."
+msgstr "Делать ставки и покупать можно только у нас. Продавцы, участники торгов, ставки и платёжные данные никогда не передаются дальше."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFederationUi.kt:1
+msgid "Der Titel dieser Auktion kann Partnern nicht gezeigt werden (leer, Link oder Sonderzeichen)."
+msgstr "Название этого аукциона нельзя показать партнёрам (пустое, ссылка или специальные символы)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFederationUi.kt:1
+msgid "Diese Auktion endet in weniger als %1 Stunden und kann nicht mehr geteilt werden."
+msgstr "Этот аукцион заканчивается менее чем через %1 ч. и больше не может быть передан."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFederationUi.kt:1
+msgid "Sie teilen bereits %1 Auktionen. Weitere können nicht geteilt werden."
+msgstr "Вы уже передаёте %1 аукционов. Больше передать нельзя."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFederationUi.kt:1
+msgid "Das Teilen von Auktionen mit Partnerorganisationen ist derzeit nicht möglich."
+msgstr "Передача аукционов партнёрским организациям сейчас невозможна."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFederationUi.kt:1
+msgid "Diese Auktion kann nicht mit Partnern geteilt werden."
+msgstr "Этот аукцион нельзя передать партнёрам."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFederationUi.kt:1
+msgid "Die Auktion wurde gespeichert, aber nicht für Partner freigegeben. %1"
+msgstr "Аукцион сохранён, но не передан партнёрам. %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:1
+msgid "Bitte versuchen Sie es bei der Auktion erneut."
+msgstr "Попробуйте ещё раз в самом аукционе."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionHintScreen.kt:1
+msgid "Auktionshinweis"
+msgstr "Уведомление об аукционе"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionHintScreen.kt:1
+msgid "Diese Auktion ist nicht (mehr) verfügbar."
+msgstr "Этот аукцион недоступен (или уже недоступен)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionHintScreen.kt:1
+msgid "Zu den Auktionen"
+msgstr "К аукционам"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Die %1 geteilte Auktion wird bei den Partnern zurückgezogen. Die Zustimmungen der Verkäufer bleiben bestehen."
+msgid_plural "Die %1 geteilten Auktionen werden bei den Partnern zurückgezogen. Die Zustimmungen der Verkäufer bleiben bestehen."
+msgstr[0] "%1 переданный аукцион будет отозван у партнёров. Согласия продавцов сохраняются."
+msgstr[1] "%1 переданных аукциона будут отозваны у партнёров. Согласия продавцов сохраняются."
+msgstr[2] "%1 переданных аукционов будут отозваны у партнёров. Согласия продавцов сохраняются."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Die geteilten Auktionen werden bei %1 zurückgezogen. Bei den anderen Partnern ändert sich nichts."
+msgstr "Переданные аукционы будут отозваны у %1. У остальных партнёров ничего не изменится."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Derzeit geteilt: %1 Auktion"
+msgid_plural "Derzeit geteilt: %1 Auktionen"
+msgstr[0] "Сейчас передаётся: %1 аукцион"
+msgstr[1] "Сейчас передаётся: %1 аукциона"
+msgstr[2] "Сейчас передаётся: %1 аукционов"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Auktionen auf Partnerservern"
+msgstr "Аукционы на серверах-партнёрах"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Euro-Auktionen mit freigegebenen Partnern teilen"
+msgstr "Передавать аукционы в евро одобренным партнёрам"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Mitglieder entscheiden für jede Euro-Auktion selbst, ob ein Kurzhinweis an freigegebene Partner geht: Titel, Preis, Ende und Sofortkaufpreis. Verkäufer, Bieter, Gebote und Zahlungsangaben werden nie weitergegeben. Bieten und Kaufen ist nur beim anbietenden Server möglich."
+msgstr "Участники сами решают для каждого аукциона в евро, передавать ли краткую заметку одобренным партнёрам: название, цена, срок окончания и цена немедленной покупки. Продавцы, участники торгов, ставки и платёжные данные никогда не передаются дальше. Делать ставки и покупать можно только на сервере, который предлагает аукцион."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Auktionsaustausch ausschalten?"
+msgstr "Отключить обмен аукционами?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Auktionen teilen"
+msgstr "Передавать аукционы"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Auktionen für diesen Partner zurückziehen?"
+msgstr "Отозвать аукционы у этого партнёра?"

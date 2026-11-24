@@ -51,6 +51,11 @@ import network.lapis.cloud.server.ai.ratelimit.AiQuestionRateLimiter
 import network.lapis.cloud.server.ai.retrieval.KnowledgeRetrievers
 import network.lapis.cloud.server.ai.retrieval.PostgresFullTextIndexInitializer
 import network.lapis.cloud.server.auction.AuctionPaymentDetailsRetentionPoller
+import network.lapis.cloud.server.auction.federation.AuctionFederationKey
+import network.lapis.cloud.server.auction.federation.AuctionTeaserIds
+import network.lapis.cloud.server.auction.federation.feed.AuctionTeaserFeedCounters
+import network.lapis.cloud.server.auction.federation.feed.AuctionTeaserFeedLimits
+import network.lapis.cloud.server.auction.federation.feed.registerAuctionTeaserFeedRoutes
 import network.lapis.cloud.server.backup.BackupAssetRoots
 import network.lapis.cloud.server.bootstrap.DonorRoleDowngrade
 import network.lapis.cloud.server.branding.BrandConfig
@@ -1946,6 +1951,27 @@ internal fun Application.module(
     if (carpoolTeaserIds == null) {
         applicationLogger.warn { "LAPIS_SECRET_ENCRYPTION_KEY is not configured: the carpool teaser feed refuses every request" }
     }
+    // V1.9.322 (Fiat wave c, step c2): the signed auction teaser feed. The same structure as the carpool feed, its own budgets, replay guard,
+    // counters and id key purpose. Default off (instance switch, partner switch); without the key it refuses every request.
+    val auctionFeedIpRateLimiter =
+        FederationInboxRateLimiter(
+            maxRequests = AuctionTeaserFeedLimits.IP_PER_MINUTE,
+            window = 1.minutes,
+            maxTrackedKeys = AuctionTeaserFeedLimits.IP_MAX_TRACKED_KEYS,
+        )
+    val auctionFeedPartnerRateLimiter =
+        FederationInboxRateLimiter(maxRequests = AuctionTeaserFeedLimits.PARTNER_PER_HOUR, window = 60.minutes)
+    val auctionFeedGlobalRateLimiter =
+        FederationInboxRateLimiter(maxRequests = AuctionTeaserFeedLimits.GLOBAL_PER_HOUR, window = 60.minutes)
+    val auctionFeedReplayGuard = FederationReplayGuard()
+    val auctionFeedCounters = AuctionTeaserFeedCounters()
+    val auctionTeaserIds: AuctionTeaserIds? = bankStatementSecretBox?.let { AuctionTeaserIds(it) }
+    AuctionFederationKey.configure(auctionTeaserIds)
+    if (auctionTeaserIds == null) {
+        applicationLogger.warn { "LAPIS_SECRET_ENCRYPTION_KEY is not configured: the auction teaser feed refuses every request" }
+    }
+    // The landing route of a hint link: one budget per member, module-scoped (never a constructor default, registerService builds a service per call).
+    val auctionHintResolveRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val activismRateLimiter = ActivismRateLimiter()
     val webhookConfigureRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val webhookSecretRotateRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
@@ -2757,7 +2783,13 @@ internal fun Application.module(
         // V1.9.320: Fiat (EUR) auctions seal the seller's payment details with the same LAPIS_SECRET_ENCRYPTION_KEY as the SEPA/travel IBANs.
         registerService(
             IAuctionService::class,
-        ) { call -> AuctionService(call = call, secretEncryptionKey = sepaConfig.secretEncryptionKey) }
+        ) { call ->
+            AuctionService(
+                call = call,
+                secretEncryptionKey = sepaConfig.secretEncryptionKey,
+                hintResolveLimiter = auctionHintResolveRateLimiter,
+            )
+        }
         registerService(
             ISepaService::class,
         ) { call ->
@@ -3223,6 +3255,8 @@ internal fun Application.module(
                 probeRateLimiter = partnerProbeRateLimiter,
                 carpoolFeedCounters = carpoolFeedCounters,
                 carpoolFeedKeyAvailable = carpoolTeaserIds != null,
+                auctionFeedCounters = auctionFeedCounters,
+                auctionFeedKeyAvailable = auctionTeaserIds != null,
             )
         }
         // V1.9.246 Aktionen A1. Second to last since V1.9.297 (the bulletin board is the LAST registerService). New methods of the interface go
@@ -3279,6 +3313,15 @@ internal fun Application.module(
             replayGuard = carpoolFeedReplayGuard,
             teaserIds = carpoolTeaserIds,
             counters = carpoolFeedCounters,
+        )
+        // V1.9.322: the signed auction teaser feed (its own path, default off, authenticated, refusals are the same uniform answer).
+        registerAuctionTeaserFeedRoutes(
+            ipRateLimiter = auctionFeedIpRateLimiter,
+            partnerRateLimiter = auctionFeedPartnerRateLimiter,
+            globalRateLimiter = auctionFeedGlobalRateLimiter,
+            replayGuard = auctionFeedReplayGuard,
+            teaserIds = auctionTeaserIds,
+            counters = auctionFeedCounters,
         )
         registerTravelExpenseReceiptRoutes(storageRoot = documentStorageRoot, rateLimiter = travelExpenseReceiptUploadRateLimiter)
         // V1.9.232: attachments on mailing messages; its own upload budget (per member), BOARD/ADMIN only.

@@ -35,10 +35,14 @@ class PartnerServerTripwireTest :
                 "setPartnerCarpoolSharing",
                 "acceptPartnerSigningKey",
                 "releaseDiscoveredSigningKeyHold",
+                // V1.9.322 (auction hints, step c2)
+                "getAuctionFederationSettings",
+                "setAuctionFederationSettings",
+                "setPartnerAuctionSharing",
             )
         val partnerFiles = SourceScan.mainFiles().filter { "/server/partner/" in it.path }
 
-        test("the RPC surface is exactly the sixteen known methods") {
+        test("the RPC surface is exactly the known methods") {
             IPartnerServerService::class.java.declaredMethods
                 .filter { !it.isSynthetic && '$' !in it.name }
                 .map { it.name }
@@ -190,7 +194,15 @@ class PartnerServerTripwireTest :
                     "PartnerDiscoveredServerTable.kt",
                 )
             // V1.9.317: CarpoolFeedRecipients.kt holds the ONE predicate "may fetch our feed" (key pinned + active + sharing + not blocked).
-            val feed = setOf("CarpoolTeaserFeedGate.kt", "CarpoolReceivedStore.kt", "CarpoolFeedRecipients.kt")
+            // V1.9.322: the auction counterparts (the one predicate and its gate) read the same pinned key.
+            val feed =
+                setOf(
+                    "CarpoolTeaserFeedGate.kt",
+                    "CarpoolReceivedStore.kt",
+                    "CarpoolFeedRecipients.kt",
+                    "AuctionTeaserFeedGate.kt",
+                    "AuctionFeedRecipients.kt",
+                )
             SourceScan
                 .mainFiles()
                 .filter { reader.containsMatchIn(SourceScan.blank(it.readText())) }

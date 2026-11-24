@@ -4,7 +4,7 @@
 :toc-placement: preamble
 :icons: font
 
-WARNING: **Wave (a) "currency per auction and direct payment, including buy now in fiat" is implemented (V1.9.320, schema V166) and wave (b) "price offer" is implemented on a feature branch (V1.9.321, schema V167); everything else in this document is still concept.** The feature is **off by default** (instance switch) and **has not been legally reviewed**. **Nothing in it is legal advice and nothing has been reviewed by a lawyer.** Every legal statement below is a question for a lawyer, not a finding. The first country is **Germany**.
+WARNING: **Wave (a) "currency per auction and direct payment, including buy now in fiat" is implemented (V1.9.320, schema V166) and wave (b) "price offer" is implemented on a feature branch (V1.9.321, schema V167); everything else in this document is still concept.** Wave (c) "federation visibility" is implemented up to step c2 (origin side: consent, signed feed, withdrawal, landing route; schema V169, see link:auction-federation.adoc[Auction hints on partner servers]); c3 (receiving) and c4 (restore, GDPR, exit) are not. The feature is **off by default** (instance switch) and **has not been legally reviewed**. **Nothing in it is legal advice and nothing has been reviewed by a lawyer.** Every legal statement below is a question for a lawyer, not a finding. The first country is **Germany**.
 
 == Decisions taken
 

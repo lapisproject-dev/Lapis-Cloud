@@ -55,7 +55,8 @@ class CarpoolHardeningTripwireTest :
             main
                 .filter { Regex("""\bforgetOwnGlobalTombstone\s*\(""").containsMatchIn(SourceScan.blank(it.readText())) }
                 .map { it.name }
-                .filter { it != "CarpoolFederationStore.kt" } shouldBe listOf("CarpoolService.kt")
+                // V1.9.322: the auction exchange has its own function of that name (pinned by AuctionFederationTripwireTest).
+                .filter { it != "CarpoolFederationStore.kt" && !it.startsWith("Auction") } shouldBe listOf("CarpoolService.kt")
         }
 
         test("(x) mayPullCarpoolFeed, the pull selection and the apply of a pull all stop on a pending key change") {

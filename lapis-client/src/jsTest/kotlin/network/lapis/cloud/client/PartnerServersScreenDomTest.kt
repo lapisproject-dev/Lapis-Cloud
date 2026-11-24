@@ -4,6 +4,7 @@ import kotlinx.browser.document
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.builtins.ListSerializer
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AuctionFederationSettingsDto
 import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
 import network.lapis.cloud.shared.domain.CarpoolPullState
 import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
@@ -89,6 +90,7 @@ class PartnerServersScreenDomTest {
         recursion: PartnerRecursionSettingsDto = PartnerRecursionSettingsDto(true, 2, null, null),
         discovered: List<DiscoveredPartnerServerDto> = emptyList(),
         carpool: CarpoolFederationSettingsDto = CarpoolFederationSettingsDto(enabled = false, hopLimit = 2),
+        auction: AuctionFederationSettingsDto = AuctionFederationSettingsDto(enabled = false, hopLimit = 1),
         onRemoveBlock: (String) -> Unit = {},
         block: suspend (HTMLElement) -> Unit,
     ) {
@@ -105,6 +107,7 @@ class PartnerServersScreenDomTest {
         val settingsRoute = routeOf { rpcService<IPartnerServerService>().getPartnerRecursionSettings() }
         val discoveredRoute = routeOf { rpcService<IPartnerServerService>().listDiscoveredPartnerServers() }
         val carpoolRoute = routeOf { rpcService<IPartnerServerService>().getCarpoolFederationSettings() }
+        val auctionRoute = routeOf { rpcService<IPartnerServerService>().getAuctionFederationSettings() }
         val removeRoute = routeOf { rpcService<IPartnerServerService>().removeBlock("x") }
         withFetchStub(
             respond = { request ->
@@ -115,6 +118,7 @@ class PartnerServersScreenDomTest {
                     request.rpcRoute == discoveredRoute ->
                         request.answerWith(jsonOf(ListSerializer(DiscoveredPartnerServerDto.serializer()), discovered))
                     request.rpcRoute == carpoolRoute -> request.answerWith(jsonOf(CarpoolFederationSettingsDto.serializer(), carpool))
+                    request.rpcRoute == auctionRoute -> request.answerWith(jsonOf(AuctionFederationSettingsDto.serializer(), auction))
                     request.rpcRoute == removeRoute -> {
                         onRemoveBlock(request.rpcParam(0) as String)
                         request.answerWith("null")
@@ -439,6 +443,39 @@ class PartnerServersScreenDomTest {
                 assertEquals(1, page.allOf("details.carpool-reject-reasons").size)
                 assertEquals(1, page.allOf("details.carpool-reject-reasons > summary").size)
                 assertTrue(page.textContent.orEmpty().contains("Kapazität erreicht: 9"))
+            }
+        }
+
+    @Test
+    fun theAuctionExchangeIsOffByDefault_noPartnerBoxIsShown_andTheSharedCountIsSaid(): Promise<Unit> =
+        test {
+            scenario(
+                PartnerServerOverviewDto(listOf(partner(id = "a", host = "a.beispiel.de")), emptyList(), false),
+                auction = AuctionFederationSettingsDto(enabled = false, hopLimit = 1, sharedActive = 3),
+            ) { page ->
+                val text = page.textContent.orEmpty()
+                assertTrue(text.contains("Auktionen auf Partnerservern"))
+                assertTrue(text.contains("Derzeit geteilt: 3 Auktionen"), text)
+                assertFalse(text.contains("Auktionen teilen"), "no per-partner box while the exchange is off")
+            }
+        }
+
+    @Test
+    fun withTheAuctionExchangeOn_everyPartnerGetsABox_andTheReachHasTwoLevels(): Promise<Unit> =
+        test {
+            scenario(
+                PartnerServerOverviewDto(
+                    listOf(partner(id = "a", host = "a.beispiel.de"), partner(id = "b", host = "b.beispiel.de")),
+                    emptyList(),
+                    false,
+                ),
+                auction = AuctionFederationSettingsDto(enabled = true, hopLimit = 2, feedKeyAvailable = false),
+            ) { page ->
+                val text = page.textContent.orEmpty()
+                assertEquals(2, Regex("Auktionen teilen").findAll(text).count(), text)
+                assertTrue(text.contains("LAPIS_SECRET_ENCRYPTION_KEY"), "a missing key is named")
+                assertTrue(text.contains("Auch Partner unserer Partner"))
+                assertFalse(text.contains("Eine Stufe weiter"), "auctions have two levels at most, not three")
             }
         }
 }

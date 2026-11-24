@@ -1,0 +1,96 @@
+= Auction hints on partner servers (origin side)
+:toc:
+
+WARNING: This describes step **c2 "origin side"** of wave (c) of link:auction-fiat-and-federation.adoc[Auctions in euros]. The feed is **off by default** (instance switch, partner switch, seller consent) and **has not been legally reviewed**. Receiving hints from partners (c3) and restore, GDPR export/erasure and member exit (c4) are **not implemented yet**.
+
+== Goal
+
+A seller may show an open euro auction to partner servers as a *preview hint*. Nothing but the hint leaves the origin server: no seller, no bidder, no bid, no offer, no payment data, no description and no URL. Bidding, buying and paying happen on the origin server only. A hint is the wire type `AuctionTeaser` (exactly ten fields, pinned by `AuctionTeaserTripwireTest`).
+
+== Wire format
+
+`GET /api/federation/auction-feed/v1` (private, server to server, never under `/api/public` or `/api/embed`). The envelope has `schemaVersion`, `kind`, `complete`, `items`, `withdrawn`. An item has `originHost`, `hops` (always 0 in c2), `maxHops`, `teaser`, `via` (empty in c2) and `originSignature`. A withdrawal is a pseudonymous id and a UTC day. `buyNowMinor = null` is left out of the JSON on purpose.
+
+`complete = false` means: a list was cut (scan limit, item cap, byte cap) or an item could not be signed. A receiver must then not treat a missing hint as withdrawn.
+
+== Pseudonymous id and signature
+
+* `teaserId` = HMAC-SHA256 of the auction id with a key derived from `LAPIS_SECRET_ENCRYPTION_KEY` and the purpose `lapis-auction-teaser-id/v1` (different from the carpool purpose). Rotating the key changes every id (a partner sees "all withdrawn, all new").
+* `originSignature` signs, in this order and LF-separated: purpose `lapis-auction-teaser-origin/v1`, teaser id, origin host, revision, base64url(title), currency, price kind, price, buy-now price or `-`, offers flag, `endsAt`, `priceAsOf`, `maxHops`. `hops` and `via` are not signed. `AuctionOriginSignatures` is the only place that builds or checks the statement.
+
+[kuml, auction-federation-feed, svg]
+----
+sequenceDiagram(name = "Partner pull of the auction feed") {
+    val partner = lifeline(name = "Partner server")
+    val gate = lifeline(name = "Feed gate")
+    val builder = lifeline(name = "Feed builder")
+    val snapshots = lifeline(name = "Snapshot throttle")
+    val db = lifeline(name = "Database")
+
+    message(from = partner, to = gate, label = "GET auction-feed (signed)")
+    message(from = gate, to = gate, label = "IP budget, signature, replay guard")
+    message(from = gate, to = db, label = "approve: switches, pinned key, partner flags")
+    message(from = gate, to = builder, label = "build snapshot")
+    message(from = builder, to = snapshots, label = "publishable(candidate)")
+    message(from = snapshots, to = db, label = "conditional snapshot update")
+    message(from = builder, to = db, label = "sweep, tombstones")
+    reply(from = builder, to = gate, label = "signed items + withdrawn")
+    reply(from = gate, to = partner, label = "200 / 304 / one uniform refusal")
+}
+----
+
+== Throttle of the shown price
+
+The feed must not reveal the bid history. `AuctionTeaserSnapshots` is the only place that decides over a new revision:
+
+* Without a bid (`START`) a change of the start price goes out at once (it reveals no bid).
+* With bids (`CURRENT`) a new price is shown at most every 30 minutes (`PRICE_REFRESH_MINUTES`); the first change from `START` to `CURRENT` is throttled the same way.
+* The Sofortkauf price is only sent while it lies above the transferred (throttled) price. A partner can therefore see "Sofortkauf" for up to 30 minutes after the real price reached it; the origin refuses the purchase as it always did.
+* A change of the Sofortkauf price, of the offers flag or of the currency changes the content hash and so the revision immediately.
+* Revisions rise strictly (`max(prev + 1, minute of the wall clock)`); the update is `WHERE revision = old`, so two parallel builds cannot overwrite each other. After a withdrawal and a new consent the revision jumps above the old one.
+
+The visible price comes from one source, `AuctionFiatPricing.visiblePrice`, shared by the detail view, `acceptOffer` and the feed.
+
+== Consent
+
+The seller (an active member who confirmed the euro notice; `mayShareAuction` is the only place for that rule) calls `setAuctionFederationOptIn`. Rules (`mayConsentToAuctionFederation`): euro only, still open and not over, at least two hours left, a presentable title, instance switch on; plus the module switches and a configured key. At most 20 auctions per seller are shared. A stranger's, an unknown and a malformed auction id get the same `NotFoundException`. Taking the consent back is always allowed. Lock order: auction row, member row (consent only), snapshot/tombstone rows, audit entry last.
+
+== Withdrawal
+
+[kuml, auction-federation-hint-state, svg]
+----
+stateDiagram(name = "Shared hint") {
+    val shared = state(name = "SHARED")
+    val revised = state(name = "REVISED")
+    val withdrawn = state(name = "WITHDRAWN")
+    val expired = state(name = "EXPIRED")
+    transition(from = shared, to = revised, label = "price or buy-now change")
+    transition(from = revised, to = revised, label = "next change")
+    transition(from = shared, to = withdrawn, label = "consent back, sale, end, switch off")
+    transition(from = revised, to = withdrawn, label = "consent back, sale, end, switch off")
+    transition(from = withdrawn, to = shared, label = "new consent (higher revision)")
+    transition(from = withdrawn, to = expired, label = "tombstone life over")
+}
+----
+
+Triggers (the hooks are pinned by `AuctionFederationTripwireTest` (j)): consent taken back; Sofortkauf; an accepted price offer; the time-based close (also the lazy one through `getAuction`); EUR to LTR (the consent goes, a switch back does not share again); instance switch off; auction or euro module off (consents stay); one partner switched off (tombstones for that partner only). Consented auctions that ended without any access, or whose seller left, are withdrawn by a bounded lazy sweep (at most 50 per build). The consent ends with the auction (a deviation from "keep the flag": an ended auction can never be shared again, and the sweep stays self-limiting).
+
+A tombstone lives `min(created + 14 days, end + 2 days)` and is not written when that is already over. Consent-driven withdrawals write a tombstone only if some partner fetched the feed at or after the consent (`requireServed`). Known limit: the feed commits its served moment with its body, so a feed that is still open while the consent is withdrawn is not seen; its hint is then not withdrawn explicitly (a complete next answer drops it, an incomplete one keeps it until the auction ends). Without a key the consent is still cleared and the miss is counted. A hint that is back (instance switched on again) gets a fresh revision and its global tombstone goes ("item wins").
+
+A partner that was served before and is no longer approved gets, as long as it is active, not blocked and still has live withdrawals, a trailing answer with the withdrawals only.
+
+== Feed route and gate
+
+Per IP budget before the signature, per partner and global budgets only after approval, four concurrent builds, 1 MiB, 1000 items, 1000 withdrawals, scan limit 5000. Every refusal is the same bytes (`404 {"error":"unavailable"}`), also the same as the carpool refusal. The signature covers the constant path and the own host, never the request's Host header, so a carpool signature or one made for another server is not valid here. `partner_server.auction_*` is written only by `PartnerServerStore`. `AuctionTeaserFeedGate` and the reach list use the one predicate `mayPullAuctionFeed`.
+
+== Landing route
+
+`https://<origin>/app#/auction/hint/<id>`: the id sits in the fragment. `resolveAuctionHint` answers `Available(auctionId)` only for a consented, open, euro auction with the switches on; everything else, also an exhausted per-member budget, is the one `Unavailable` answer. It writes nothing and does not run the lazy settlement. A visitor who is not signed in has the validated id remembered in `sessionStorage` (once, 30 minutes) and returns after the login; `safeReturnTo` is unchanged. The page shows the normal card on top of the auction screen (no detail page) and never shows the id.
+
+== Audit
+
+Consent on and off: `AUCTION` entries `AUCTION_FEDERATION_CONSENT_ON/OFF` (event, currency, status, time; never an amount, title or id). System withdrawals write no extra entry (the settlement or the switch is audited already). Switches: `PARTNER_SERVER`. Feed `200`: `AUCTION_FEDERATION_FEED` with counts only.
+
+== What c2 deliberately does not do
+
+No pull, no relay, no received hints, no list of partner auctions for members, no hide or block (c3). No tombstones at restore, GDPR export or erasure, member exit (c4). No release: the legal-review gate of wave (c) stands.

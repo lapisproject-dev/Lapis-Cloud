@@ -160,6 +160,8 @@ internal fun completeLogin(session: SessionInfoDto): Boolean {
     if (returnTo != null && navigateToReturnTo(returnTo)) return true
     // Room polls, wave B: a viewer who logged in from the viewer page goes back to it (the OAuth returnTo above keeps priority).
     if (continueToRoomPollViewer()) return false
+    // V1.9.322: the same for a partner hint link that sent the visitor to the login.
+    if (continueToAuctionHint()) return false
     notifySuccess(gettext("Willkommen, %1.", session.displayName))
     navigateTo(Routes.DASHBOARD)
     return false

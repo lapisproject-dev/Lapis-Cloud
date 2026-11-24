@@ -60,7 +60,12 @@ class CarpoolFederationTripwireTest :
                     .filter {
                         it.name != "CarpoolFederationStore.kt" &&
                             it.name != "AuctionFederationStore.kt" &&
-                            it.name != "AuctionTable.kt"
+                            it.name != "AuctionTable.kt" &&
+                            // V1.9.322 (step c2): the auction exchange READS its own `auction.federation_opt_in` (DTO, feed builder, withdrawal hooks);
+                            // the writer monopoly of that column is pinned by AuctionFederationTripwireTest (a).
+                            it.name != "AuctionService.kt" &&
+                            it.name != "AuctionTeaserFeedBuilder.kt" &&
+                            it.name != "AuctionWithdrawals.kt"
                     }.filter { Regex("""\bfederationOptIn\b""").containsMatchIn(SourceScan.blank(it.readText())) }
                     .map { it.name }
                     .toSet()
@@ -218,7 +223,8 @@ class CarpoolFederationTripwireTest :
             main
                 .filter { Regex("""\bstatementBytes\s*\(""").containsMatchIn(SourceScan.blank(it.readText())) }
                 .map { it.name }
-                .toSet() shouldBe setOf("CarpoolOriginSignatures.kt")
+                // V1.9.322: the auction statement has its own builder
+                .toSet() shouldBe setOf("CarpoolOriginSignatures.kt", "AuctionOriginSignatures.kt")
         }
 
         test("(a) the pull poller reads the instance switch only through CarpoolFederationStore.settings()") {
@@ -269,8 +275,12 @@ class CarpoolFederationTripwireTest :
         test("(i) the refusal body is written only in respondUnavailable; the feed audit type is used only by the feed route") {
             val routes = feedFiles.single { it.name == "CarpoolTeaserFeedRoutes.kt" }.readText()
             val bodyLiteral = "\"error\":\"unavailable\""
-            main.filter { bodyLiteral in it.readText() }.map { it.name } shouldBe listOf("CarpoolTeaserFeedRoutes.kt")
+            // V1.9.322: the auction feed route has its OWN refusal writer with the very same bytes (pinned by AuctionFederationTripwireTest and
+            // by AuctionTeaserFeedScenarios, which compare both answers); no other file may write the literal.
+            main.filter { bodyLiteral in it.readText() }.map { it.name }.sorted() shouldBe
+                listOf("AuctionTeaserFeedRoutes.kt", "CarpoolTeaserFeedRoutes.kt")
             Regex(bodyLiteral).findAll(routes).count() shouldBe 1
+            Regex(bodyLiteral).findAll(main.single { it.name == "AuctionTeaserFeedRoutes.kt" }.readText()).count() shouldBe 1
             main
                 .filter { it.name !in setOf("AuditLog.kt", "CarpoolTeaserFeedRoutes.kt") }
                 .filter { Regex("""AuditEntityType\.CARPOOL_FEDERATION_FEED""").containsMatchIn(SourceScan.blank(it.readText())) }
@@ -358,7 +368,8 @@ class CarpoolFederationTripwireTest :
 
         test("(u) the number of concurrent feed builds is defined once, in CarpoolTeaserFeedLimits") {
             main
-                .filter { it.name != "CarpoolTeaserFeedLimits.kt" }
+                // V1.9.322: the auction feed has its own limits object with its own constant (pinned by AuctionFederationTripwireTest).
+                .filter { it.name != "CarpoolTeaserFeedLimits.kt" && it.name != "AuctionTeaserFeedLimits.kt" }
                 .filter { Regex("""\bMAX_CONCURRENT_BUILDS\b""").containsMatchIn(SourceScan.blank(it.readText())) }
                 .map { it.name }
                 .shouldBeEmpty()

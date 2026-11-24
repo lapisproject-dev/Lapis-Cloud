@@ -31,6 +31,7 @@ import network.lapis.cloud.shared.domain.maxAmount
 import network.lapis.cloud.shared.rpc.AuctionPaymentDetailsField
 import network.lapis.cloud.shared.rpc.AuctionPaymentDetailsInvalidException
 import network.lapis.cloud.shared.rpc.IAuctionService
+import kotlin.time.Duration.Companion.hours
 
 /**
  * V1.9.49 (R36B): the listing form of the auction screen, built into the host of a collapsible create form ([collapsibleCreateForm])
@@ -146,6 +147,42 @@ internal fun SimplePanel.renderCreateListingForm(
     refreshDurationHint(invalid = false)
     unitSelect.subscribe { refreshDurationHint(invalid = false) }
 
+    // V1.9.322 (step c2): the consent to show the Euro auction to partner servers. The preview is the shared projection of the inputs above.
+    val federationBox =
+        AuctionFederationConsentBox(
+            parent = fiatSection,
+            initial = false,
+            preview = {
+                val startingMinor = parseMinorAmountInput(startingBidInput.value.orEmpty().trim())
+                val buyNowParsed = parseMinorAmountInput(buyNowInput.value.orEmpty().trim())
+                val hours =
+                    durationInput.value
+                        .orEmpty()
+                        .trim()
+                        .toIntOrNull()
+                        ?.let { durationToHours(it, selectedUnit()) }
+                if (startingMinor == null || hours == null) {
+                    null
+                } else {
+                    AuctionFederationUiLogic.previewTeaser(
+                        title = titleInput.value.orEmpty().trim(),
+                        currency = AuctionCurrencies.EUR,
+                        priceMinor = startingMinor,
+                        hasBids = false,
+                        buyNowMinor = buyNowParsed,
+                        offersEnabled = offersBox.value,
+                        endsAt =
+                            kotlin.time.Clock.System
+                                .now() + hours.hours,
+                    )
+                }
+            },
+        )
+    listOf(titleInput, startingBidInput, buyNowInput, durationInput).forEach { it.subscribe { federationBox.sync() } }
+    unitSelect.subscribe { federationBox.sync() }
+    offersBox.subscribe { federationBox.sync() }
+    AppScope.launch { federationBox.setAvailable(loadAuctionFederationAvailable()) }
+
     fun isEuro(): Boolean = currencySelect.value == AuctionCurrencies.EUR
 
     // V1.9.320: the labels and the visible blocks follow the chosen currency; LTR (the default) is the form as it always was.
@@ -230,13 +267,17 @@ internal fun SimplePanel.renderCreateListingForm(
 
     // The listing exists now: it must not be created twice, so the button stays off. The pictures follow; the form stays open for a retry
     // of a failed one. Shared by the LTR and the Euro submit.
-    suspend fun onListingCreated(result: AuctionDto) {
+    suspend fun onListingCreated(
+        result: AuctionDto,
+        notice: String? = null,
+    ) {
         notifySuccess(gettext("Angebot \"%1\" erstellt.", result.title))
         createdId = result.id
-        if (galleryEditor.pendingCount() == 0 || galleryEditor.uploadPending(result.id)) {
+        val uploaded = galleryEditor.pendingCount() == 0 || galleryEditor.uploadPending(result.id)
+        if (uploaded && notice == null) {
             finish()
         } else {
-            errorBox.content = tr("Angebot wurde erstellt; einzelne Bilder fehlen noch.")
+            errorBox.content = notice ?: tr("Angebot wurde erstellt; einzelne Bilder fehlen noch.")
             errorBox.show()
             buttons.removeAll()
             buttons.add(doneButton)
@@ -384,7 +425,26 @@ internal fun SimplePanel.renderCreateListingForm(
                     invalid?.let { fail(paymentDetailsErrorText(it.field)) }
                     return@launch
                 }
-                onListingCreated(result)
+                // V1.9.322: the consent is a SECOND call on the auction that now exists. A refusal does not undo the listing: it stays saved, the
+                // box jumps back to "off" and the reason is shown inline.
+                var notShared: String? = null
+                if (federationBox.wanted) {
+                    val failure =
+                        try {
+                            rpcService<IAuctionService>().setAuctionFederationOptIn(result.id, true)
+                            null
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Throwable) {
+                            e
+                        }
+                    if (failure != null) {
+                        val reason = AuctionFederationUiLogic.refusalText(failure) ?: tr("Bitte versuchen Sie es bei der Auktion erneut.")
+                        federationBox.showRefusal(reason)
+                        notShared = AuctionFederationUiLogic.savedButNotSharedText(reason)
+                    }
+                }
+                onListingCreated(result, notShared)
             }
         }
     }

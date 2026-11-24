@@ -1369,3 +1369,35 @@ class AuctionOfferNotOpenException(
 class AuctionOffersImmutableException(
     override val message: String = "The terms of this auction cannot be changed because of its price offers",
 ) : AbstractServiceException()
+
+// ---- V1.9.322 (Fiat wave c, step c2): visibility of auctions to partner servers. Constant messages: never an id, an amount or a title. ----
+
+/** The auction ends in less than two hours: it cannot be shared (a hint that would be withdrawn almost at once is noise). */
+@RpcServiceException
+class AuctionFederationEndsTooSoonException(
+    override val message: String = "This auction ends too soon to be shared with partner servers",
+) : AbstractServiceException()
+
+/** The seller already shares the maximum number of auctions. */
+@RpcServiceException
+class AuctionFederationShareLimitException(
+    override val message: String = "The maximum number of shared auctions is reached",
+) : AbstractServiceException()
+
+/** The exchange is switched off, no signing key is available or the auction module is off. */
+@RpcServiceException
+class AuctionFederationUnavailableException(
+    override val message: String = "Sharing auctions with partner servers is not available",
+) : AbstractServiceException()
+
+/** The title of the auction cannot be shown to partners (empty, link, control characters). */
+@RpcServiceException
+class AuctionFederationTitleException(
+    override val message: String = "The title of this auction cannot be shown to partner servers",
+) : AbstractServiceException()
+
+/** This auction cannot be shared (not a Euro auction, not open, or the caller may not share it). */
+@RpcServiceException
+class AuctionFederationNotAllowedException(
+    override val message: String = "This auction cannot be shared with partner servers",
+) : AbstractServiceException()

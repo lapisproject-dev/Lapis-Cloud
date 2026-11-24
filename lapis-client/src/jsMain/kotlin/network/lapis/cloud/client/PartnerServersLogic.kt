@@ -1,6 +1,8 @@
 package network.lapis.cloud.client
 
 import io.kvision.i18n.gettext
+import network.lapis.cloud.shared.domain.AuctionFederationLimits
+import network.lapis.cloud.shared.domain.AuctionFederationSettingsDto
 import network.lapis.cloud.shared.domain.CarpoolFederationLimits
 import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
 import network.lapis.cloud.shared.domain.CarpoolPullState
@@ -71,6 +73,70 @@ internal object PartnerServersLogic {
         } else {
             CarpoolFederationLimits.DEFAULT_HOPS
         }
+
+    // ── V1.9.322 "Auktionen auf Partnerservern" (step c2: the origin side) ──────────────────────────
+
+    /** The per-partner box "Auktionen teilen" is offered only while the exchange is on. */
+    fun auctionPartnerSharingVisible(enabled: Boolean): Boolean = enabled
+
+    /** The preselected reach: one or two levels (a stored value outside that is read as the default of one). */
+    fun auctionHopSelection(stored: Int): Int =
+        if (stored in AuctionFederationLimits.MIN_HOPS..AuctionFederationLimits.MAX_HOPS) stored else AuctionFederationLimits.DEFAULT_HOPS
+
+    /** A confirmation is needed only while somebody really shares an auction (N > 0); switching on never needs one. */
+    fun auctionDialogNeeded(sharedActive: Int): Boolean = sharedActive > 0
+
+    fun auctionSwitchOffText(sharedActive: Int): String =
+        ngettext(
+            "Die %1 geteilte Auktion wird bei den Partnern zurückgezogen. Die Zustimmungen der Verkäufer bleiben bestehen.",
+            "Die %1 geteilten Auktionen werden bei den Partnern zurückgezogen. Die Zustimmungen der Verkäufer bleiben bestehen.",
+            sharedActive,
+            sharedActive,
+        )
+
+    /** [host] is the (server-normalised) partner host name; it goes in as a plain text argument of a fixed sentence, never as markup. */
+    fun partnerAuctionOffText(host: String): String =
+        gettext("Die geteilten Auktionen werden bei %1 zurückgezogen. Bei den anderen Partnern ändert sich nichts.", host)
+
+    fun auctionSharedLine(sharedActive: Int): String =
+        ngettext("Derzeit geteilt: %1 Auktion", "Derzeit geteilt: %1 Auktionen", sharedActive, sharedActive)
+
+    /** The notes under the auction switch: the shared count, the missing key, the withdrawals still reported, refused and limited requests. */
+    fun auctionSettingsLines(settings: AuctionFederationSettingsDto): List<String> {
+        val lines = mutableListOf<String>()
+        lines += auctionSharedLine(settings.sharedActive)
+        if (settings.withdrawalsActive > 0) lines += gettext("Rückzugsmeldungen aktiv: %1", settings.withdrawalsActive)
+        if (!settings.enabled) return lines
+        if (!settings.feedKeyAvailable) lines += gettext("Schlüssel für Kurzhinweis-IDs fehlt (LAPIS_SECRET_ENCRYPTION_KEY)")
+        if (settings.feedRefusedSinceStart > 0) lines += gettext("Abgewiesene Abrufe seit dem Start: %1", settings.feedRefusedSinceStart)
+        if (settings.feedRateLimitedSinceStart >
+            0
+        ) {
+            lines += gettext("Gedrosselte Abrufe seit dem Start: %1", settings.feedRateLimitedSinceStart)
+        }
+        return lines
+    }
+
+    /** The feed lines of a partner row: empty unless the exchange is on AND this partner has auction sharing on. */
+    fun auctionFeedLines(
+        partner: PartnerServerDto,
+        exchangeOn: Boolean,
+    ): List<String> {
+        if (!auctionPartnerSharingVisible(exchangeOn) || !partner.auctionSharing) return emptyList()
+        val at = partner.auctionFeedServedAt
+        return listOf(
+            if (at == null) {
+                gettext("Kurzhinweise: noch nie abgerufen")
+            } else {
+                gettext(
+                    "Kurzhinweise abgerufen: %1 (zuletzt %2, %3 Einträge)",
+                    partner.auctionFeedServedCount,
+                    formatSystemDateTime(at),
+                    partner.auctionFeedLastItemCount ?: 0,
+                )
+            },
+        )
+    }
 
     // ── V1.9.245 "Partner von Partnern" ─────────────────────────────────────────
 

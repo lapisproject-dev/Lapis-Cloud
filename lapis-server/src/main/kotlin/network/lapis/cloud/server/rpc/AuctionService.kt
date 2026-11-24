@@ -5,12 +5,20 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.auction.AuctionFiatPricing
 import network.lapis.cloud.server.auction.AuctionOfferStore
 import network.lapis.cloud.server.auction.AuctionPaymentDetailsRetention
 import network.lapis.cloud.server.auction.AuctionPaymentDetailsStore
 import network.lapis.cloud.server.auction.AuctionPaymentDetailsValidator
+import network.lapis.cloud.server.auction.FiatPrice
 import network.lapis.cloud.server.auction.PaymentDetailsUnavailableException
 import network.lapis.cloud.server.auction.SellerPaymentDetails
+import network.lapis.cloud.server.auction.federation.AuctionFederationKey
+import network.lapis.cloud.server.auction.federation.AuctionFederationStore
+import network.lapis.cloud.server.auction.federation.AuctionTeaserSnapshots
+import network.lapis.cloud.server.auction.federation.AuctionWithdrawals
+import network.lapis.cloud.server.auction.federation.mayPullAuctionFeed
+import network.lapis.cloud.server.auction.federation.mayShareAuction
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AuctionBidTable
@@ -23,9 +31,12 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.gallery.AttachedImageStore
 import network.lapis.cloud.server.gallery.GalleryCoverRef
 import network.lapis.cloud.server.gallery.GalleryUrls
+import network.lapis.cloud.server.partner.ForeignText
+import network.lapis.cloud.server.partner.PartnerServerStore
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -36,12 +47,17 @@ import network.lapis.cloud.shared.domain.AuctionBidDto
 import network.lapis.cloud.shared.domain.AuctionBidResultDto
 import network.lapis.cloud.shared.domain.AuctionComplianceAcknowledgmentInput
 import network.lapis.cloud.shared.domain.AuctionComplianceDisclaimerDto
+import network.lapis.cloud.shared.domain.AuctionConsentRefusal
 import network.lapis.cloud.shared.domain.AuctionCurrencies
 import network.lapis.cloud.shared.domain.AuctionDto
 import network.lapis.cloud.shared.domain.AuctionDurationRules
+import network.lapis.cloud.shared.domain.AuctionFederationAvailabilityDto
+import network.lapis.cloud.shared.domain.AuctionFederationLimits
+import network.lapis.cloud.shared.domain.AuctionFederationReachDto
 import network.lapis.cloud.shared.domain.AuctionFiatAuditSnapshot
 import network.lapis.cloud.shared.domain.AuctionFiatAvailabilityDto
 import network.lapis.cloud.shared.domain.AuctionFiatSwitchAuditSnapshot
+import network.lapis.cloud.shared.domain.AuctionHintResolutionDto
 import network.lapis.cloud.shared.domain.AuctionOfferDto
 import network.lapis.cloud.shared.domain.AuctionOfferRules
 import network.lapis.cloud.shared.domain.AuctionOfferStatus
@@ -49,6 +65,7 @@ import network.lapis.cloud.shared.domain.AuctionPaymentDetailsDto
 import network.lapis.cloud.shared.domain.AuctionPaymentDetailsInput
 import network.lapis.cloud.shared.domain.AuctionSettingsDto
 import network.lapis.cloud.shared.domain.AuctionStatus
+import network.lapis.cloud.shared.domain.AuctionTeaser
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CreateAuctionListingInput
@@ -56,12 +73,19 @@ import network.lapis.cloud.shared.domain.CreateFiatAuctionListingInput
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
 import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.PartnerAuctionHintLimits
 import network.lapis.cloud.shared.domain.UpdateAuctionTermsInput
+import network.lapis.cloud.shared.domain.mayConsentToAuctionFederation
 import network.lapis.cloud.shared.rpc.AuctionAlreadyConfirmedException
 import network.lapis.cloud.shared.rpc.AuctionAmountOutOfRangeException
 import network.lapis.cloud.shared.rpc.AuctionCurrencyLockedException
 import network.lapis.cloud.shared.rpc.AuctionCurrencyMismatchException
 import network.lapis.cloud.shared.rpc.AuctionCurrencyUnsupportedException
+import network.lapis.cloud.shared.rpc.AuctionFederationEndsTooSoonException
+import network.lapis.cloud.shared.rpc.AuctionFederationNotAllowedException
+import network.lapis.cloud.shared.rpc.AuctionFederationShareLimitException
+import network.lapis.cloud.shared.rpc.AuctionFederationTitleException
+import network.lapis.cloud.shared.rpc.AuctionFederationUnavailableException
 import network.lapis.cloud.shared.rpc.AuctionFiatDisabledException
 import network.lapis.cloud.shared.rpc.AuctionFiatDisclaimerRequiredException
 import network.lapis.cloud.shared.rpc.AuctionFiatEncryptionUnavailableException
@@ -120,6 +144,9 @@ private const val PAYMENT_DETAILS_NOT_FOUND = "Auction not found"
 /** The ONE answer of every offer method for a stranger, a missing offer, a malformed id or an auction without offers. No id in it. */
 private const val OFFER_NOT_FOUND = "Offer not found"
 
+/** The ONE answer of the federation consent for a stranger's, a missing or a malformed auction id. No id in it. */
+private const val FEDERATION_NOT_FOUND = "Auction not found"
+
 /** The statuses of an awarded Fiat auction (the payment details can be opened, the confirmations run). */
 private val AWARDED_FIAT_STATUSES = setOf(AuctionStatus.AWAITING_PAYMENT, AuctionStatus.PAID, AuctionStatus.COMPLETED)
 
@@ -173,6 +200,8 @@ class AuctionService(
     private val ltrBalanceProvider: LtrBalanceProvider = LedgerBackedLtrBalanceProvider(),
     /** V1.9.320: `LAPIS_SECRET_ENCRYPTION_KEY`; without it no Fiat auction can be created (the payment details could not be sealed). */
     secretEncryptionKey: ByteArray? = null,
+    /** V1.9.322 (step c2): the per-member budget of the hint landing route. Module-scoped, passed by `Application.module` (never created per call). */
+    private val hintResolveLimiter: FederationInboxRateLimiter? = null,
 ) : IAuctionService {
     private val paymentStore = AuctionPaymentDetailsStore(secretEncryptionKey)
 
@@ -611,10 +640,13 @@ class AuctionService(
     override suspend fun disableAuction(): AuctionSettingsDto {
         val current = resolveCurrentMember(call)
         current.requireRole(AccountRole.ADMIN)
+        val now = nowLocalDateTime()
         return transaction {
             OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
                 it[auctionEnabled] = false
             }
+            // V1.9.322: every shared hint is withdrawn for everybody; the consents stay.
+            AuctionWithdrawals.onModuleOff(now)
             loadAuctionSettingsDto()
         }
     }
@@ -890,6 +922,8 @@ class AuctionService(
                     throw ConflictException("The price exceeds the configured auctionMaxValueLtr $maxValue")
                 }
                 if (wasFiat) {
+                    // V1.9.322: an LTR auction is never shared: the consent goes and the partners are told (inside this transaction).
+                    AuctionWithdrawals.onSwitchedToLtr(row = row, now = now)
                     // Fiat -> LTR: the listing fee of an LTR auction is charged now (a Fiat listing paid none).
                     // The fee is charged ONCE per auction: an earlier LTR phase (LTR -> EUR -> LTR) already paid it and the ledger row stays (no refund).
                     val feeAlreadyCharged =
@@ -1066,6 +1100,8 @@ class AuctionService(
             OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
                 it[auctionFiatEnabled] = enabled
             }
+            // V1.9.322: switching the Euro module off withdraws every shared hint for everybody; the consents stay.
+            if (!enabled) AuctionWithdrawals.onModuleOff(now)
             AuditLogRecorder.record(
                 actorMemberId = current.memberId,
                 actorRole = current.role,
@@ -1262,6 +1298,7 @@ class AuctionService(
                 it[AuctionTable.settledAt] = now
             }
             AuctionOfferStore.expireAllOpenLocked(auctionId = auctionId, now = now, exceptOfferId = id)
+            AuctionWithdrawals.onAuctionEnded(row = auction, now = now)
             auditFiat(
                 actor = current,
                 auctionId = auctionId,
@@ -1407,11 +1444,6 @@ class AuctionService(
         val offer: ResultRow,
     )
 
-    private class FiatPrice(
-        val minor: Long,
-        val hasBids: Boolean,
-    )
-
     private fun String.toOfferUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException(OFFER_NOT_FOUND) }
 
     /** Auction row FIRST (lazy settlement included), then the offer row. A missing offer, a missing auction or an auction without offers: [OFFER_NOT_FOUND]. */
@@ -1452,18 +1484,7 @@ class AuctionService(
     }
 
     /** The visible price of a Fiat auction (second price, or the starting price without a bid). */
-    private fun currentFiatPriceMinor(auction: ResultRow): FiatPrice {
-        val outcome =
-            computeFiatAuctionOutcome(
-                startingMinor = auction[AuctionTable.startingPriceMinor]!!,
-                minIncrementMinor = AuctionCurrencies.MIN_INCREMENT_MINOR,
-                bids = currentFiatBidViews(auction[AuctionTable.id]),
-            )
-        return FiatPrice(
-            minor = outcome.currentPriceMinor ?: auction[AuctionTable.startingPriceMinor]!!,
-            hasBids = outcome.leaderMemberId != null,
-        )
-    }
+    private fun currentFiatPriceMinor(auction: ResultRow): FiatPrice = AuctionFiatPricing.visiblePrice(auction)
 
     /** `min(now + 48 h, end of the auction)`: an offer never outlives the auction. */
     private fun offerExpiry(
@@ -1661,6 +1682,7 @@ class AuctionService(
             }
             paymentStore.delete(auctionId)
             expireOffersOnEnd(row = row, now = now)
+            AuctionWithdrawals.onAuctionEnded(row = row, now = now)
             auditFiat(actor = null, auctionId = auctionId, event = "AUCTION_FIAT_CLOSED_NO_SALE", action = AuditAction.UPDATE, now = now)
             return
         }
@@ -1671,6 +1693,7 @@ class AuctionService(
             it[settledAt] = now
         }
         expireOffersOnEnd(row = row, now = now)
+        AuctionWithdrawals.onAuctionEnded(row = row, now = now)
         auditFiat(actor = null, auctionId = auctionId, event = "AUCTION_FIAT_SETTLED", action = AuditAction.UPDATE, now = now)
     }
 
@@ -1698,6 +1721,7 @@ class AuctionService(
             it[settledAt] = now
         }
         expireOffersOnEnd(row = row, now = now)
+        AuctionWithdrawals.onAuctionEnded(row = row, now = now)
         auditFiat(actor = current, auctionId = id, event = "AUCTION_FIAT_SETTLED", action = AuditAction.UPDATE, now = now)
         return rowToDto(row = AuctionTable.selectAll().where { AuctionTable.id eq id }.single(), now = now, callerId = current.memberId)
     }
@@ -1862,6 +1886,9 @@ class AuctionService(
                         offerSummary.callerDeclines >= AuctionOfferRules.MAX_DECLINES_PER_BUYER_PER_AUCTION ||
                             offerSummary.callerProposals >= AuctionOfferRules.MAX_PROPOSALS_PER_BUYER_PER_AUCTION
                     ),
+            // V1.9.322: the consent is the seller's own business; nobody else learns whether (or since when) an auction is shared.
+            federationOptIn = callerIsSeller && row[AuctionTable.federationOptIn],
+            federationOptInAt = if (callerIsSeller) row[AuctionTable.federationOptInAt] else null,
         )
     }
 
@@ -2046,19 +2073,7 @@ class AuctionService(
                 )
             }
 
-    private fun currentFiatBidViews(auctionId: Uuid): List<FiatBidView> =
-        AuctionBidTable
-            .selectAll()
-            .where { AuctionBidTable.auctionId eq auctionId }
-            .mapNotNull { row ->
-                val maxBid = row[AuctionBidTable.maxBidMinor] ?: return@mapNotNull null
-                FiatBidView(
-                    bidId = row[AuctionBidTable.id],
-                    bidderMemberId = row[AuctionBidTable.bidderMemberId],
-                    maxBidMinor = maxBid,
-                    createdAt = row[AuctionBidTable.createdAt],
-                )
-            }
+    private fun currentFiatBidViews(auctionId: Uuid): List<FiatBidView> = AuctionFiatPricing.bidViews(auctionId)
 
     /**
      * Upsert-by-(auctionId, bidderMemberId) -- see `21-auction.kuml.kts` file header "auction_bid
@@ -2208,6 +2223,179 @@ class AuctionService(
             settledAt = row[AuctionTable.settledAt],
             coverImageUrl = cover?.let { GalleryUrls.imageUrl(imageId = it.imageId, storageKey = it.storageKey) },
         )
+    }
+
+    // ── V1.9.322 (Fiat wave c, step c2): visibility to partner servers ─────────────────────────────────────────
+    // Lock order, ALWAYS: auction row ([lockAndCloseIfDue]) -> member row (forUpdate, consent only) -> snapshot/tombstone rows -> audit entry (last).
+    // Nothing here writes the LTR ledger or talks to the network. Not legally reviewed, off by default.
+
+    override suspend fun getAuctionFederationAvailability(): AuctionFederationAvailabilityDto {
+        val current = resolveCurrentMember(call)
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            AuctionFederationAvailabilityDto(enabled = federationAvailableNow())
+        }
+    }
+
+    override suspend fun setAuctionFederationOptIn(
+        auctionId: String,
+        optIn: Boolean,
+    ): AuctionDto {
+        val current = resolveCurrentMember(call)
+        val id = runCatching { Uuid.parse(auctionId) }.getOrElse { throw NotFoundException(FEDERATION_NOT_FOUND) }
+        val now = nowLocalDateTime()
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            val row = lockAndCloseIfDue(auctionId = id, now = now, notFoundMessage = FEDERATION_NOT_FOUND)
+            // A stranger's auction and a missing one are the SAME answer.
+            if (row[AuctionTable.sellerMemberId] != current.memberId) throw NotFoundException(FEDERATION_NOT_FOUND)
+            if (optIn) {
+                giveFederationConsent(
+                    current = current,
+                    row = row,
+                    now = now,
+                )
+            } else {
+                takeBackFederationConsent(current = current, row = row, now = now)
+            }
+            rowToDto(row = AuctionTable.selectAll().where { AuctionTable.id eq id }.single(), now = now, callerId = current.memberId)
+        }
+    }
+
+    private fun federationAvailableNow(): Boolean =
+        AuctionFederationStore.settings().enabled && AuctionFederationStore.modulesOn() && AuctionFederationKey.current() != null
+
+    private fun giveFederationConsent(
+        current: CurrentMember,
+        row: ResultRow,
+        now: LocalDateTime,
+    ) {
+        val id = row[AuctionTable.id]
+        val ids = AuctionFederationKey.current()
+        if (!federationAvailableNow() || ids == null) throw AuctionFederationUnavailableException()
+        val refusal =
+            mayConsentToAuctionFederation(
+                currency = row[AuctionTable.currency],
+                status = row[AuctionTable.status],
+                endsAt = row[AuctionTable.endsAt].toInstant(ServerClock.zone),
+                instanceEnabled = true,
+                title = java.text.Normalizer.normalize(row[AuctionTable.title], java.text.Normalizer.Form.NFC),
+                now = now.toInstant(ServerClock.zone),
+            )
+        if (!mayShareAuction(
+                memberId = current.memberId,
+                auctionRow = row,
+                memberIsActive = true,
+                sellerNoticeConfirmed = hasSellerAck(current.memberId),
+            )
+        ) {
+            throw AuctionFederationNotAllowedException()
+        }
+        when (refusal) {
+            null -> Unit
+            AuctionConsentRefusal.NOT_FIAT, AuctionConsentRefusal.NOT_OPEN -> throw AuctionFederationNotAllowedException()
+            AuctionConsentRefusal.ENDS_TOO_SOON -> throw AuctionFederationEndsTooSoonException()
+            AuctionConsentRefusal.TITLE -> throw AuctionFederationTitleException()
+            AuctionConsentRefusal.INSTANCE_OFF -> throw AuctionFederationUnavailableException()
+        }
+        // Already shared: idempotent, no second audit entry.
+        if (row[AuctionTable.federationOptIn]) return
+        // The member row is locked AFTER the auction row (the precedent of updateAuctionTerms); it serialises the seller's parallel consents.
+        requireActiveMembership(memberId = current.memberId, forUpdate = true)
+        if (AuctionFederationStore.countSharedOfSeller(sellerId = current.memberId, now = now) >=
+            AuctionFederationLimits.MAX_SHARED_PER_SELLER
+        ) {
+            throw AuctionFederationShareLimitException()
+        }
+        AuctionFederationStore.setOptIn(auctionId = id, value = true, now = now)
+        val snapshot =
+            AuctionTeaserSnapshots.createOnConsent(row = row, ids = ids, fiatEnabled = true, now = now)
+                ?: throw AuctionFederationTitleException()
+        // A consent after an earlier withdrawal: the tombstone of that withdrawal is moot now (the hint comes back with a higher revision).
+        AuctionFederationStore.forgetOwnGlobalTombstone(snapshot.teaserId)
+        auditFiat(actor = current, auctionId = id, event = "AUCTION_FEDERATION_CONSENT_ON", action = AuditAction.UPDATE, now = now)
+    }
+
+    private fun takeBackFederationConsent(
+        current: CurrentMember,
+        row: ResultRow,
+        now: LocalDateTime,
+    ) {
+        // Always allowed (also while the exchange is off or no key is configured: then no tombstone can be written, which is counted).
+        if (!row[AuctionTable.federationOptIn]) return
+        AuctionWithdrawals.onConsentWithdrawn(row = row, now = now)
+        auditFiat(
+            actor = current,
+            auctionId = row[AuctionTable.id],
+            event = "AUCTION_FEDERATION_CONSENT_OFF",
+            action = AuditAction.UPDATE,
+            now = now,
+        )
+    }
+
+    override suspend fun resolveAuctionHint(teaserId: String): AuctionHintResolutionDto {
+        val current = resolveCurrentMember(call)
+        // One uniform answer, also when the member's budget is used up (a distinct answer would tell a prober that the id was worth a lookup).
+        if (hintResolveLimiter != null &&
+            !hintResolveLimiter.checkAndRecord(current.memberId.toString())
+        ) {
+            return AuctionHintResolutionDto.Unavailable
+        }
+        if (!AuctionTeaser.TEASER_ID_REGEX.matches(teaserId)) return AuctionHintResolutionDto.Unavailable
+        val now = nowLocalDateTime()
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            val snapshot = AuctionFederationStore.snapshotByTeaserId(teaserId) ?: return@transaction AuctionHintResolutionDto.Unavailable
+            // Read WITHOUT a lock and without the lazy settlement: this route writes nothing.
+            val row =
+                AuctionTable.selectAll().where { AuctionTable.id eq snapshot.auctionId }.singleOrNull()
+                    ?: return@transaction AuctionHintResolutionDto.Unavailable
+            val shareable =
+                row[AuctionTable.federationOptIn] &&
+                    row[AuctionTable.status] == AuctionStatus.OPEN &&
+                    row[AuctionTable.endsAt] > now &&
+                    row.isFiat() &&
+                    AuctionFederationStore.settings().enabled &&
+                    AuctionFederationStore.modulesOn()
+            if (shareable) {
+                AuctionHintResolutionDto.Available(
+                    auctionId = snapshot.auctionId.toString(),
+                )
+            } else {
+                AuctionHintResolutionDto.Unavailable
+            }
+        }
+    }
+
+    override suspend fun getAuctionFederationReach(): AuctionFederationReachDto {
+        val current = resolveCurrentMember(call)
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            val settings = AuctionFederationStore.settings()
+            if (!settings.enabled || !AuctionFederationStore.modulesOn()) {
+                return@transaction AuctionFederationReachDto(
+                    enabled = false,
+                    partners = emptyList(),
+                    maxHops = 0,
+                    partnersTruncated = false,
+                )
+            }
+            val patterns = PartnerServerStore.blockPatterns()
+            // Only the administrator's display name (cleaned) or the host, never the name the partner announced itself.
+            val labels =
+                PartnerServerStore
+                    .listPartners()
+                    .filter { it.mayPullAuctionFeed(patterns) }
+                    .map { ForeignText.clean(raw = it.displayName, maxChars = 100) ?: it.host }
+                    .distinct()
+                    .sortedWith(compareBy({ it.lowercase() }, { it }))
+            AuctionFederationReachDto(
+                enabled = true,
+                partners = labels.take(PartnerAuctionHintLimits.MAX_REACH_PARTNERS),
+                maxHops = minOf(settings.hopLimit, AuctionFederationLimits.MAX_HOPS),
+                partnersTruncated = labels.size > PartnerAuctionHintLimits.MAX_REACH_PARTNERS,
+            )
+        }
     }
 
     private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()

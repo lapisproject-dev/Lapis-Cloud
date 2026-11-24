@@ -1,6 +1,7 @@
 package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
+import network.lapis.cloud.shared.domain.AuctionFederationSettingsDto
 import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
 import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerBlockDto
@@ -84,4 +85,21 @@ interface IPartnerServerService {
 
     /** ADMIN. Lets a discovered [host] whose signing key changed be pinned anew by the next fetch. Not found when no hold exists. */
     suspend fun releaseDiscoveredSigningKeyHold(host: String)
+
+    // ---- V1.9.322 (Fiat wave c, step c2): auction hints. APPENDED at the END. ----
+
+    /** ADMIN. The auction exchange switch, hop limit and counters. */
+    suspend fun getAuctionFederationSettings(): AuctionFederationSettingsDto
+
+    /** ADMIN. [hopLimit] outside 1..2 is a bad request (never silently clamped). Switching off withdraws the shared hints; consents stay. */
+    suspend fun setAuctionFederationSettings(
+        enabled: Boolean,
+        hopLimit: Int,
+    )
+
+    /** ADMIN. Allows or forbids the exchange of auction hints with ONE direct partner. Unknown id: not found. */
+    suspend fun setPartnerAuctionSharing(
+        partnerId: String,
+        enabled: Boolean,
+    )
 }

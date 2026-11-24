@@ -23,6 +23,11 @@ import network.lapis.cloud.shared.rpc.AuctionAmountOutOfRangeException
 import network.lapis.cloud.shared.rpc.AuctionCurrencyLockedException
 import network.lapis.cloud.shared.rpc.AuctionCurrencyMismatchException
 import network.lapis.cloud.shared.rpc.AuctionCurrencyUnsupportedException
+import network.lapis.cloud.shared.rpc.AuctionFederationEndsTooSoonException
+import network.lapis.cloud.shared.rpc.AuctionFederationNotAllowedException
+import network.lapis.cloud.shared.rpc.AuctionFederationShareLimitException
+import network.lapis.cloud.shared.rpc.AuctionFederationTitleException
+import network.lapis.cloud.shared.rpc.AuctionFederationUnavailableException
 import network.lapis.cloud.shared.rpc.AuctionFiatDisabledException
 import network.lapis.cloud.shared.rpc.AuctionFiatDisclaimerRequiredException
 import network.lapis.cloud.shared.rpc.AuctionFiatEncryptionUnavailableException
@@ -279,6 +284,12 @@ internal fun typedRefusalText(e: Throwable): String? =
         is AuctionAlreadyConfirmedException -> tr("Diese Bestätigung wurde bereits gegeben.")
         is AuctionAmountOutOfRangeException -> tr("Der Betrag liegt außerhalb des erlaubten Bereichs.")
         is AuctionFiatEncryptionUnavailableException -> tr("Auktionen in Euro sind auf diesem Server derzeit nicht verfügbar.")
+        // V1.9.322 visibility to partner servers: fixed texts of its typed refusals (the box shows them inline, any other path uses the toast).
+        is AuctionFederationEndsTooSoonException -> AuctionFederationUiLogic.refusalText(e)
+        is AuctionFederationShareLimitException -> AuctionFederationUiLogic.refusalText(e)
+        is AuctionFederationUnavailableException -> AuctionFederationUiLogic.refusalText(e)
+        is AuctionFederationTitleException -> AuctionFederationUiLogic.refusalText(e)
+        is AuctionFederationNotAllowedException -> AuctionFederationUiLogic.refusalText(e)
         // V1.9.321 price offers: fixed texts of its typed refusals.
         is AuctionOfferNotAllowedException -> tr("Für diese Auktion ist kein Preisvorschlag möglich.")
         is AuctionOfferAmountInvalidException -> tr("Der Betrag liegt außerhalb des erlaubten Bereichs für einen Preisvorschlag.")
