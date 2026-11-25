@@ -739,6 +739,9 @@ enum class AuditEntityType {
 
     /** V1.9.325 -- an LTR credit (or its reversal) for a travel expense report: ids, dates, basis; never an amount, a rate or a reason text. 25 chars. Appended LAST. */
     TRAVEL_EXPENSE_LTR_PAYOUT,
+
+    /** V1.9.328 -- a donation row created on the first conversion of a donation: ids and the booking day, never an amount or an IBAN. 8 chars. Appended LAST. */
+    DONATION,
 }
 
 /** V1.9.322 -- after-snapshot of an [AuditEntityType.AUCTION_FEDERATION_FEED] entry: numbers only, never a title, price or id. */

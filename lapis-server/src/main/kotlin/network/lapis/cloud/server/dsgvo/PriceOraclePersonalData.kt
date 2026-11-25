@@ -1,8 +1,10 @@
 package network.lapis.cloud.server.dsgvo
 
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import network.lapis.cloud.server.db.generated.DonationTable
 import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
 import network.lapis.cloud.server.db.generated.PriceOracleReferenceRateTable
 import network.lapis.cloud.shared.domain.ErasureMode
@@ -32,7 +34,7 @@ import kotlin.uuid.Uuid
 object PriceOraclePersonalData : MemberPersonalDataContributor {
     override val sectionKey = "priceOracleConversions"
     override val displayName = "Price-Oracle-Konvertierungen"
-    override val coveredTables = setOf(PriceOracleConversionTable, PriceOracleReferenceRateTable)
+    override val coveredTables = setOf(PriceOracleConversionTable, PriceOracleReferenceRateTable, DonationTable)
 
     override fun exportMember(memberId: Uuid) =
         buildJsonObject {
@@ -40,13 +42,37 @@ object PriceOraclePersonalData : MemberPersonalDataContributor {
                 PriceOracleConversionTable
                     .selectAll()
                     .where { PriceOracleConversionTable.memberId eq memberId }
-                    .forEach { row -> add(conversionSummaryJson(row)) }
+                    .forEach { row -> add(conversionSummaryJson(row = row, includeOverrideReason = true)) }
             }
             putJsonArray("conversionsInitiated") {
                 PriceOracleConversionTable
                     .selectAll()
                     .where { PriceOracleConversionTable.createdById eq memberId }
-                    .forEach { row -> add(conversionSummaryJson(row)) }
+                    .forEach { row -> add(conversionSummaryJson(row = row, includeOverrideReason = false)) }
+            }
+            // V1.9.328: the donations of this member (they are the subject of a conversion) and, by id only, those this member created as the actor.
+            putJsonArray("donations") {
+                DonationTable
+                    .selectAll()
+                    .where { DonationTable.memberId eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("id", row[DonationTable.id].toString())
+                                put("paymentTransactionId", row[DonationTable.paymentTransactionId].toString())
+                                put("amount", row[DonationTable.amount].toPlainString())
+                                put("currency", row[DonationTable.currency])
+                                put("bookingDate", row[DonationTable.bookingDate].toString())
+                                put("createdAt", row[DonationTable.createdAt].toString())
+                            },
+                        )
+                    }
+            }
+            putJsonArray("donationsCreated") {
+                DonationTable
+                    .selectAll()
+                    .where { DonationTable.createdBy eq memberId }
+                    .forEach { row -> add(JsonPrimitive(row[DonationTable.id].toString())) }
             }
             // V1.9.324: the manual reference rates this member confirmed -- date, rate and the length of the evidence text (the text itself stays with
             // the booking record, it is the treasurer's justification for a financial entry, not data about the person).
@@ -75,6 +101,11 @@ object PriceOraclePersonalData : MemberPersonalDataContributor {
     ): List<TableErasureOutcome> {
         val condition = (PriceOracleConversionTable.memberId eq memberId) or (PriceOracleConversionTable.createdById eq memberId)
         val total = PriceOracleConversionTable.selectAll().where { condition }.count()
+        val donations =
+            DonationTable
+                .selectAll()
+                .where { (DonationTable.memberId eq memberId) or (DonationTable.createdBy eq memberId) }
+                .count()
         val confirmed = PriceOracleReferenceRateTable.selectAll().where { PriceOracleReferenceRateTable.confirmedBy eq memberId }.count()
         return listOf(
             TableErasureOutcome(
@@ -87,24 +118,35 @@ object PriceOraclePersonalData : MemberPersonalDataContributor {
                 rowsRetained = confirmed.toInt(),
                 retentionReason = "GoBD-Aufbewahrung: Beleg (Kurs und Begruendung) einer LTR-Ausgabe -- keine Loeschung/Anonymisierung.",
             ),
+            TableErasureOutcome(
+                table = "donation",
+                rowsRetained = donations.toInt(),
+                retentionReason = "GoBD: Beleg einer LTR-Ausgabe -- keine Loeschung/Anonymisierung.",
+            ),
         )
     }
 }
 
-private fun conversionSummaryJson(row: ResultRow) =
-    buildJsonObject {
-        put("id", row[PriceOracleConversionTable.id].toString())
-        put("donationAmount", row[PriceOracleConversionTable.donationAmount].toPlainString())
-        put("donationCurrency", row[PriceOracleConversionTable.donationCurrency])
-        put("anchorAsset", row[PriceOracleConversionTable.anchorAsset].name)
-        put("anchorPrice", row[PriceOracleConversionTable.anchorPrice].toPlainString())
-        put("ltrMinted", row[PriceOracleConversionTable.ltrMinted].toPlainString())
-        put("priceStatus", row[PriceOracleConversionTable.priceStatus].name)
-        put("sourceCount", row[PriceOracleConversionTable.sourceCount])
-        put("sourcesUsed", row[PriceOracleConversionTable.sourcesUsed])
-        put("priceTimestamp", row[PriceOracleConversionTable.priceTimestamp].toString())
-        put("ltrLedgerEntryId", row[PriceOracleConversionTable.ltrLedgerEntryId].toString())
-        put("memberId", row[PriceOracleConversionTable.memberId].toString())
-        put("createdById", row[PriceOracleConversionTable.createdById]?.toString())
-        put("createdAt", row[PriceOracleConversionTable.createdAt].toString())
-    }
+/** [includeOverrideReason]: the justification of a manual reference date is shown to the affected member only, not in the actor's export. */
+private fun conversionSummaryJson(
+    row: ResultRow,
+    includeOverrideReason: Boolean,
+) = buildJsonObject {
+    put("id", row[PriceOracleConversionTable.id].toString())
+    put("donationAmount", row[PriceOracleConversionTable.donationAmount].toPlainString())
+    put("donationCurrency", row[PriceOracleConversionTable.donationCurrency])
+    put("anchorAsset", row[PriceOracleConversionTable.anchorAsset].name)
+    put("anchorPrice", row[PriceOracleConversionTable.anchorPrice].toPlainString())
+    put("ltrMinted", row[PriceOracleConversionTable.ltrMinted].toPlainString())
+    put("priceStatus", row[PriceOracleConversionTable.priceStatus].name)
+    put("sourceCount", row[PriceOracleConversionTable.sourceCount])
+    put("sourcesUsed", row[PriceOracleConversionTable.sourcesUsed])
+    put("priceTimestamp", row[PriceOracleConversionTable.priceTimestamp].toString())
+    put("ltrLedgerEntryId", row[PriceOracleConversionTable.ltrLedgerEntryId].toString())
+    put("memberId", row[PriceOracleConversionTable.memberId].toString())
+    put("createdById", row[PriceOracleConversionTable.createdById]?.toString())
+    put("createdAt", row[PriceOracleConversionTable.createdAt].toString())
+    put("donationId", row[PriceOracleConversionTable.donationId]?.toString())
+    put("referenceDateSource", row[PriceOracleConversionTable.referenceDateSource]?.name)
+    if (includeOverrideReason) put("referenceDateOverrideReason", row[PriceOracleConversionTable.referenceDateOverrideReason])
+}

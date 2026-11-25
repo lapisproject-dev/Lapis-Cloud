@@ -10,9 +10,23 @@ NOTE: Off by default. Not reviewed by a tax adviser. Architecture: link:../archi
 
 == Converting a donation (treasurer, board, administrator)
 
-. Open the price oracle, section "Convert donation to LTR". Choose the member, enter the amount and the reference date (yesterday at the earliest).
+. Open the price oracle, section "Convert donation to LTR". Choose the member, then the *donation* (date and amount). The amount is the donation's and cannot be changed; the reference date is pre-filled with the day the bank booked the donation (yesterday at the earliest). A member without an open donation cannot be converted for.
 . Press "Check the rate for the reference date". The page shows the reference date, the day whose rate is used (a weekend or a London bank holiday moves it to the day before), the basis, the sources with their raw values and the rate.
 . Press "Convert to LTR" and confirm. The booking uses exactly the rate you saw; if it changed in the meantime, nothing is booked and you check again.
+
+== A different reference date
+
+If you change the reference date to another day than the booking day, a text field "Reason for the different reporting date" appears (10 to 500 characters, no IBAN or account number). It is required; "Reset to booking day" removes it again. The receipt shows the origin of the date and the reason. A donation can be converted once only; trying again (also through another entry) is refused.
+
+== Open questions (V1.9.328)
+
+* F1: cash donations and donations without a bank booking cannot be converted in this mode any more.
+* F2/F3: donations are created by the V174 backfill and by the first conversion, not yet at payment intake; PSP donations without a bank line are not offered.
+* F4: the reason is visible to the treasury roles and in the member's own data export, not in the member's financial overview.
+* F5: no partial conversions and no splits.
+* F6: legacy manual conversions with a payment carry the text "Altbestand vor V174: Stichtag ohne Begründung erfasst".
+* F7: the currency is part of the composite key that ties a conversion to its donation.
+* F8: a stored donation keeps its booking day; if the bank line changes afterwards, it is not convertible and there is no correction path yet.
 
 == When there is no rate
 

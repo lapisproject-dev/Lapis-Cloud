@@ -182,6 +182,7 @@ class PriceOracleReferenceDateScenariosTest :
             transaction {
                 PriceOracleConversionTable.deleteWhere { PriceOracleConversionTable.memberId inList createdMembers }
                 PriceOracleConversionTable.deleteWhere { PriceOracleConversionTable.rateBasis neq ReferenceRateBasis.CURRENT }
+                DonationFixtures.cleanup()
                 PriceOracleReferenceRateTable.deleteAll()
                 PriceOracleSnapshotSourceTable.deleteAll()
                 PriceOracleSnapshotTable.deleteAll()
@@ -694,12 +695,21 @@ private fun Route.registerReferenceDateRoutes(orchestrator: PriceOracleOrchestra
     post("/test/convert") {
         val service = PriceOracleService(call = call, orchestrator = orchestrator)
         val q = call.request.queryParameters
+        val date = q["date"]?.let { LocalDate.parse(it) }
+        // V1.9.328: a reference-date conversion converts a donation -- give the member one, booked on the reference date (source BANK_BOOKING).
+        val payment =
+            if (date != null && q["noDonation"] == null) {
+                DonationFixtures.bankedDonation(member = Uuid.parse(q["memberId"]!!), amount = q["amount"]!!, bookingDate = date)
+            } else {
+                null
+            }
         val r =
             service.convertDonationToLtr(
                 DonationConversionInput(
                     memberId = q["memberId"]!!,
                     donationAmount = BigDecimal(q["amount"]!!),
-                    referenceDate = q["date"]?.let { LocalDate.parse(it) },
+                    referenceDate = date,
+                    paymentTransactionId = payment?.toString(),
                     // The real client sends the price as an RPC `Decimal`, which travels as a JSON double -- reproduce that wire format.
                     expectedPrice = q["expectedPrice"]?.let { BigDecimal(BigDecimal(it).toDouble().toString()) },
                     expectedRateRefId = q["expectedRef"],

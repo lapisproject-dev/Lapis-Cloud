@@ -1145,6 +1145,8 @@ internal fun renderConversionResult(
         if (!result.rawValuesStored) box.div(rawValuesNotStoredText()) { addCssClass("text-muted") }
     }
     result.paymentTransactionId?.let { box.div(gettext("Bankzahlung: %1", it)) { addCssClass("text-muted") } }
+    // V1.9.328: the justification of a manual reference date. Untrusted text: a text node via gettext, never HTML.
+    result.referenceDateOverrideReason?.let { box.untrustedDiv(gettext("Begründung: %1", it), className = "text-muted") }
     box.div(gettext("Buchung: %1", result.ltrLedgerEntryId)) { addCssClass("text-muted") }
     box.div(gettext("Zeitstempel: %1", formatSystemDateTime(result.priceTimestamp))) { addCssClass("text-muted") }
 }

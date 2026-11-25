@@ -88,6 +88,54 @@ classDiagram(name = "Price oracle conversion and bank payment (V173)") {
 * *Mode CURRENT* is unchanged: a payment id there is refused (nothing is minted); the double-conversion guard exists only in the reference-date mode. It also only covers conversions linked to a payment: a donation converted earlier without a payment link (reference-date mode with `paymentTransactionId` empty, or in mode CURRENT) still appears as a candidate, and converting it via the payment mints a second time. The treasurer must check for an earlier unlinked conversion of the same donation first.
 * *Audit and notes*: ids and flags only (`paymentTransactionId`, `referenceDateSource`, `rawValuesStored`); never an IBAN, a payer reference or an amount.
 
+== Donation entity (V1.9.328, schema V174)
+
+A reference-date conversion converts **one donation, once, in full**. The donation is an entity of its own (`donation`), no longer only a payment id on the conversion.
+
+[source,kuml,name="price-oracle-donation-entity"]
+----
+classDiagram(name = "Donation entity (V174)") {
+
+    val member = classOf(name = "Member") {
+        attribute(name = "id", type = "UUID")
+    }
+
+    val paymentTransaction = classOf(name = "PaymentTransaction") {
+        attribute(name = "id", type = "UUID")
+    }
+
+    val donation = classOf(name = "Donation") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "paymentTransactionId", type = "UUID")
+        attribute(name = "memberId", type = "UUID")
+        attribute(name = "amount", type = "BigDecimal")
+        attribute(name = "currency", type = "String")
+        attribute(name = "bookingDate", type = "LocalDate")
+        attribute(name = "createdBy", type = "UUID")
+    }
+
+    val priceOracleConversion = classOf(name = "PriceOracleConversion") {
+        attribute(name = "donationId", type = "UUID")
+        attribute(name = "referenceDateSource", type = "ReferenceDateSource")
+        attribute(name = "referenceDateOverrideReason", type = "String")
+    }
+}
+----
+
+* *Rows*: `donation` (id, `payment_transaction_id` UNIQUE, `member_id`, `amount` DECIMAL(18,2), `currency`, `booking_date`, `created_at`, `created_by`). A row is created by the V174 backfill (captured `DONATION` payments of a member with exactly one `POSTED` bank line; the id equals the payment id because a UUID function in SQL is not portable between H2 and PostgreSQL, and nobody may rely on that) or, in the same transaction as the first successful conversion, by `DonationStore`. `DonationStore` is the only writer and inserts only.
+* *Lock order*: payment row first, donation row second, whichever id the caller sends (`donationId` or `paymentTransactionId`). Two requests for one donation queue on the payment row and cannot deadlock.
+* *Once only, three times*: UNIQUE `donation.payment_transaction_id`, UNIQUE `price_oracle_conversion.donation_id`, UNIQUE `price_oracle_conversion.payment_transaction_id` (V173).
+* *The conversion equals the donation*: the composite foreign key `(donation_id, payment_transaction_id, member_id, donation_amount, donation_currency)` -> `donation (id, payment_transaction_id, member_id, amount, currency)` (target: the UNIQUE constraint `uq_donation_link`; an index would not do for H2). A `MATCH SIMPLE` key is not checked while `donation_id` is NULL, so CURRENT conversions and pre-V174 rows without a donation stay valid.
+* *CHECKs*: `chk_poc_donation_payment` (donation and payment are set together), `chk_poc_override_reason` (no donation: no reason; `BANK_BOOKING`: no reason; `MANUAL` with a donation: 10 to 500 characters), `chk_donation_amount` (> 0), `chk_donation_currency` (upper case).
+* *Reference date*: the origin is still derived by the server (`BANK_BOOKING` when the date equals `donation.booking_date`). Any other date is `MANUAL` and needs a reason of 10 to 500 characters (trimmed; no real IBAN, checked by `IbanText` after the length bound). The reason is stored in `reference_date_override_reason` and shown to the treasury roles and the affected member's own data export. It never reaches the ledger note, a log line or the audit snapshot: the audit entry carries only its length and a SHA-256 digest. "Strictly before today" is still checked by the resolver alone.
+* *Booking day frozen*: a stored donation keeps the booking day it was created with. If its bank line changed afterwards (cancelled, a second posted line) the donation is no longer convertible; there is no update path (open question F8).
+* *Audit*: `AuditEntityType.DONATION` / `CREATE` (ids and booking day, no amount, no IBAN) when a donation is created by a conversion, then the conversion entry.
+* *Data protection*: `PriceOraclePersonalData` exports a member's donations (and, by id only, those the member created as the actor) and retains the rows on erasure (GoBD).
+* *Backup*: no restore hook. The restore order follows the foreign keys (`payment_transaction`, `member` -> `donation` -> `price_oracle_conversion`); the once-only locks work after a restore. **A backup taken after V174 cannot be restored onto a server that is still before V174.**
+* *Migration aborts on purpose* for an inconsistent V173 row: `chk_poc_donation_payment` (the conversion's payment has no matching donation, e.g. its bank line is no longer the only posted one) or `fk_poc_donation_link` (amount, member or currency differ). The migration header carries the diagnosis query.
+* *Behaviour change*: in mode REFERENCE_DATE a conversion needs a donation. Conversions "without a bank payment" (cash donations, donations without a bank booking) are no longer possible there (open question F1). Mode CURRENT is unchanged and refuses the new fields.
+* *Not in the wave*: donations created at payment intake (F2), PSP donations without a bank line (F3), partial conversions and splits (F5).
+
 == Not in this wave
 
 Bitcoin and fiat anchors; the LBMA PM fixing; a PDF receipt; voiding a manual rate; a four-eyes rule; rate limiting of the two new methods beyond the existing role check (no network call, one cheap indexed read each).

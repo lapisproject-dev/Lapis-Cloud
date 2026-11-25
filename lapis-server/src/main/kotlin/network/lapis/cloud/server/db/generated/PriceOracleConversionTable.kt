@@ -41,6 +41,8 @@ public object PriceOracleConversionTable : Table("price_oracle_conversion") {
     public val quorumRequired: Column<Int?> = integer("quorum_required").nullable()
     public val paymentTransactionId: Column<Uuid?> = optReference("payment_transaction_id", PaymentTransactionTable.id)
     public val referenceDateSource: Column<ReferenceDateSource?> = enumerationByName<ReferenceDateSource>("reference_date_source", 12).nullable()
+    public val donationId: Column<Uuid?> = optReference("donation_id", DonationTable.id)
+    public val referenceDateOverrideReason: Column<String?> = varchar("reference_date_override_reason", 500).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

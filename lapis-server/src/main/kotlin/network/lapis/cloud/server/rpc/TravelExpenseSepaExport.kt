@@ -19,6 +19,7 @@ import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
 import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchItemTable
 import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchTable
 import network.lapis.cloud.server.payment.sepa.BicValidator
+import network.lapis.cloud.server.payment.sepa.IbanText
 import network.lapis.cloud.server.payment.sepa.IbanValidator
 import network.lapis.cloud.server.payment.sepa.Pain001Batch
 import network.lapis.cloud.server.payment.sepa.Pain001Transaction
@@ -145,7 +146,7 @@ internal class TravelExpenseSepaExport(
         if (trimmed.length < MIN_REASON_LENGTH || trimmed.length > MAX_REASON_LENGTH) {
             throw TravelExpenseSepaException(kind = SepaFailureKind.BAD_REQUEST, code = "reason_length_invalid")
         }
-        if (containsIban(trimmed)) {
+        if (IbanText.containsIban(trimmed)) {
             throw TravelExpenseSepaException(kind = SepaFailureKind.BAD_REQUEST, code = "reason_contains_account_number")
         }
         return generate(
@@ -558,18 +559,6 @@ internal class TravelExpenseSepaExport(
         const val MAX_REASON_LENGTH: Int = 500
         const val MAX_REEXPORTS: Int = 99
         private const val FILENAME_HEX_CHARS = 8
-
-        // Lookahead => a candidate starts at EVERY "XX99" position (a return code like "AC04" in front of an IBAN must not hide it).
-        // Whitespace is only tolerated between the groups of at most four characters, never glued across words.
-        private val IBAN_CANDIDATE = Regex("(?=([A-Z]{2}\\d{2}(?:\\s?[A-Z0-9]{1,4}){3,10}))")
-
-        /** `true` when [text] contains a real IBAN (country length + mod 97), not merely something that looks like one. */
-        internal fun containsIban(text: String): Boolean =
-            IBAN_CANDIDATE.findAll(text.uppercase()).any { match ->
-                val compact = match.groupValues[1].filterNot { it.isWhitespace() }
-                val length = IbanValidator.COUNTRY_LENGTHS[compact.take(2)] ?: return@any false
-                compact.length >= length && IbanValidator.isValid(compact.take(length))
-            }
 
         /** The default execution date offered by the dialog: the first TARGET2 day after today (organization time zone). */
         fun defaultExecutionDate(now: LocalDateTime = DbClock.nowLocalDateTime()): LocalDate {

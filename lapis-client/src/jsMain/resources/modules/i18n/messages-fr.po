@@ -34679,14 +34679,6 @@ msgid "Zum Einschalten müssen das Preis-Orakel auf Gold in Euro stehen und beid
 msgstr "Pour l'activer, l'oracle de prix doit être réglé sur l'or en euros et les deux comptes doivent être enregistrés (d'abord choisir les comptes, enregistrer, puis activer)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
-msgid "Ohne Bankzahlung (Datum manuell)"
-msgstr "Sans paiement bancaire (date manuelle)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
-msgid "Bankzahlung (Spende)"
-msgstr "Paiement bancaire (don)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
 msgid "Die Bankzahlung wurde heute gebucht. Der Kurs von heute steht erst nach Mitternacht fest: bitte morgen buchen."
 msgstr "Le paiement bancaire a été comptabilisé aujourd'hui. Le cours d'aujourd'hui n'est définitif qu'après minuit : veuillez convertir demain."
 
@@ -34697,10 +34689,6 @@ msgstr "La date de référence est le jour de comptabilisation du paiement banca
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
 msgid "Der Stichtag weicht vom Buchungstag der Bankzahlung (%1) ab und gilt als manuell gewählt."
 msgstr "La date de référence diffère du jour de comptabilisation du paiement bancaire (%1) et compte comme choisie manuellement."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
-msgid "Für dieses Mitglied gibt es keine offene Bankzahlung mit dem Zweck Spende."
-msgstr "Ce membre n'a aucun paiement bancaire ouvert avec le motif don."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
 msgid "Bankzahlung vom %1, Stichtag: %2."
@@ -34725,3 +34713,27 @@ msgstr "Jour de comptabilisation du paiement bancaire"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
 msgid "Bankzahlung: %1"
 msgstr "Paiement bancaire : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Keine offene Spende für dieses Mitglied."
+msgstr "Aucun don ouvert pour ce membre."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Keine IBAN oder Kontonummer angeben."
+msgstr "N'indiquez ni IBAN ni numéro de compte."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Begründung für den abweichenden Stichtag"
+msgstr "Motif de la date de référence différente"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Auf Buchungstag zurücksetzen"
+msgstr "Rétablir le jour de comptabilisation"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Bitte eine Spende auswählen."
+msgstr "Veuillez sélectionner un don."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Die Begründung muss zwischen %1 und %2 Zeichen lang sein."
+msgstr "Le motif doit comporter entre %1 et %2 caractères."

@@ -24,6 +24,8 @@ internal data class BankedDonation(
     val amount: BigDecimal,
     val currency: String,
     val bookingDate: LocalDate,
+    /** V1.9.328: the donation row, if one exists already (backfilled by V174 or created by an earlier, rolled-forward step); `null` otherwise. */
+    val donationId: Uuid? = null,
 )
 
 /**
@@ -49,7 +51,7 @@ internal object DonationPaymentLink {
         return dates.singleOrNull()
     }
 
-    /** Captured donations of [memberId] in [currency] with exactly one POSTED bank line and no conversion yet, newest first, at most [MAX_CANDIDATES]. */
+    /** Captured donations of [memberId] in [currency] with exactly one POSTED bank line and no conversion yet (a conversion always carries payment_transaction_id, V174 CHECK + composite FK, so the payment test covers the donation too), newest first, at most [MAX_CANDIDATES]. */
     fun candidatesOf(
         memberId: Uuid,
         currency: String,
@@ -63,36 +65,40 @@ internal object DonationPaymentLink {
                 otherColumn = BankStatementLineTable.paymentTransactionId,
                 additionalConstraint = { BankStatementLineTable.status eq BankStatementLineStatus.POSTED },
             )
-        return joined
-            .selectAll()
-            .where {
-                (PaymentTransactionTable.memberId eq memberId) and
-                    (PaymentTransactionTable.intent eq PaymentIntent.DONATION) and
-                    (PaymentTransactionTable.status eq PaymentTransactionStatus.CAPTURED) and
-                    (PaymentTransactionTable.currency eq currency.uppercase()) and
-                    notExists(
-                        PriceOracleConversionTable
-                            .selectAll()
-                            .where { PriceOracleConversionTable.paymentTransactionId eq PaymentTransactionTable.id },
-                    ) and
-                    notExists(
-                        other
-                            .selectAll()
-                            .where {
-                                (other[BankStatementLineTable.paymentTransactionId] eq PaymentTransactionTable.id) and
-                                    (other[BankStatementLineTable.status] eq BankStatementLineStatus.POSTED) and
-                                    (other[BankStatementLineTable.id] neq BankStatementLineTable.id)
-                            },
-                    )
-            }.orderBy(PaymentTransactionTable.receivedAt to SortOrder.DESC)
-            .limit(MAX_CANDIDATES)
-            .map {
-                BankedDonation(
-                    id = it[PaymentTransactionTable.id],
-                    amount = it[PaymentTransactionTable.amount],
-                    currency = it[PaymentTransactionTable.currency],
-                    bookingDate = it[BankStatementLineTable.bookingDate],
-                )
-            }
+        val rows =
+            joined
+                .selectAll()
+                .where {
+                    (PaymentTransactionTable.memberId eq memberId) and
+                        (PaymentTransactionTable.intent eq PaymentIntent.DONATION) and
+                        (PaymentTransactionTable.status eq PaymentTransactionStatus.CAPTURED) and
+                        (PaymentTransactionTable.currency eq currency.uppercase()) and
+                        notExists(
+                            PriceOracleConversionTable
+                                .selectAll()
+                                .where { PriceOracleConversionTable.paymentTransactionId eq PaymentTransactionTable.id },
+                        ) and
+                        notExists(
+                            other
+                                .selectAll()
+                                .where {
+                                    (other[BankStatementLineTable.paymentTransactionId] eq PaymentTransactionTable.id) and
+                                        (other[BankStatementLineTable.status] eq BankStatementLineStatus.POSTED) and
+                                        (other[BankStatementLineTable.id] neq BankStatementLineTable.id)
+                                },
+                        )
+                }.orderBy(PaymentTransactionTable.receivedAt to SortOrder.DESC)
+                .limit(MAX_CANDIDATES)
+                .toList()
+        val donationIds = DonationStore.donationIdsByPayment(rows.map { it[PaymentTransactionTable.id] })
+        return rows.map {
+            BankedDonation(
+                id = it[PaymentTransactionTable.id],
+                amount = it[PaymentTransactionTable.amount],
+                currency = it[PaymentTransactionTable.currency],
+                bookingDate = it[BankStatementLineTable.bookingDate],
+                donationId = donationIds[it[PaymentTransactionTable.id]],
+            )
+        }
     }
 }

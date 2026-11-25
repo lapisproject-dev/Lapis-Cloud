@@ -22,6 +22,7 @@ import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
 import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchItemTable
 import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchTable
 import network.lapis.cloud.server.payment.bankstatement.BankAccountStore
+import network.lapis.cloud.server.payment.sepa.IbanText
 import network.lapis.cloud.server.payment.sepa.SepaPain001Writer
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.TestDatabase
@@ -475,13 +476,13 @@ abstract class TravelExpenseSepaExportScenarios(
                 "AC01 Kontonummer falsch, neue Datei",
                 "Rueckgabe MD07 Kontoinhaber verstorben",
                 "Bank meldet AM04 Deckung fehlt Ueberweisung",
-            ).forEach { TravelExpenseSepaExport.containsIban(it) shouldBe false }
+            ).forEach { IbanText.containsIban(it) shouldBe false }
             listOf(
                 "Neue Datei fuer DE02 1203 0000 0000 2020 51 bitte",
                 "Neue Datei fuer DE02120300000000202051 bitte",
                 "AC04 DE02 1203 0000 0000 2020 51",
                 "iban at61 1904 3002 3457 3201 neu",
-            ).forEach { TravelExpenseSepaExport.containsIban(it) shouldBe true }
+            ).forEach { IbanText.containsIban(it) shouldBe true }
         }
 
         test("a booking without any CREDIT on the payment bank account does not satisfy the booking check") {

@@ -2,6 +2,7 @@ package network.lapis.cloud.server.rpc
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
@@ -23,11 +24,8 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
-import network.lapis.cloud.server.db.generated.BankStatementImportTable
-import network.lapis.cloud.server.db.generated.BankStatementLineTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
-import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.db.generated.PriceOracleConfigTable
 import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
 import network.lapis.cloud.server.db.generated.PriceOracleSnapshotSourceTable
@@ -40,13 +38,11 @@ import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnchorAsset
-import network.lapis.cloud.shared.domain.BankStatementFormat
 import network.lapis.cloud.shared.domain.BankStatementLineStatus
 import network.lapis.cloud.shared.domain.ConversionRateBasis
 import network.lapis.cloud.shared.domain.DonationConversionInput
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.PaymentIntent
-import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.domain.PaymentTransactionStatus
 import network.lapis.cloud.shared.domain.PriceStatus
 import network.lapis.cloud.shared.domain.ReferenceDateSource
@@ -81,9 +77,7 @@ private val PRICE = BigDecimal("2012.345678")
 class PriceOracleBankBookingConversionTest :
     FunSpec({
         val createdMembers = mutableListOf<Uuid>()
-        val createdPayments = mutableListOf<Uuid>()
         var originalSource: Clock = Clock.System
-        var importId: Uuid? = null
 
         beforeSpec {
             DatabaseConfig.connect()
@@ -119,9 +113,7 @@ class PriceOracleBankBookingConversionTest :
         afterTest {
             transaction {
                 PriceOracleConversionTable.deleteWhere { PriceOracleConversionTable.memberId inList createdMembers }
-                BankStatementLineTable.deleteWhere { BankStatementLineTable.paymentTransactionId inList createdPayments }
-                BankStatementLineTable.deleteWhere { BankStatementLineTable.importId eq (importId ?: Uuid.random()) }
-                PaymentTransactionTable.deleteWhere { PaymentTransactionTable.id inList createdPayments }
+                DonationFixtures.cleanup()
                 PriceOracleSnapshotSourceTable.deleteAll()
                 PriceOracleSnapshotTable.deleteAll()
                 LtrLedgerEntryTable.deleteWhere { LtrLedgerEntryTable.memberId inList createdMembers }
@@ -135,8 +127,6 @@ class PriceOracleBankBookingConversionTest :
                 }
             }
             createdMembers.clear()
-            createdPayments.clear()
-            importId = null
         }
 
         fun createMember(email: String): Uuid {
@@ -160,69 +150,11 @@ class PriceOracleBankBookingConversionTest :
             return id
         }
 
-        fun ensureImport(): Uuid {
-            importId?.let { return it }
-            val id = Uuid.random()
-            transaction {
-                BankStatementImportTable.insert {
-                    it[BankStatementImportTable.id] = id
-                    it[format] = BankStatementFormat.CSV
-                    it[dialect] = "SPARKASSE_CSV"
-                    it[fileName] = "bb.csv"
-                    it[fileSizeBytes] = 1
-                    it[fileDigest] = "digest-$id"
-                    it[accountIban] = null
-                    it[statementFrom] = LocalDate(2026, 11, 1)
-                    it[statementTo] = LocalDate(2026, 11, 25)
-                    it[openingBalance] = null
-                    it[closingBalance] = null
-                    it[lineCount] = 1
-                    it[duplicateCount] = 0
-                    it[autoPostedCount] = 0
-                    it[uploadedBy] = Uuid.parse(ADMIN)
-                    it[uploadedAt] = LocalDateTime(2026, 11, 25, 0, 0)
-                    it[bankAccountId] = null
-                }
-            }
-            importId = id
-            return id
-        }
-
-        var lineOrdinal = 0
-
         fun addLine(
             payment: Uuid,
             booking: LocalDate,
             status: BankStatementLineStatus = BankStatementLineStatus.POSTED,
-        ) {
-            val imp = ensureImport()
-            lineOrdinal++
-            transaction {
-                BankStatementLineTable.insert {
-                    it[id] = Uuid.random()
-                    it[BankStatementLineTable.importId] = imp
-                    it[fingerprint] = "fp-${Uuid.random()}"
-                    it[BankStatementLineTable.lineOrdinal] = lineOrdinal
-                    it[bookingDate] = booking
-                    it[valueDate] = booking
-                    it[amount] = BigDecimal("25.00")
-                    it[currency] = "EUR"
-                    it[counterpartyName] = null
-                    it[counterpartyIbanLast4] = null
-                    it[counterpartyIbanCiphertext] = null
-                    it[purpose] = "Spende"
-                    it[endToEndReference] = null
-                    it[bookingText] = null
-                    it[BankStatementLineTable.status] = status
-                    it[matchExplanation] = null
-                    it[matchedContributionId] = null
-                    it[paymentTransactionId] = payment
-                    it[resolvedBy] = null
-                    it[resolvedAt] = null
-                    it[resolutionNote] = null
-                }
-            }
-        }
+        ) = DonationFixtures.addLine(payment = payment, booking = booking, status = status)
 
         /** A captured EUR donation of 25.00 with one POSTED bank line on [booking] (unless [booking] is null). */
         fun donation(
@@ -233,30 +165,16 @@ class PriceOracleBankBookingConversionTest :
             currency: String = "EUR",
             amount: String = "25.00",
             receivedAt: LocalDateTime = LocalDateTime(2026, 11, 20, 0, 0),
-        ): Uuid {
-            val id = Uuid.random()
-            transaction {
-                PaymentTransactionTable.insert {
-                    it[PaymentTransactionTable.id] = id
-                    it[provider] = PaymentProvider.MANUAL
-                    it[providerEventId] = "evt-$id"
-                    it[providerPaymentId] = "pay-$id"
-                    it[PaymentTransactionTable.status] = status
-                    it[PaymentTransactionTable.amount] = BigDecimal(amount)
-                    it[PaymentTransactionTable.currency] = currency
-                    it[feeAmount] = null
-                    it[PaymentTransactionTable.intent] = intent
-                    it[contributionId] = null
-                    it[memberId] = member
-                    it[payerReference] = "payer-secret-$id"
-                    it[PaymentTransactionTable.receivedAt] = receivedAt
-                    it[rawPayloadDigest] = "0".repeat(64)
-                }
-            }
-            createdPayments += id
-            if (booking != null) addLine(id, booking)
-            return id
-        }
+        ): Uuid =
+            DonationFixtures.bankedDonation(
+                member = member,
+                amount = amount,
+                bookingDate = booking,
+                status = status,
+                intent = intent,
+                currency = currency,
+                receivedAt = receivedAt,
+            )
 
         fun snapshot(at: String = "2026-11-20T15:00:00") {
             val id = Uuid.random()
@@ -305,8 +223,12 @@ class PriceOracleBankBookingConversionTest :
             payment: String?,
             amount: String = "25.00",
             caller: String = TREASURER,
+            reason: String? = null,
         ) = post(
-            "/test/convert?memberId=$member&amount=$amount" + (date?.let { "&date=$it" } ?: "") + (payment?.let { "&payment=$it" } ?: ""),
+            "/test/convert?memberId=$member&amount=$amount" +
+                (date?.let { "&date=$it" } ?: "") +
+                (payment?.let { "&payment=$it" } ?: "") +
+                (reason?.let { "&reason=${it.replace(" ", "%20")}" } ?: ""),
         ) { header("X-Member-Id", caller) }
 
         fun app(block: suspend io.ktor.server.testing.ApplicationTestBuilder.() -> Unit) =
@@ -333,6 +255,7 @@ class PriceOracleBankBookingConversionTest :
                 r.bodyAsText().split("|").drop(1) shouldBe listOf("BANK_BOOKING", pay.toString(), "true")
                 val row = conversionRow(member)
                 row[PriceOracleConversionTable.paymentTransactionId] shouldBe pay
+                row[PriceOracleConversionTable.donationId] shouldNotBe null
                 row[PriceOracleConversionTable.referenceDateSource] shouldBe ReferenceDateSource.BANK_BOOKING
                 val audit =
                     transaction {
@@ -349,7 +272,7 @@ class PriceOracleBankBookingConversionTest :
                         .where { LtrLedgerEntryTable.id eq row[PriceOracleConversionTable.ltrLedgerEntryId] }
                         .single()[LtrLedgerEntryTable.note]
                 }.let {
-                    it!!.contains(pay.toString()) shouldBe true
+                    it!!.contains(row[PriceOracleConversionTable.donationId]!!.toString()) shouldBe true
                     it!!.contains("payer-secret") shouldBe false
                 }
             }
@@ -360,21 +283,19 @@ class PriceOracleBankBookingConversionTest :
                 snapshot(at = "2026-11-19T15:00:00")
                 val member = createMember("bb-earlier@example.org")
                 val pay = donation(member, booking = LocalDate(2026, 11, 20))
-                client.convert(member, "2026-11-19", pay.toString()).status shouldBe HttpStatusCode.OK
+                client.convert(member, "2026-11-19", pay.toString(), reason = "Spende am Vortag zugesagt").status shouldBe HttpStatusCode.OK
                 val row = conversionRow(member)
                 row[PriceOracleConversionTable.referenceDateSource] shouldBe ReferenceDateSource.MANUAL
                 row[PriceOracleConversionTable.paymentTransactionId] shouldBe pay
             }
         }
 
-        test("without a bank payment the source is MANUAL and no payment is stored") {
+        test("without a donation nothing is converted in mode REFERENCE_DATE (V174)") {
             app {
                 snapshot()
                 val member = createMember("bb-none@example.org")
-                client.convert(member, "2026-11-20", null).status shouldBe HttpStatusCode.OK
-                val row = conversionRow(member)
-                row[PriceOracleConversionTable.referenceDateSource] shouldBe ReferenceDateSource.MANUAL
-                row[PriceOracleConversionTable.paymentTransactionId] shouldBe null
+                client.convert(member, "2026-11-20", null).status shouldBe HttpStatusCode.Conflict
+                mints(member) shouldBe 0L
             }
         }
 
@@ -562,6 +483,7 @@ private fun Route.registerBankBookingRoutes(orchestrator: PriceOracleOrchestrato
                     expectedPrice = preview?.price?.let { BigDecimal(BigDecimal(it.toPlainString()).toDouble().toString()) },
                     expectedRateRefId = preview?.snapshotId ?: preview?.referenceRateId,
                     paymentTransactionId = q["payment"],
+                    referenceDateOverrideReason = q["reason"],
                 ),
             )
         call.respondText("${r.id}|${r.referenceDateSource}|${r.paymentTransactionId}|${r.rawValuesStored}")

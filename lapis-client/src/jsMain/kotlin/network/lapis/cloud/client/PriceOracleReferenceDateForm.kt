@@ -4,6 +4,7 @@ import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
 import io.kvision.form.check.checkBox
+import io.kvision.form.text.TextArea
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
 import io.kvision.html.Button
@@ -57,8 +58,7 @@ internal fun renderReferenceDateConvertForm(
     ) { addCssClasses("text-muted small") }
 
     val memberSelect = panel.searchableSelect(options = untrustedOptions(members.map { it.id to it.displayName }), label = tr("Mitglied"))
-    val noPaymentLabel = tr("Ohne Bankzahlung (Datum manuell)")
-    val paymentSelect = panel.searchableSelect(options = emptyList(), label = tr("Bankzahlung (Spende)"), noneOption = noPaymentLabel)
+    val paymentSelect = panel.searchableSelect(options = emptyList(), label = tr("Spende"))
     val paymentHint = panel.div { addCssClasses("text-muted small") }
     paymentHint.hide()
     val amountInput = panel.text(label = tr("Spendenbetrag"))
@@ -68,6 +68,19 @@ internal fun renderReferenceDateConvertForm(
     }
     val dateHint = panel.div { addCssClasses("text-muted small") }
     dateHint.hide()
+    // V1.9.328: a reference date other than the booking day of the donation needs a justification (the server enforces it; this is the form for it).
+    val reasonInput = TextArea(rows = 3, label = tr("Begründung für den abweichenden Stichtag"))
+    panel.add(reasonInput)
+    val reasonCounter =
+        panel.div(
+            gettext("%1 / %2 Zeichen", 0, ReferenceRateRules.OVERRIDE_REASON_MAX),
+        ) { addCssClasses("text-muted small") }
+    val reasonHint = panel.div(tr("Keine IBAN oder Kontonummer angeben.")) { addCssClasses("text-muted small") }
+    val resetDateButton = panel.button(tr("Auf Buchungstag zurücksetzen"), style = ButtonStyle.OUTLINESECONDARY)
+    reasonInput.hide()
+    reasonCounter.hide()
+    reasonHint.hide()
+    resetDateButton.hide()
     val noteInput = panel.text(label = tr("Notiz (optional)"))
     val errorBox =
         panel.div().apply {
@@ -98,10 +111,28 @@ internal fun renderReferenceDateConvertForm(
 
     fun selectedPayment(): DonationPaymentCandidateDto? = candidates.find { it.id == paymentSelect.value }
 
+    /** Check and convert need a chosen donation (a member without an open donation has nothing to convert). */
+    fun updateCheckEnabled() {
+        checkButton.disabled = selectedPayment() == null
+    }
+
     /** The hint under the date: whether it equals the bank booking day of the chosen payment. The server derives the origin itself. */
     fun updateDateHint() {
         val payment = selectedPayment()
         val date = dateInput.dateOrNull()
+        val deviates = payment != null && date != null && date != payment.bookingDate
+        if (deviates) {
+            reasonInput.show()
+            reasonCounter.show()
+            reasonHint.show()
+            resetDateButton.show()
+        } else {
+            reasonInput.hide()
+            reasonCounter.hide()
+            reasonHint.hide()
+            resetDateButton.hide()
+            reasonInput.value = null
+        }
         when {
             payment == null -> dateHint.hide()
             payment.bookingDate >= organizationToday() -> {
@@ -129,39 +160,42 @@ internal fun renderReferenceDateConvertForm(
 
     fun applyPayment() {
         val payment = selectedPayment()
+        // The amount is always the donation's: the field only shows it.
+        amountInput.readonly = true
         if (payment == null) {
-            amountInput.readonly = false
+            amountInput.value = null
         } else {
             amountInput.value = payment.amount.toString()
-            amountInput.readonly = true
             // A booking from today has no closing rate yet: the date stays empty and the hint says why.
             dateInput.setDate(if (payment.bookingDate < organizationToday()) payment.bookingDate else null)
         }
         updateDateHint()
+        updateCheckEnabled()
     }
 
     fun loadCandidates(memberId: String?) {
         candidatesGeneration++
         val generation = candidatesGeneration
         candidates = emptyList()
-        paymentSelect.options = listOf(NO_PAYMENT to noPaymentLabel)
+        paymentSelect.options = emptyList()
         paymentSelect.value = NO_PAYMENT
-        amountInput.readonly = false
+        amountInput.readonly = true
         amountInput.value = null
         dateInput.setDate(null)
         paymentHint.hide()
         updateDateHint()
+        updateCheckEnabled()
         if (memberId == null) return
         AppScope.launch {
             val loaded = guarded { rpcService<IPriceOracleService>().listDonationPaymentCandidates(memberId) }
             // A slower answer for a member that was changed away from meanwhile must not overwrite the current state.
             if (loaded == null || generation != candidatesGeneration) return@launch
             candidates = loaded
+            // Date and amount only: never the purpose text or an account number.
             paymentSelect.options =
-                listOf(NO_PAYMENT to noPaymentLabel) +
                 loaded.map { it.id to "${formatDate(it.bookingDate)} · ${formatDonationAmount(it.amount, it.currency)}" }
             if (loaded.isEmpty()) {
-                paymentHint.content = tr("Für dieses Mitglied gibt es keine offene Bankzahlung mit dem Zweck Spende.")
+                paymentHint.content = tr("Keine offene Spende für dieses Mitglied.")
                 paymentHint.show()
             } else if (loaded.size == 1) {
                 paymentSelect.value = loaded.single().id
@@ -178,6 +212,19 @@ internal fun renderReferenceDateConvertForm(
         applyPayment()
     }
     amountInput.subscribe { invalidate() }
+    reasonInput.subscribe {
+        reasonCounter.content =
+            gettext(
+                "%1 / %2 Zeichen",
+                ReferenceRateRules.normalizeOverrideReason(it.orEmpty()).length,
+                ReferenceRateRules.OVERRIDE_REASON_MAX,
+            )
+    }
+    resetDateButton.onClick {
+        val payment = selectedPayment() ?: return@onClick
+        dateInput.setDate(if (payment.bookingDate < organizationToday()) payment.bookingDate else null)
+        reasonInput.value = null
+    }
     dateInput.subscribe {
         invalidate()
         updateDateHint()
@@ -187,6 +234,11 @@ internal fun renderReferenceDateConvertForm(
         val member = members.find { it.id == memberSelect.value }
         val amountText = amountInput.value.orEmpty().trim()
         val date = dateInput.dateOrNull()
+        if (selectedPayment() == null) {
+            errorBox.content = tr("Bitte eine Spende auswählen.")
+            errorBox.show()
+            return null
+        }
         if (member == null || !Validation.isPositiveDecimal(amountText) || date == null) {
             errorBox.content = tr("Bitte ein Mitglied, einen positiven Spendenbetrag und einen gültigen Stichtag angeben.")
             errorBox.show()
@@ -204,12 +256,12 @@ internal fun renderReferenceDateConvertForm(
         busyLabel.show()
         AppScope.launch {
             val resolution = guarded { rpcService<IPriceOracleService>().previewReferenceRate(date, member.id) }
-            checkButton.disabled = false
+            updateCheckEnabled()
             busyLabel.hide()
             if (resolution == null) return@launch
             renderResolution(previewPanel, resolution, config, amount) { runCheck() }
             if (resolution.outcome == ReferenceRateOutcome.RESOLVED && !resolution.selfConfirmationBlocked) {
-                previewed = PreviewedRate(member.id, amountInput.value.orEmpty().trim(), date, resolution)
+                previewed = PreviewedRate(member.id, amountInput.value.orEmpty().trim(), date, selectedPayment()?.id, resolution)
                 convertButton.disabled = false
             }
         }
@@ -231,6 +283,7 @@ internal fun renderReferenceDateConvertForm(
         if (member.id != preview.memberId ||
             amountInput.value.orEmpty().trim() != preview.amountText ||
             date != preview.date ||
+            selectedPayment()?.id != preview.paymentId ||
             price == null
         ) {
             invalidate()
@@ -239,17 +292,27 @@ internal fun renderReferenceDateConvertForm(
             return@onClick
         }
         val note = noteInput.value?.trim()?.takeIf { it.isNotBlank() }
-        val payment = selectedPayment()
+        val payment = selectedPayment() ?: return@onClick
+        // A date other than the booking day needs the justification; it is shown to the server as typed text only (never rendered as HTML).
+        val reason =
+            if (date != payment.bookingDate) ReferenceRateRules.normalizeOverrideReason(reasonInput.value.orEmpty()) else null
+        if (reason != null && !ReferenceRateRules.isOverrideReasonLengthValid(reason)) {
+            errorBox.content =
+                gettext(
+                    "Die Begründung muss zwischen %1 und %2 Zeichen lang sein.",
+                    ReferenceRateRules.OVERRIDE_REASON_MIN,
+                    ReferenceRateRules.OVERRIDE_REASON_MAX,
+                )
+            errorBox.show()
+            return@onClick
+        }
         val paymentLine =
-            payment
-                ?.let {
-                    " " +
-                        gettext(
-                            "Bankzahlung vom %1, Stichtag: %2.",
-                            formatDate(it.bookingDate),
-                            if (date == it.bookingDate) gettext("Buchungstag") else gettext("manuell gewählt"),
-                        )
-                }.orEmpty()
+            " " +
+                gettext(
+                    "Bankzahlung vom %1, Stichtag: %2.",
+                    formatDate(payment.bookingDate),
+                    if (date == payment.bookingDate) gettext("Buchungstag") else gettext("manuell gewählt"),
+                )
         confirmDialog(
             title = tr("Spenden-Konvertierung bestätigen"),
             message =
@@ -277,7 +340,9 @@ internal fun renderReferenceDateConvertForm(
                                 referenceDate = date,
                                 expectedPrice = price,
                                 expectedRateRefId = resolution.snapshotId ?: resolution.referenceRateId,
-                                paymentTransactionId = payment?.id,
+                                paymentTransactionId = payment.id,
+                                donationId = payment.donationId,
+                                referenceDateOverrideReason = reason,
                             ),
                         )
                     }
@@ -301,6 +366,8 @@ private class PreviewedRate(
     val memberId: String,
     val amountText: String,
     val date: LocalDate,
+    /** The donation (by its payment id) the preview was made for: a different choice needs a new check. */
+    val paymentId: String?,
     val resolution: ReferenceRateResolutionDto,
 )
 
@@ -475,7 +542,7 @@ private fun manualRateDialog(
 
 private const val BPS_PER_UNIT = 10_000
 
-/** The value of the "without a bank payment" choice of the payment select. */
+/** The value of the donation select while nothing is chosen. */
 private const val NO_PAYMENT = ""
 
 /** Shared by the preview, the receipt and the travel expense panel: a legacy snapshot is accepted, but has no stored single values. */

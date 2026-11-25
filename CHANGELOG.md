@@ -6,6 +6,20 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.328 donation as an entity of its own, justification of a manual reference date
+
+Schema **V174**. No switch to change: the behaviour only exists in the reference-date mode (off by default). **A backup taken after V174 cannot be restored onto a server that is still before V174.** V173 is on `master` but in no tag, so V174 is a new migration instead of an edit of V173.
+
+- **Behaviour change:** in mode REFERENCE_DATE a conversion needs a donation. **Conversions without a bank payment (cash donations, donations without a bank booking) are no longer possible in that mode.** Mode CURRENT is unchanged and refuses the new fields.
+- **Donation entity:** new table `donation` (`payment_transaction_id` UNIQUE, member, amount, currency, booking day). The V174 backfill creates one for every captured donation payment of a member with exactly one `POSTED` bank line (id = payment id; nobody may rely on that). Otherwise `DonationStore` (the only writer, insert only) creates it in the same transaction as the first successful conversion, so a failed conversion leaves no row. Lock order: payment, then donation. Once only by three UNIQUE constraints; a composite foreign key ties the conversion to the donation's member, amount and currency.
+- **Justification of a manual date:** a reference date other than the booking day is `MANUAL` and needs a reason of 10 to 500 characters, without an IBAN (shared limits in `ReferenceRateRules`, scan in `IbanText`, moved out of `TravelExpenseSepaExport`). It is stored in `price_oracle_conversion.reference_date_override_reason`; the audit entry carries only its length and SHA-256, the ledger note and logs never carry it. For the booking day a reason is refused.
+- **Existing data:** V173 conversions are linked to their donation; legacy manual conversions with a payment get the text "Altbestand vor V174: Stichtag ohne Begründung erfasst". The migration aborts by design on an inconsistent V173 row (`chk_poc_donation_payment` or `fk_poc_donation_link`); the diagnosis query is in the migration header.
+- **Client:** the choice "without a bank payment" is gone; the donation is chosen, the amount is read-only, a differing date opens the reason field with a counter, "Reset to booking day", and the receipt shows the reason (as text).
+- **Audit and DSGVO:** `AuditEntityType.DONATION` (appended last); `PriceOraclePersonalData` exports and retains the donation rows.
+- **RPC:** no new method; new fields with defaults on `DonationConversionInput`, `PriceOracleConversionDto`, `DonationPaymentCandidateDto`.
+- **Tests:** `PriceOracleDonationConversionTest`, `DonationEntityMigrationTest` (H2 and PostgreSQL), `DonationSchemaDriftTest`, `DonationStoreTripwireTest`, the extended backup round trip, DSGVO and i18n tests; the existing reference-date scenarios now convert real donations (`DonationFixtures`).
+- **Open questions:** see `docs/features/price-oracle-reference-date.adoc` (F1 cash donations, F2/F3 intake and PSP donations, F4 visibility of the reason, F5 partial conversions, F6 legacy text, F7 currency in the key, F8 changed bank booking).
+
 ### V1.9.327 follow-up of the gold price at a reference date: bank payment, booking day, old snapshots
 
 Schema **V173**. No switch to change: the behaviour only exists in the reference-date mode (off by default). **A backup taken after V173 cannot be restored onto a server that is still before V173.** V171/V172 are on `master` but in no tag, so V173 is a new migration instead of an edit of V171.

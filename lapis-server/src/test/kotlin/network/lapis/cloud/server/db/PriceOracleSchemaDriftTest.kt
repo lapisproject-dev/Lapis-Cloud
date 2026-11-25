@@ -42,6 +42,7 @@ class PriceOracleSchemaDriftTest :
                 setOf(
                     "member",
                     "payment_transaction",
+                    "donation",
                     "price_oracle_config",
                     "price_oracle_conversion",
                     "price_oracle_snapshot",
@@ -97,12 +98,12 @@ class PriceOracleSchemaDriftTest :
             entity.attributeByName("id")?.primaryKey shouldBe true
 
             // member_id: real UML association (association-derived default matches).
-            real.foreignKeys["member_id"] shouldBe "member"
+            real.foreignKeys["member_id"] shouldBe setOf("member", "donation")
             model.entityNameOf(entity.attributeByName("member_id")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
             entity.attributeByName("member_id")?.nullable shouldBe false
 
             // created_by: plain «Column».fkEntity -- see file header "Two separate member FKs".
-            real.foreignKeys["created_by"] shouldBe "member"
+            real.foreignKeys["created_by"] shouldBe setOf("member")
             model.entityNameOf(entity.attributeByName("created_by")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
             entity.attributeByName("created_by")?.nullable shouldBe true
 
@@ -180,8 +181,8 @@ class PriceOracleSchemaDriftTest :
         test("price_oracle_conversion carries the rate provenance columns; snapshot and rate are real FKs, the rest nullable") {
             val entity = model.entities.single { it.name == "price_oracle_conversion" }
             val real = transaction { introspectPriceOracleTable("price_oracle_conversion") }
-            real.foreignKeys["snapshot_id"] shouldBe "price_oracle_snapshot"
-            real.foreignKeys["reference_rate_id"] shouldBe "price_oracle_reference_rate"
+            real.foreignKeys["snapshot_id"] shouldBe setOf("price_oracle_snapshot")
+            real.foreignKeys["reference_rate_id"] shouldBe setOf("price_oracle_reference_rate")
             model.entityNameOf(entity.attributeByName("snapshot_id")?.foreignKey?.targetEntityId ?: "") shouldBe "price_oracle_snapshot"
             model.entityNameOf(entity.attributeByName("reference_rate_id")?.foreignKey?.targetEntityId ?: "") shouldBe
                 "price_oracle_reference_rate"
@@ -200,7 +201,7 @@ class PriceOracleSchemaDriftTest :
         test("price_oracle_conversion links the converted payment (real FK) and the server-derived date source (V173)") {
             val entity = model.entities.single { it.name == "price_oracle_conversion" }
             val real = transaction { introspectPriceOracleTable("price_oracle_conversion") }
-            real.foreignKeys["payment_transaction_id"] shouldBe "payment_transaction"
+            real.foreignKeys["payment_transaction_id"] shouldBe setOf("payment_transaction", "donation")
             model.entityNameOf(entity.attributeByName("payment_transaction_id")?.foreignKey?.targetEntityId ?: "") shouldBe
                 "payment_transaction"
             entity.attributeByName("payment_transaction_id")?.nullable shouldBe true
@@ -213,6 +214,21 @@ class PriceOracleSchemaDriftTest :
                 )
         }
 
+        test(
+            "price_oracle_conversion links the donation (V174): simple FK on donation_id, composite FK over amount/currency/member/payment",
+        ) {
+            val entity = model.entities.single { it.name == "price_oracle_conversion" }
+            val real = transaction { introspectPriceOracleTable("price_oracle_conversion") }
+            real.foreignKeys["donation_id"] shouldBe setOf("donation")
+            // the composite FK (donation_id, payment_transaction_id, member_id, donation_amount, donation_currency) shows up on all five columns
+            real.foreignKeys["donation_amount"] shouldBe setOf("donation")
+            real.foreignKeys["donation_currency"] shouldBe setOf("donation")
+            model.entityNameOf(entity.attributeByName("donation_id")?.foreignKey?.targetEntityId ?: "") shouldBe "donation"
+            entity.attributeByName("donation_id")?.nullable shouldBe true
+            entity.attributeByName("reference_date_override_reason")?.nullable shouldBe true
+            entity.attributeByName("reference_date_override_reason")?.type shouldBe ErmDataType.Varchar(500)
+        }
+
         test("price_oracle_snapshot_source table shape matches the real migrated schema and PriceOracleSnapshotSourceTable 1:1") {
             val entity = model.entities.single { it.name == "price_oracle_snapshot_source" }
             val real = transaction { introspectPriceOracleTable("price_oracle_snapshot_source") }
@@ -222,7 +238,7 @@ class PriceOracleSchemaDriftTest :
             }
             entity.attributes.map { it.name } shouldContainExactlyInAnyOrder PriceOracleSnapshotSourceTable.columns.map { it.name }
             real.primaryKeyColumns shouldBe setOf("id")
-            real.foreignKeys shouldBe mapOf("snapshot_id" to "price_oracle_snapshot")
+            real.foreignKeys shouldBe mapOf("snapshot_id" to setOf("price_oracle_snapshot"))
             entity.attributeByName("raw_price")?.type shouldBe ErmDataType.Decimal(38, 18)
         }
 
@@ -235,7 +251,7 @@ class PriceOracleSchemaDriftTest :
             }
             entity.attributes.map { it.name } shouldContainExactlyInAnyOrder PriceOracleReferenceRateTable.columns.map { it.name }
             real.primaryKeyColumns shouldBe setOf("id")
-            real.foreignKeys shouldBe mapOf("confirmed_by" to "member")
+            real.foreignKeys shouldBe mapOf("confirmed_by" to setOf("member"))
             entity.attributeByName("price")?.type shouldBe ErmDataType.Decimal(38, 18)
             entity.attributeByName("reference_snapshot_median")?.nullable shouldBe true
         }
@@ -244,7 +260,8 @@ class PriceOracleSchemaDriftTest :
 /** Result of introspecting one real table's shape via `information_schema`. Mirrors [PeerTransferSchemaDriftTest]'s own private helper. */
 private data class IntrospectedPriceOracleTable(
     val columns: Map<String, IntrospectedPriceOracleColumn>,
-    val foreignKeys: Map<String, String>,
+    /** FK column name -> every table it references (a column can sit in a simple FK and in a composite FK). */
+    val foreignKeys: Map<String, Set<String>>,
     val primaryKeyColumns: Set<String>,
 )
 
@@ -266,7 +283,7 @@ private fun JdbcTransaction.introspectPriceOracleTable(tableName: String): Intro
         }
     }
 
-    val fkByColumn = mutableMapOf<String, String>()
+    val fkByColumn = mutableMapOf<String, MutableSet<String>>()
     exec(
         """
         SELECT kcu.column_name AS fk_column, tc2.table_name AS ref_table
@@ -284,7 +301,7 @@ private fun JdbcTransaction.introspectPriceOracleTable(tableName: String): Intro
         """.trimIndent(),
     ) { rs ->
         while (rs.next()) {
-            fkByColumn[rs.getString("fk_column")] = rs.getString("ref_table")
+            fkByColumn.getOrPut(rs.getString("fk_column")) { mutableSetOf() }.add(rs.getString("ref_table"))
         }
     }
 

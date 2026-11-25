@@ -19,6 +19,7 @@ import network.lapis.cloud.server.economy.oracle.PriceOracleSnapshotStore
 import network.lapis.cloud.server.economy.oracle.REFERENCE_DATE_ZONE
 import network.lapis.cloud.server.economy.oracle.ReferenceRateConversion
 import network.lapis.cloud.server.economy.oracle.ReferenceRateResolution
+import network.lapis.cloud.server.payment.sepa.IbanText
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
@@ -449,7 +450,7 @@ internal object TravelExpenseLtrPayout {
         if (trimmed.length < TravelExpenseSepaExport.MIN_REASON_LENGTH || trimmed.length > TravelExpenseSepaExport.MAX_REASON_LENGTH) {
             throw ConflictException("reason_length_invalid")
         }
-        if (TravelExpenseSepaExport.containsIban(trimmed)) throw ConflictException("reason_contains_account_number")
+        if (IbanText.containsIban(trimmed)) throw ConflictException("reason_contains_account_number")
         return trimmed
     }
 

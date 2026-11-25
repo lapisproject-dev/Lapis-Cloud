@@ -965,6 +965,30 @@ webhook intake (`convertDonationToLtr` is operator-triggered); and a shared/fede
 
 From V173 (V1.9.327) `price_oracle_conversion` also carries `payment_transaction_id` (association to `payment_transaction`, `0..1`, UNIQUE: a bank payment is converted once, `ON DELETE RESTRICT`) and `reference_date_source` (`BANK_BOOKING` or `MANUAL`, set by the server only).
 
+From V174 (V1.9.328) the converted donation is an entity of its own (`lapis-server/src/main/kuml/84-donation.kuml.kts`, verified by `DonationSchemaDriftTest`): `donation` (`payment_transaction_id` UNIQUE, `member_id`, `amount`, `currency`, `booking_date`, `created_by`). `price_oracle_conversion` gained `donation_id` (`0..1`, UNIQUE, composite foreign key over donation, payment, member, amount and currency) and `reference_date_override_reason` (the justification of a manually chosen reference date, 10 to 500 characters). See link:price-oracle-reference-date.adoc[price-oracle-reference-date.adoc].
+
+[source,kuml,name="domain-model-donation"]
+----
+classDiagram(name = "Lapis Cloud Domain Model — Donation (V174)") {
+
+    val donation = classOf(name = "Donation") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "paymentTransactionId", type = "UUID")
+        attribute(name = "memberId", type = "UUID")
+        attribute(name = "amount", type = "BigDecimal")
+        attribute(name = "currency", type = "String")
+        attribute(name = "bookingDate", type = "LocalDate")
+        attribute(name = "createdAt", type = "LocalDateTime")
+        attribute(name = "createdBy", type = "UUID")
+    }
+
+    val priceOracleConversion = classOf(name = "PriceOracleConversion") {
+        attribute(name = "donationId", type = "UUID")
+        attribute(name = "referenceDateOverrideReason", type = "String")
+    }
+}
+----
+
 == V1.3.0 — Public Ranking Consent (`GET /transparenz`)
 
 One new table, `public_ranking_consent_event`

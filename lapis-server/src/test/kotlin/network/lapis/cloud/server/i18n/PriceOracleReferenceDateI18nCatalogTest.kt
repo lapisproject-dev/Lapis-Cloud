@@ -103,6 +103,9 @@ class PriceOracleReferenceDateI18nCatalogTest :
                         "Grundlage: %1, Stichtag %2, Kurstag %3",
                         "Stichtagskurs bestätigt",
                         "Spendenumrechnung zum Stichtag",
+                        // V1.9.328: the receipt line of a manual date and the audit label of a donation row.
+                        "Begründung: %1",
+                        "Spende",
                     )
             ).distinct()
 

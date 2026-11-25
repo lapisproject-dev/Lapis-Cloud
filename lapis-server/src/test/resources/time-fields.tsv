@@ -784,6 +784,7 @@ col:PostalDeliveryLogTable.dispatchedAt	A	stamped by the server clock (DbClock/S
 col:PriceOracleConfigTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PriceOracleConversionTable.priceTimestamp	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PriceOracleConversionTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DonationTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PriceOracleSnapshotTable.priceTimestamp	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PriceOracleSnapshotTable.capturedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ProcessingAgreementTable.signedDate	D	calendar date (LocalDate); never converted
@@ -1247,6 +1248,7 @@ col:PriceOracleConversionTable.referenceDate	D	calendar date (LocalDate); never 
 col:PriceOracleConversionTable.effectiveDate	D	calendar date (LocalDate); never converted
 col:PriceOracleSnapshotSourceTable.observedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PriceOracleReferenceRateTable.effectiveDate	D	calendar date (LocalDate); never converted
+col:DonationTable.bookingDate	D	calendar date (LocalDate); never converted
 col:PriceOracleReferenceRateTable.confirmedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:TravelExpenseLtrPayoutDto.referenceDate	D	calendar date (LocalDate); never converted
 dto:TravelExpenseLtrPayoutDto.effectiveDate	D	calendar date (LocalDate); never converted

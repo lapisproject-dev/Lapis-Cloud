@@ -20,6 +20,8 @@ import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.truncatedToDbPrecision
 import network.lapis.cloud.server.economy.oracle.DonationPaymentLink
+import network.lapis.cloud.server.economy.oracle.DonationRow
+import network.lapis.cloud.server.economy.oracle.DonationStore
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
 import network.lapis.cloud.server.economy.oracle.PriceOracleReferenceRateResolver
 import network.lapis.cloud.server.economy.oracle.PriceOracleReferenceRateStore
@@ -27,6 +29,7 @@ import network.lapis.cloud.server.economy.oracle.PriceOracleSnapshotStore
 import network.lapis.cloud.server.economy.oracle.QuoteOutcome
 import network.lapis.cloud.server.economy.oracle.ReferenceRateConversion
 import network.lapis.cloud.server.economy.oracle.plausiblePegBand
+import network.lapis.cloud.server.payment.sepa.IbanText
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -54,12 +57,14 @@ import network.lapis.cloud.shared.domain.ReferenceRateBasis
 import network.lapis.cloud.shared.domain.ReferenceRateConfirmationInput
 import network.lapis.cloud.shared.domain.ReferenceRateOutcome
 import network.lapis.cloud.shared.domain.ReferenceRateResolutionDto
+import network.lapis.cloud.shared.domain.ReferenceRateRules
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IPriceOracleService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -67,6 +72,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.security.MessageDigest
 import kotlin.uuid.Uuid
 
 /** The single seeded [PriceOracleConfigTable] row's fixed id -- see `V1__baseline.sql`'s unconditional seed `INSERT` and `19-price-oracle.kuml.kts`'s file header for the exactly-one-row-by-convention rationale. Next unused `...-0000-0000000000fN` slot after `crowdfunding_submission_gate`'s own `...-f4`. */
@@ -82,11 +88,14 @@ private val MIN_LTR_MINTED = BigDecimal("0.01")
 /** Welle "Price-Oracle-Preishistorie". Server-side hard cap for [PriceOracleService.getPriceHistory] -- see that function's KDoc. */
 private const val MAX_PRICE_HISTORY_LIMIT = 5_000
 
-/** V173: the UNIQUE constraint that makes a bank payment convertible once. */
-private const val PAYMENT_UNIQUE_CONSTRAINT_NAME = "uq_poc_payment_transaction"
+/** V173/V174: the UNIQUE constraints that make a donation (and its bank payment) convertible once. */
+private val CONVERSION_ONCE_CONSTRAINT_NAMES = listOf("uq_poc_payment_transaction", "uq_poc_donation", "uq_donation_payment_transaction")
 
 /** `sources_used` of a conversion that used a manually confirmed rate. */
 private const val MANUAL_SOURCES_USED = "manual"
+
+/** V174: stable (English) message of every "this donation was converted before" refusal; the client maps it to a localized text. */
+private const val ALREADY_CONVERTED = "This donation was already converted"
 
 private val logger = KotlinLogging.logger {}
 
@@ -210,10 +219,12 @@ class PriceOracleService(
         if (input.referenceDate != null ||
             input.expectedPrice != null ||
             input.expectedRateRefId != null ||
-            input.paymentTransactionId != null
+            input.paymentTransactionId != null ||
+            input.donationId != null ||
+            input.referenceDateOverrideReason != null
         ) {
             throw ConflictException(
-                "referenceDate, expectedPrice, expectedRateRefId and paymentTransactionId are only valid when the conversion mode is REFERENCE_DATE",
+                "referenceDate, expectedPrice, expectedRateRefId, paymentTransactionId, donationId and referenceDateOverrideReason are only valid when the conversion mode is REFERENCE_DATE",
             )
         }
 
@@ -324,6 +335,7 @@ class PriceOracleService(
                     amount = it.amount,
                     currency = it.currency,
                     bookingDate = it.bookingDate,
+                    donationId = it.donationId?.toString(),
                 )
             }
         }
@@ -380,8 +392,8 @@ class PriceOracleService(
         } catch (e: ExposedSQLException) {
             // Two requests converting the same payment at once: the UNIQUE constraint lets exactly one win, the whole other transaction (including its
             // MINT) is rolled back. Caught OUTSIDE the transaction, see confirmReferenceRate.
-            if (e.isUniqueViolation() && e.message?.contains(PAYMENT_UNIQUE_CONSTRAINT_NAME, ignoreCase = true) == true) {
-                throw ConflictException("This bank payment was already converted")
+            if (e.isUniqueViolation() && CONVERSION_ONCE_CONSTRAINT_NAMES.any { e.message?.contains(it, ignoreCase = true) == true }) {
+                throw ConflictException(ALREADY_CONVERTED)
             }
             throw e
         }
@@ -400,17 +412,41 @@ class PriceOracleService(
             requireReferenceDateMode(config)
             requireLtrEligibleRecipient(memberId = targetId)
 
-            // V1.9.327: the optional bank payment. The origin of the date is derived HERE, never taken from the client.
-            val paymentId =
-                input.paymentTransactionId?.let { raw ->
-                    runCatching { Uuid.parse(raw) }.getOrElse { throw ConflictException("Invalid paymentTransactionId") }
+            // V1.9.328: the donation is mandatory. Lock order is payment first, donation second (see DonationStore), whichever id the caller sent.
+            val donationRaw =
+                input.donationId?.let { raw ->
+                    runCatching { Uuid.parse(raw) }.getOrElse { throw ConflictException(DONATION_NOT_AVAILABLE) }
                 }
-            var dateSource = ReferenceDateSource.MANUAL
-            if (paymentId != null) {
-                val bookingDate =
-                    requireConvertiblePayment(paymentId = paymentId, targetId = targetId, donationAmount = donationAmount, config = config)
-                if (referenceDate == bookingDate) dateSource = ReferenceDateSource.BANK_BOOKING
-            }
+            val paymentRaw =
+                input.paymentTransactionId?.let { raw ->
+                    runCatching { Uuid.parse(raw) }.getOrElse { throw ConflictException(DONATION_NOT_AVAILABLE) }
+                }
+            val paymentId =
+                when {
+                    donationRaw != null -> {
+                        val existing = DonationStore.peekById(donationRaw) ?: throw ConflictException(DONATION_NOT_AVAILABLE)
+                        if (paymentRaw != null && paymentRaw != existing.paymentTransactionId) {
+                            throw ConflictException("donationId and paymentTransactionId do not match")
+                        }
+                        existing.paymentTransactionId
+                    }
+                    paymentRaw != null -> paymentRaw
+                    else -> throw ConflictException("A donation is required in mode REFERENCE_DATE")
+                }
+            val (donation, donationCreated) =
+                requireConvertibleDonation(
+                    paymentId = paymentId,
+                    targetId = targetId,
+                    donationAmount = donationAmount,
+                    config = config,
+                    actor = current,
+                    now = now,
+                )
+
+            // The origin of the date is derived HERE, never taken from the client. A date other than the booking day needs a justification.
+            val dateSource = if (referenceDate == donation.bookingDate) ReferenceDateSource.BANK_BOOKING else ReferenceDateSource.MANUAL
+            val overrideReason = requireOverrideReason(dateSource = dateSource, raw = input.referenceDateOverrideReason)
+            val dateSourceNote = if (dateSource == ReferenceDateSource.BANK_BOOKING) "aus Bankbuchung" else "manuell (begründet)"
 
             val resolution = PriceOracleReferenceRateResolver.resolve(config = config, referenceDate = referenceDate)
             val price = resolution.price
@@ -445,12 +481,8 @@ class PriceOracleService(
                 it[note] =
                     "Price-Oracle-Konvertierung zum Stichtag $referenceDate (Kurstag ${resolution.effectiveDate}, $basis): " +
                     "$donationAmount ${config.donationCurrency} @ $price ${config.anchorAsset} -> $ltrMinted LTR" +
-                    (
-                        paymentId?.let {
-                            ", Bankzahlung $it, Stichtag aus ${if (dateSource == ReferenceDateSource.BANK_BOOKING) "Bankbuchung" else "manueller Eingabe"}"
-                        }
-                            ?: ""
-                    ) +
+                    // No free text of the override reason here: the ledger note carries ids and the origin only.
+                    ", Spende ${donation.id}, Stichtag $dateSourceNote" +
                     (input.note?.let { " -- $it" } ?: "")
                 it[createdBy] = current.memberId
                 it[createdAt] = now
@@ -459,8 +491,8 @@ class PriceOracleService(
             PriceOracleConversionTable.insert {
                 it[id] = conversionId
                 it[memberId] = targetId
-                it[PriceOracleConversionTable.donationAmount] = donationAmount
-                it[donationCurrency] = config.donationCurrency
+                it[PriceOracleConversionTable.donationAmount] = donation.amount
+                it[donationCurrency] = donation.currency
                 it[anchorAsset] = config.anchorAsset
                 it[anchorPrice] = price
                 it[anchorUnitsPerLtr] = config.anchorUnitsPerLtr
@@ -480,8 +512,26 @@ class PriceOracleService(
                 it[snapshotId] = snapshot?.id
                 it[referenceRateId] = manual?.id
                 it[quorumRequired] = resolution.quorumRequired
-                it[paymentTransactionId] = paymentId
+                it[paymentTransactionId] = donation.paymentTransactionId
                 it[referenceDateSource] = dateSource
+                it[donationId] = donation.id
+                it[referenceDateOverrideReason] = overrideReason
+            }
+            if (donationCreated) {
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.DONATION,
+                    entityId = donation.id,
+                    action = AuditAction.CREATE,
+                    after =
+                        buildJsonObject {
+                            put("donationId", donation.id.toString())
+                            put("paymentTransactionId", donation.paymentTransactionId.toString())
+                            put("bookingDate", donation.bookingDate.toString())
+                        }.toString(),
+                    occurredAt = now,
+                )
             }
             AuditLogRecorder.record(
                 actorMemberId = current.memberId,
@@ -498,8 +548,14 @@ class PriceOracleService(
                         put("fallbackReason", resolution.fallbackReason.name)
                         put(if (snapshot != null) "snapshotId" else "referenceRateId", refId.toString())
                         // Ids and flags only -- never an IBAN, a payer reference or an amount of the payment.
-                        if (paymentId != null) put("paymentTransactionId", paymentId.toString())
+                        put("donationId", donation.id.toString())
+                        put("paymentTransactionId", donation.paymentTransactionId.toString())
                         put("referenceDateSource", dateSource.name)
+                        // Length and digest of the justification, never the text itself.
+                        if (overrideReason != null) {
+                            put("overrideReasonLength", overrideReason.length)
+                            put("overrideReasonSha256", sha256Hex(overrideReason))
+                        }
                         put("rawValuesStored", resolution.rawValuesStored)
                     }.toString(),
                 occurredAt = now,
@@ -508,41 +564,84 @@ class PriceOracleService(
         }
 
     /**
-     * V1.9.327: loads the payment with a row lock and checks that it may be converted for [targetId] with exactly [donationAmount]. Returns the bank
-     * booking day. Every failure is a [ConflictException] that names no foreign data (an unknown payment and a payment of another member look the same).
+     * V1.9.328: loads the payment with a row lock (first lock), then finds or creates the donation (second lock) and checks that the donation may be
+     * converted for [targetId] with exactly [donationAmount]. Every failure is a [ConflictException] that names no foreign data (an unknown donation, a
+     * donation of another member and a payment of another member look the same). Returns the donation and whether this call created it.
      */
-    private fun requireConvertiblePayment(
+    private fun requireConvertibleDonation(
         paymentId: Uuid,
         targetId: Uuid,
         donationAmount: BigDecimal,
         config: PriceOracleConfigDto,
-    ): LocalDate {
-        val notAvailable = "The selected bank payment cannot be converted for this member"
+        actor: CurrentMember,
+        now: LocalDateTime,
+    ): Pair<DonationRow, Boolean> {
         val row =
             PaymentTransactionTable
                 .selectAll()
                 .where { PaymentTransactionTable.id eq paymentId }
                 .forUpdate()
                 .singleOrNull()
-        if (row == null || row[PaymentTransactionTable.memberId] != targetId) throw ConflictException(notAvailable)
+        if (row == null || row[PaymentTransactionTable.memberId] != targetId) throw ConflictException(DONATION_NOT_AVAILABLE)
         if (row[PaymentTransactionTable.intent] != PaymentIntent.DONATION ||
             row[PaymentTransactionTable.status] != PaymentTransactionStatus.CAPTURED ||
             !row[PaymentTransactionTable.currency].equals(config.donationCurrency, ignoreCase = true)
         ) {
-            throw ConflictException(notAvailable)
+            throw ConflictException(DONATION_NOT_AVAILABLE)
         }
         if (row[PaymentTransactionTable.amount].compareTo(donationAmount) != 0) {
-            throw ConflictException("donationAmount must equal the amount of the selected bank payment")
+            throw ConflictException("donationAmount must equal the amount of the selected donation")
         }
-        val bookingDate = DonationPaymentLink.bookingDateOf(paymentId) ?: throw ConflictException(notAvailable)
+        val bookingDate = DonationPaymentLink.bookingDateOf(paymentId) ?: throw ConflictException(DONATION_NOT_AVAILABLE)
+        val (donation, created) =
+            DonationStore.findOrCreateLocked(
+                paymentId = paymentId,
+                memberId = targetId,
+                amount = row[PaymentTransactionTable.amount],
+                currency = row[PaymentTransactionTable.currency],
+                bookingDate = bookingDate,
+                actor = actor,
+                now = now,
+            )
+        // A stored donation keeps the booking day it was created with; if the bank line changed since, it is not convertible any more.
+        if (donation.bookingDate != bookingDate ||
+            donation.memberId != targetId ||
+            donation.amount.compareTo(donationAmount) != 0 ||
+            !donation.currency.equals(config.donationCurrency, ignoreCase = true)
+        ) {
+            throw ConflictException(DONATION_NOT_AVAILABLE)
+        }
         val alreadyConverted =
             PriceOracleConversionTable
                 .selectAll()
-                .where { PriceOracleConversionTable.paymentTransactionId eq paymentId }
-                .limit(1)
+                .where {
+                    (PriceOracleConversionTable.paymentTransactionId eq paymentId) or (PriceOracleConversionTable.donationId eq donation.id)
+                }.limit(1)
                 .any()
-        if (alreadyConverted) throw ConflictException("This bank payment was already converted")
-        return bookingDate
+        if (alreadyConverted) throw ConflictException(ALREADY_CONVERTED)
+        return donation to created
+    }
+
+    /**
+     * V1.9.328: the justification of a manually chosen reference date. Required (10..500 characters after trimming, no IBAN) for [ReferenceDateSource.MANUAL],
+     * forbidden for [ReferenceDateSource.BANK_BOOKING]. Returns the normalized text, or `null` when none applies. The length is bounded BEFORE the IBAN scan.
+     */
+    private fun requireOverrideReason(
+        dateSource: ReferenceDateSource,
+        raw: String?,
+    ): String? {
+        if (dateSource == ReferenceDateSource.BANK_BOOKING) {
+            if (raw != null) throw ConflictException("No reason is allowed when the reference date is the bank booking day")
+            return null
+        }
+        val text = ReferenceRateRules.normalizeOverrideReason(raw ?: "")
+        if (!ReferenceRateRules.isOverrideReasonLengthValid(text)) {
+            throw ConflictException(
+                "The reason must be between ${ReferenceRateRules.OVERRIDE_REASON_MIN} and ${ReferenceRateRules.OVERRIDE_REASON_MAX} characters",
+            )
+        }
+        if (IbanText.containsIban(text)) throw ConflictException("The reason must not contain an IBAN")
+        return text
     }
 
     private fun requireReferenceDateMode(config: PriceOracleConfigDto) {
@@ -764,6 +863,12 @@ private fun ResultRow.toPriceOracleConfigDto(): PriceOracleConfigDto =
         conversionRateBasis = this[PriceOracleConfigTable.conversionRateBasis],
     )
 
+/** SHA-256 over the UTF-8 bytes, lower-case hex. A new [MessageDigest] per call (not thread-safe). */
+private fun sha256Hex(text: String): String =
+    MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+
+private const val DONATION_NOT_AVAILABLE = "The selected donation cannot be converted for this member"
+
 private fun ResultRow.toPriceOracleConversionDto(): PriceOracleConversionDto =
     PriceOracleConversionDto(
         id = this[PriceOracleConversionTable.id].toString(),
@@ -790,6 +895,9 @@ private fun ResultRow.toPriceOracleConversionDto(): PriceOracleConversionDto =
         quorumRequired = this[PriceOracleConversionTable.quorumRequired],
         paymentTransactionId = this[PriceOracleConversionTable.paymentTransactionId]?.toString(),
         referenceDateSource = this[PriceOracleConversionTable.referenceDateSource],
+        donationId = this[PriceOracleConversionTable.donationId]?.toString(),
+        // Every caller is treasury-gated (convertDonationToLtr); a member-facing reader must blank this field.
+        referenceDateOverrideReason = this[PriceOracleConversionTable.referenceDateOverrideReason],
         // No column: a snapshot is immutable, so "no stored single values" is read from the snapshot itself (needs the open transaction of the caller).
         rawValuesStored =
             this[PriceOracleConversionTable.rateBasis] != ReferenceRateBasis.SNAPSHOT ||

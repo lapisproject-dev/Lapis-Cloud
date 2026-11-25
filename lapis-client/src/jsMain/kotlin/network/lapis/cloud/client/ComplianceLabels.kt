@@ -249,6 +249,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.PRICE_ORACLE_CONVERSION -> gettext("Spendenumrechnung zum Stichtag")
         // V1.9.325 -- a travel expense refund credited in LTR (or its reversal).
         AuditEntityType.TRAVEL_EXPENSE_LTR_PAYOUT -> gettext("Reisekostenerstattung in LTR")
+        // V1.9.328 -- a donation row created on its first conversion.
+        AuditEntityType.DONATION -> gettext("Spende")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -419,6 +421,7 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.PRICE_ORACLE_REFERENCE_RATE -> "warning"
         AuditEntityType.PRICE_ORACLE_CONVERSION -> "warning"
         AuditEntityType.TRAVEL_EXPENSE_LTR_PAYOUT -> "warning"
+        AuditEntityType.DONATION -> "warning"
     }
 
 // ------------------------------------------------------------------------------------------------

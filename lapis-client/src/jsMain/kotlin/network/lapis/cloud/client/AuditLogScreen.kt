@@ -620,6 +620,8 @@ fun decodeAuditSnapshot(
             AuditEntityType.PRICE_ORACLE_CONVERSION -> null
             // V1.9.325 -- LTR credit of a travel expense report (ids, dates, basis; never an amount, a rate or a reason), raw-text display.
             AuditEntityType.TRAVEL_EXPENSE_LTR_PAYOUT -> null
+            // V1.9.328 -- a donation row (ids and the booking day, never an amount or an IBAN), raw-text display.
+            AuditEntityType.DONATION -> null
             // V1.9.225 -- PartgValueAuditSnapshot / PartgImportAuditSnapshot / PartgPositionHintSnapshot (year, unit key, position code, cents;
             // never a file name beyond the shortened import entry), raw-text display like the other backend-written snapshots.
             AuditEntityType.PARTG_REPORT_SHEET -> null

@@ -11,7 +11,7 @@ import java.util.UUID
  * `V173__price_oracle_conversion_payment_link.sql` on the upgrade path V172 -> V173, on H2 AND PostgreSQL: the backfill gives every earlier reference-date
  * conversion the date source MANUAL (before the new CHECK could reject it), an ordinary conversion stays untouched, and the constraints bite:
  * BANK_BOOKING needs a payment, CURRENT has neither source nor payment, SNAPSHOT/MANUAL need a source, one payment is converted once, a linked payment
- * cannot be deleted. All data is synthetic.
+ * cannot be deleted. All data is synthetic. Since V174 the upgrade runs on to the latest schema, so a payment link also carries its donation row.
  */
 abstract class PriceOracleConversionPaymentLinkMigrationScenarios(
     private val newHarness: () -> MigrationHarness,
@@ -69,6 +69,13 @@ abstract class PriceOracleConversionPaymentLinkMigrationScenarios(
                     "'CAPTURED', 10.00, 'EUR', 'DONATION', TIMESTAMP '2026-11-23 10:00:00', 'd-$id', '$memberId')",
             )
 
+        // Since V174 a payment link needs the donation row too (id = payment id, as the V174 backfill does).
+        fun donation(id: UUID) =
+            exec(
+                "INSERT INTO donation (id, payment_transaction_id, member_id, amount, currency, booking_date, created_at) " +
+                    "VALUES ('$id', '$id', '$memberId', 10.00, 'EUR', DATE '2026-11-23', TIMESTAMP '2026-11-23 10:00:00')",
+            )
+
         beforeSpec {
             h = newHarness()
             h.flyway("172").migrate()
@@ -108,9 +115,12 @@ abstract class PriceOracleConversionPaymentLinkMigrationScenarios(
             (rejection(conversion(UUID.randomUUID(), "SNAPSHOT", ", reference_date_source") + ", 'BANK_BOOKING')") != null) shouldBe true
             val pay = UUID.randomUUID()
             payment(pay)
+            donation(pay)
             val id = UUID.randomUUID()
-            rejection(conversion(id, "SNAPSHOT", ", reference_date_source, payment_transaction_id") + ", 'BANK_BOOKING', '$pay')") shouldBe
-                null
+            rejection(
+                conversion(id, "SNAPSHOT", ", reference_date_source, payment_transaction_id, donation_id") +
+                    ", 'BANK_BOOKING', '$pay', '$pay')",
+            ) shouldBe null
             source(id) shouldBe listOf("BANK_BOOKING", pay.toString())
         }
 
@@ -130,15 +140,11 @@ abstract class PriceOracleConversionPaymentLinkMigrationScenarios(
         test("one payment is converted once, and a payment with a conversion cannot be deleted") {
             val pay = UUID.randomUUID()
             payment(pay)
-            rejection(
-                conversion(UUID.randomUUID(), "SNAPSHOT", ", reference_date_source, payment_transaction_id") + ", 'MANUAL', '$pay')",
-            ) shouldBe
-                null
-            (
-                rejection(
-                    conversion(UUID.randomUUID(), "SNAPSHOT", ", reference_date_source, payment_transaction_id") + ", 'MANUAL', '$pay')",
-                ) != null
-            ) shouldBe true
+            donation(pay)
+            val reason = "Spende am Vortag zugesagt"
+            val cols = ", reference_date_source, payment_transaction_id, donation_id, reference_date_override_reason"
+            rejection(conversion(UUID.randomUUID(), "SNAPSHOT", cols) + ", 'MANUAL', '$pay', '$pay', '$reason')") shouldBe null
+            (rejection(conversion(UUID.randomUUID(), "SNAPSHOT", cols) + ", 'MANUAL', '$pay', '$pay', '$reason')") != null) shouldBe true
             (rejection("DELETE FROM payment_transaction WHERE id = '$pay'") != null) shouldBe true
         }
 

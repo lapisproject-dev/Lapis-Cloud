@@ -17,6 +17,7 @@ import network.lapis.cloud.server.db.generated.CostCenterTable
 import network.lapis.cloud.server.db.generated.DocumentFolderTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
+import network.lapis.cloud.server.db.generated.DonationTable
 import network.lapis.cloud.server.db.generated.EncounterSpaceTable
 import network.lapis.cloud.server.db.generated.EventCaptureAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.EventTable
@@ -96,6 +97,9 @@ class OrganizationBackupRoundTripTest :
             val targetStorageRoot = Files.createTempDirectory("roundtrip-target-storage").toFile()
 
             val adminId = Uuid.random()
+            val oraclePaymentId = Uuid.random()
+            val oracleDonationId = Uuid.random()
+            val oracleDonation2Id = Uuid.random()
             val applicantId = Uuid.random()
             val memberTierId = Uuid.random()
             val documentId = Uuid.random()
@@ -385,7 +389,6 @@ class OrganizationBackupRoundTripTest :
                     it[referenceSnapshotMedian] = BigDecimal("2012.345678901234567891")
                     it[deviationAcknowledged] = true
                 }
-                val oraclePaymentId = Uuid.random()
                 PaymentTransactionTable.insert {
                     it[id] = oraclePaymentId
                     it[provider] = PaymentProvider.MANUAL
@@ -402,7 +405,42 @@ class OrganizationBackupRoundTripTest :
                     it[receivedAt] = LocalDateTime(2027, 1, 4, 0, 0)
                     it[rawPayloadDigest] = "0".repeat(64)
                 }
-                listOf(ReferenceRateBasis.SNAPSHOT, ReferenceRateBasis.MANUAL).forEach { basis ->
+                // V1.9.328: the donation entity -- one donation for the bank-booked conversion, one for a conversion with a manual date and its reason.
+                val oraclePayment2Id = Uuid.random()
+                PaymentTransactionTable.insert {
+                    it[id] = oraclePayment2Id
+                    it[provider] = PaymentProvider.MANUAL
+                    it[providerEventId] = "evt-$oraclePayment2Id"
+                    it[providerPaymentId] = "pay-$oraclePayment2Id"
+                    it[status] = PaymentTransactionStatus.CAPTURED
+                    it[amount] = BigDecimal("10.00")
+                    it[currency] = "EUR"
+                    it[feeAmount] = null
+                    it[intent] = PaymentIntent.DONATION
+                    it[contributionId] = null
+                    it[PaymentTransactionTable.memberId] = adminId
+                    it[payerReference] = null
+                    it[receivedAt] = LocalDateTime(2027, 1, 4, 0, 0)
+                    it[rawPayloadDigest] = "0".repeat(64)
+                }
+                listOf(oracleDonationId to oraclePaymentId, oracleDonation2Id to oraclePayment2Id).forEach { (donation, payment) ->
+                    DonationTable.insert {
+                        it[id] = donation
+                        it[paymentTransactionId] = payment
+                        it[DonationTable.memberId] = adminId
+                        it[amount] = BigDecimal("10.00")
+                        it[currency] = "EUR"
+                        it[bookingDate] = LocalDate(2027, 1, 4)
+                        it[createdAt] = LocalDateTime(2027, 1, 6, 9, 0)
+                        it[createdBy] = adminId
+                    }
+                }
+                // basis, donation (null = legacy row without one), reason
+                listOf(
+                    Triple(ReferenceRateBasis.SNAPSHOT, oracleDonationId, null as String?),
+                    Triple(ReferenceRateBasis.MANUAL, null as Uuid?, null as String?),
+                    Triple(ReferenceRateBasis.SNAPSHOT, oracleDonation2Id, "Roundtrip: Spende am Vortag zugesagt" as String?),
+                ).forEach { (basis, donation, reason) ->
                     PriceOracleConversionTable.insert {
                         it[id] = Uuid.random()
                         it[memberId] = adminId
@@ -427,9 +465,16 @@ class OrganizationBackupRoundTripTest :
                         it[referenceRateId] = if (basis == ReferenceRateBasis.MANUAL) oracleRateId else null
                         it[quorumRequired] = 2
                         // V173: the SNAPSHOT conversion is tied to a bank payment (the restore must load payment_transaction first), the other is manual.
-                        it[paymentTransactionId] = if (basis == ReferenceRateBasis.SNAPSHOT) oraclePaymentId else null
+                        it[paymentTransactionId] =
+                            when (donation) {
+                                oracleDonationId -> oraclePaymentId
+                                oracleDonation2Id -> oraclePayment2Id
+                                else -> null
+                            }
+                        it[PriceOracleConversionTable.donationId] = donation
+                        it[referenceDateOverrideReason] = reason
                         it[referenceDateSource] =
-                            if (basis == ReferenceRateBasis.SNAPSHOT) ReferenceDateSource.BANK_BOOKING else ReferenceDateSource.MANUAL
+                            if (donation == oracleDonationId) ReferenceDateSource.BANK_BOOKING else ReferenceDateSource.MANUAL
                     }
                 }
 
@@ -530,6 +575,29 @@ class OrganizationBackupRoundTripTest :
                     proofs.count { it[EventCaptureAcknowledgmentTable.guestKey] == "9".repeat(64) } shouldBe 1
                     proofs.all { it[EventCaptureAcknowledgmentTable.acknowledgedOn] == LocalDate(2027, 2, 1) } shouldBe true
                 }
+
+                // V1.9.328: the donation rows came back (the generic comparison covers the bytes), they load before the conversions that refer to them, the
+                // reason survived, and the once-only locks work after the restore: a second conversion of an already used donation is refused by the database.
+                val restoreOrder = OrganizationSchemaCatalog.restoreOrder(liveTables).map { it.tableName }
+                (restoreOrder.indexOf("donation") < restoreOrder.indexOf("price_oracle_conversion")) shouldBe true
+                (restoreOrder.indexOf("payment_transaction") < restoreOrder.indexOf("donation")) shouldBe true
+                transaction(targetDb) {
+                    DonationTable.selectAll().count() shouldBe 2L
+                    PriceOracleConversionTable
+                        .selectAll()
+                        .where { PriceOracleConversionTable.donationId eq oracleDonation2Id }
+                        .single()[PriceOracleConversionTable.referenceDateOverrideReason] shouldBe "Roundtrip: Spende am Vortag zugesagt"
+                }
+                val reuse =
+                    runCatching {
+                        transaction(targetDb) {
+                            PriceOracleConversionTable.update({ PriceOracleConversionTable.donationId eq oracleDonation2Id }) {
+                                it[PriceOracleConversionTable.donationId] = oracleDonationId
+                                it[paymentTransactionId] = oraclePaymentId
+                            }
+                        }
+                    }
+                (reuse.isFailure) shouldBe true
 
                 // The blob file itself round-tripped byte-for-byte.
                 val restoredBlob = targetStorageRoot.resolve(storageKey)

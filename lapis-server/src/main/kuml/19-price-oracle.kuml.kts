@@ -135,6 +135,15 @@ classDiagram(name = "PriceOracle") {
         }
     }
 
+    // V174 (V1.9.328): id-only stub of donation (full model in 84-donation.kuml.kts) so the conversion can reference the converted donation.
+    val donation = classOf(name = "Donation") {
+        stereotype("Entity") { "tableName" to "donation"; "kotlinObjectName" to "DonationTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
     // Literal order is load-bearing: PriceOracleSchemaDriftTest asserts ErmDataType.Enum.values in
     // exactly this order, matching network.lapis.cloud.shared.domain.AnchorAsset. Only BITCOIN_BTC
     // has real wired sources this wave -- see file header "Scope-cut: Bitcoin-only anchor".
@@ -343,6 +352,15 @@ classDiagram(name = "PriceOracle") {
                 "columnName" to "reference_date_source"
                 "enumType" to "network.lapis.cloud.shared.domain.ReferenceDateSource"
             }
+        }
+        // ---- V174 (V1.9.328): the converted donation (composite FK + CHECKs live in V174, not expressible here) and the justification of a manual date ----
+        attribute(name = "donationId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "donation_id"; "fkEntity" to "Donation" }
+        }
+        attribute(name = "referenceDateOverrideReason", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reference_date_override_reason"; "sqlType" to "VARCHAR(500)" }
         }
     }
 

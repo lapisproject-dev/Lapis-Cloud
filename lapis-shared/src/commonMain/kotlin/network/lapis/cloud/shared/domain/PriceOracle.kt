@@ -185,6 +185,16 @@ data class DonationConversionInput(
      * before. There is deliberately NO field for where the reference date came from: the server derives that itself.
      */
     val paymentTransactionId: String? = null,
+    /**
+     * V1.9.328: the donation this conversion converts (V174). In mode REFERENCE_DATE a donation is REQUIRED -- either this id or [paymentTransactionId]
+     * (if both are given they must belong together). The amount is always the donation's, the whole donation is converted exactly once.
+     */
+    val donationId: String? = null,
+    /**
+     * V1.9.328: why the reference date differs from the bank booking day of the donation. REQUIRED (10..500 characters after trimming, no IBAN) when
+     * [referenceDate] is not the booking day, FORBIDDEN when it is. Never allowed in mode CURRENT.
+     */
+    val referenceDateOverrideReason: String? = null,
 )
 
 /**
@@ -224,6 +234,10 @@ data class PriceOracleConversionDto(
     val referenceDateSource: ReferenceDateSource? = null,
     /** V1.9.327: false when the snapshot behind this conversion has no stored single values (it was taken before V171). Derived on read. */
     val rawValuesStored: Boolean = true,
+    /** V1.9.328: the converted donation (V174). */
+    val donationId: String? = null,
+    /** V1.9.328: the justification of a manually chosen reference date. Filled for TREASURER/BOARD/ADMIN readers only; never in a member's own view. */
+    val referenceDateOverrideReason: String? = null,
 )
 
 /**
@@ -331,6 +345,8 @@ data class DonationPaymentCandidateDto(
     val currency: String,
     /** The day the bank booked the money (calendar day as on the statement). */
     val bookingDate: LocalDate,
+    /** V1.9.328: the donation row, if one exists already (the id is NOT the payment id in general; null when the donation is created on conversion). */
+    val donationId: String? = null,
 )
 
 /** V1.9.324: a manual reference rate. Anchor and currency always come from the server's configuration, never from the client. */
@@ -351,4 +367,14 @@ object ReferenceRateRules {
     fun earliest(): LocalDate = LocalDate(2000, 1, 1)
 
     fun normalizeEvidence(text: String): String = text.trim()
+
+    /** V1.9.328: bounds of the justification for a manually chosen reference date (characters after [normalizeOverrideReason]). */
+    const val OVERRIDE_REASON_MIN = 10
+    const val OVERRIDE_REASON_MAX = 500
+
+    /** Same normalization as [normalizeEvidence]: trimming only. */
+    fun normalizeOverrideReason(text: String): String = text.trim()
+
+    fun isOverrideReasonLengthValid(text: String): Boolean =
+        normalizeOverrideReason(text).length in OVERRIDE_REASON_MIN..OVERRIDE_REASON_MAX
 }

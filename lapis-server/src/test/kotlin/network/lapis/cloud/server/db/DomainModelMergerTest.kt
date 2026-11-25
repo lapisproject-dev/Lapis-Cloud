@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 84 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 85 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -87,7 +87,8 @@ class DomainModelMergerTest :
             // Welle V1.9.297 "Schwarzes Brett" -- now 82 with the addition of 81-bulletin-board.kuml.kts.
             // Welle V1.9.304 "Raum-Umfragen" -- now 83 with the addition of 82-conference-room-poll.kuml.kts.
             // Welle V1.9.316 "LTR-Anerkennung fuer Sitzungsteilnahme" -- now 84 with the addition of 83-meeting-reward.kuml.kts.
-            scriptFiles shouldHaveSize 84
+            // Welle V1.9.328 "Spende als eigene Entitaet" -- now 85 with the addition of 84-donation.kuml.kts.
+            scriptFiles shouldHaveSize 85
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -623,7 +624,9 @@ class DomainModelMergerTest :
             // price_oracle_reference_rate), 293 -> 295.
             // 45-travel-expense.kuml.kts (V1.9.325, refund in LTR) adds ONE real table (travel_expense_ltr_payout); its LtrLedgerEntry, PriceOracleSnapshot and
             // PriceOracleReferenceRate stubs dedup into the real entities, 295 -> 296.
-            val distinctTableNames = 296
+            // 84-donation.kuml.kts (V1.9.328, donation entity) adds ONE real table (donation); its Member and PaymentTransaction stubs dedup, and so does the
+            // Donation stub in 19-price-oracle.kuml.kts, 296 -> 297.
+            val distinctTableNames = 297
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -720,6 +723,7 @@ class DomainModelMergerTest :
                     "PriceOracleSnapshotSourceTable.kt",
                     "PriceOracleReferenceRateTable.kt",
                     "TravelExpenseLtrPayoutTable.kt",
+                    "DonationTable.kt",
                     "PoliticianProfileTable.kt",
                     "PoliticianReactionTable.kt",
                     "PoliticianWeightSnapshotTable.kt",
