@@ -221,7 +221,7 @@ A restore needs no auction lock: it runs exclusively against an empty target.
 
 * The feed commits its served moment together with its body; a feed transaction that is still open while a consent is withdrawn is not seen by `requireServed`.
 * The restore withdraws at most 10,000 hints; a larger set is cut and logged as truncated.
-* The carpool restore does not write tombstones (it only resets); closing that gap is a separate wave.
+* The carpool restore writes the same global tombstones for the shared, still open offers of the backup (`CarpoolFederationStore.withdrawAfterRestore`).
 * A partner with an incomplete feed keeps a copy until the end of the auction or 24 hours without refresh.
 * Joint controllership (Art. 26 GDPR), the distance-selling rules and the platform liability for foreign hints are not clarified.
 

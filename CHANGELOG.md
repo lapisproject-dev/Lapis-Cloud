@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.326 carpool restore tells the partners
+
+No schema change. After a restore, partners received no withdrawal for the offers that were shared in the backup, so they kept their hints until expiry or the 24 h stale rule. `OrganizationRestoreService` now collects the OFFERs of the backup that carried a consent and have not passed departure + 2 days (at most 10,000, ids of the backup's own rows only) and `CarpoolFederationStore.withdrawAfterRestore` writes one global tombstone per trip (idempotent; nothing without the teaser key, counted in `skippedNoKey`; a failure never fails the restore; numbers only in the log). Consents and the instance switch stay cleared. Same behaviour as the auction restore. Tests: `CarpoolFederationRestoreTombstoneTest`, tripwire (m2).
+
 ### V1.9.325 refund of a travel expense report in LTR
 
 Schema **V172**. **Implemented, switched off by default (`organization_settings.travel_ltr_payout_enabled = false`), not reviewed by a tax adviser, not released.** The accounting treatment (offsetting account, area of the non-profit status, PartG presentation) is an open question for the tax adviser; the offsetting account is a configurable assumption, see `docs/features/travel-expenses.adoc`.

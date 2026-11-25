@@ -349,6 +349,13 @@ class CarpoolFederationTripwireTest :
                 .map { it.name } shouldBe listOf("Application.kt")
         }
 
+        test("(m2) OrganizationRestoreService is the only caller of CarpoolFederationStore.withdrawAfterRestore") {
+            main
+                .filter { it.name != "CarpoolFederationStore.kt" }
+                .filter { Regex("""CarpoolFederationStore\s*\.\s*withdrawAfterRestore""").containsMatchIn(SourceScan.blank(it.readText())) }
+                .map { it.name } shouldBe listOf("OrganizationRestoreService.kt")
+        }
+
         test("(s) the pull tick deletes expired rows BEFORE it starts any pull") {
             val body = SourceScan.blank(main.single { it.name == "CarpoolPullPoller.kt" }.readText())
             val tick = body.substring(body.indexOf("suspend fun tick()"))

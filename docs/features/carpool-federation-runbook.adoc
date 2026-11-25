@@ -85,6 +85,8 @@ new fingerprint to your partners **before** you rotate.
 * **A restore (wave 7) switches the exchange off and clears every consent.** Members must agree again, after an administrator switched the exchange on again. Reason: consents withdrawn after
   the backup would otherwise be active again, and their withdrawals are not restored. There is one audit entry without an actor (`CARPOOL_RESET_BY_RESTORE`) with the number of consents cleared.
   There is no banner; tell your members.
+* **A restore also tells your partners:** for every offer of the backup that was shared and has not departed yet (plus 2 days), a global tombstone is written, so partners drop their
+  hints. Members must give their consent again after the exchange is switched on. Needs the teaser key (without it nothing is written; the counter `skippedNoKey` rises).
 * A backup taken before V165 cannot be restored on V165 (schema checksum).
 
 == 9. Monitoring

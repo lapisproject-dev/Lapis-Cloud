@@ -72,7 +72,7 @@ class AuctionFederationTripwireTest :
             callers shouldBe listOf("OrganizationRestoreService.kt")
             // c4-b: the same for the tombstones that tell the partners about a restore
             main
-                .filter { it.name != "AuctionFederationStore.kt" }
+                .filter { it.name != "AuctionFederationStore.kt" && it.name != "CarpoolFederationStore.kt" }
                 .filter { Regex("""withdrawAfterRestore""").containsMatchIn(SourceScan.blank(it.readText())) }
                 .map { it.name } shouldBe listOf("OrganizationRestoreService.kt")
         }

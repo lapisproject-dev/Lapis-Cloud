@@ -315,7 +315,7 @@ limits and the same audit apply; it never carries an item.
 * **Reason and member are never reported**, only id and day.
 * **Admin counters** are fields appended to the existing DTOs (`carpoolWithdrawalsActive`, `carpoolWithdrawalsScoped`); no new RPC method.
 * **Backup.** The table is part of the backup (it holds nothing personal and belongs to the correctness of a withdrawal). A restore of an older backup brings
-  back consents that were withdrawn after it (an existing property of a restore, not new).
+  back consents that were withdrawn after it (the restore clears them again, F4) but not tombstones written after the backup (the restore writes new global ones for the shared offers).
 
 == Wave 4: pull client, further hops, pass-on of withdrawals (schema V162)
 
@@ -674,6 +674,11 @@ A restore brings back `carpool_posting.federation_opt_in`, the instance switch a
 was taken was therefore active again and the next feed handed the trip out. After all tables are restored, `CarpoolFederationStore.resetAfterRestore` now switches the exchange
 **off**, clears **every** consent (members agree again, after an administrator switched the exchange on), and writes one audit entry without an actor (kind
 `CARPOOL_RESET_BY_RESTORE`, subject = the number of consents cleared). Only `OrganizationRestoreService` calls it (tripwire y).
+
+Partners may still hold the hints of the backed-up state (a tombstone written after the backup is gone). Therefore the restore also calls `CarpoolFederationStore.withdrawAfterRestore`
+(only `OrganizationRestoreService` calls it, tripwire m2): one **global** tombstone (`partnerId = null`) per OFFER of the backup that carried a consent and whose departure grace period
+(departure + 2 days) is not over. The collector (`RestoredCarpoolConsents`) keeps only ids of the backup's own rows, at most 10,000. No schema change. Without the teaser key nothing is
+written (counted in `skippedNoKey`); a failure never fails the restore; the log carries numbers only. Same mechanism as the auction restore.
 *Not built:* a banner on the partner page that says a restore reset the exchange; the audit entry is the record.
 
 === What wave 7 did and did not verify
@@ -819,7 +824,7 @@ and `via` value, every other partner on the path, and every text from a foreign 
 |`PartnerServersScreenDomTest`, `PartnerCarpoolHintsDomTest`
 
 |Backup and restore
-|A restore switches the exchange off and clears every consent (F4).
+|A restore switches the exchange off, clears every consent (F4) and writes global tombstones for the shared, still open offers of the backup.
 |There is no banner that tells the administrator; only the audit entry.
 |`CarpoolHardeningScenarios` (F4)
 |===

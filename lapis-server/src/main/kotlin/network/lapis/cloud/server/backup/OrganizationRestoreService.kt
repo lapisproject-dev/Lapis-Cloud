@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.backup
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
@@ -12,6 +13,8 @@ import network.lapis.cloud.server.auction.federation.AuctionFederationStore
 import network.lapis.cloud.server.auction.federation.AuctionWithdrawalTarget
 import network.lapis.cloud.server.backup.OrganizationSchemaCatalog.TableMetadata
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
+import network.lapis.cloud.server.carpool.CarpoolTeaserTombstonePolicy
+import network.lapis.cloud.server.carpool.CarpoolWithdrawalTarget
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AuctionCurrencies
 import network.lapis.cloud.shared.domain.BackupOperationStatus
@@ -200,6 +203,8 @@ class OrganizationRestoreService(
                 .AtomicLong()
         // V1.9.322 c4: the still-open auctions that were shared in the backup (partners must be told at the end of the restore).
         val restoredConsents = RestoredAuctionConsents(restoreNow = nowLocalDateTime())
+        // The open, shared carpool offers of the backup (partners must be told as well).
+        val restoredCarpoolConsents = RestoredCarpoolConsents(restoreNow = nowLocalDateTime())
         var blobsRestored = 0
         var blobBytesRestored = 0L
         var assetsRestored = 0
@@ -271,6 +276,7 @@ class OrganizationRestoreService(
                             carpoolNeutralized = carpoolNeutralized,
                             auctionNeutralized = auctionNeutralized,
                             restoredConsents = restoredConsents,
+                            restoredCarpoolConsents = restoredCarpoolConsents,
                         )
                     totalRowCount += rowCount
                     restored += manifestEntry.copy(rowCount = rowCount)
@@ -328,6 +334,7 @@ class OrganizationRestoreService(
             }
             // V1.9.322 c4: partners still hold the hints of the old state -- one global tombstone per shared, still open auction.
             tellPartnersAboutRestoredAuctions(consents = restoredConsents, now = resetNow)
+            tellPartnersAboutRestoredCarpool(consents = restoredCarpoolConsents, now = resetNow)
             status = BackupOperationStatus.SUCCEEDED
         } catch (e: IncompatibleBundleException) {
             errorMessage = e.message
@@ -349,6 +356,7 @@ class OrganizationRestoreService(
                     transaction(database) { AuctionFederationStore.resetAfterRestore(nowLocalDateTime()) }
                     // Better too many withdrawals than too few.
                     tellPartnersAboutRestoredAuctions(consents = restoredConsents, now = nowLocalDateTime())
+                    tellPartnersAboutRestoredCarpool(consents = restoredCarpoolConsents, now = nowLocalDateTime())
                 } catch (resetFailure: Exception) {
                     if (errorMessage == null) throw resetFailure
                 }
@@ -418,6 +426,7 @@ class OrganizationRestoreService(
         carpoolNeutralized: java.util.concurrent.atomic.AtomicLong,
         auctionNeutralized: java.util.concurrent.atomic.AtomicLong,
         restoredConsents: RestoredAuctionConsents,
+        restoredCarpoolConsents: RestoredCarpoolConsents,
     ): Long {
         val assetKinds = BACKUP_ASSET_KINDS.filter { it.tableName == table.tableName }
         val digest = MessageDigest.getInstance("SHA-256")
@@ -436,6 +445,7 @@ class OrganizationRestoreService(
                                 counter = carpoolNeutralized,
                                 auctionCounter = auctionNeutralized,
                                 restoredConsents = restoredConsents,
+                                restoredCarpoolConsents = restoredCarpoolConsents,
                             )
                         upsertRow(connection = connection, table = table, row = row)
                         for (kind in assetKinds) {
@@ -472,6 +482,7 @@ class OrganizationRestoreService(
         counter: java.util.concurrent.atomic.AtomicLong,
         auctionCounter: java.util.concurrent.atomic.AtomicLong,
         restoredConsents: RestoredAuctionConsents,
+        restoredCarpoolConsents: RestoredCarpoolConsents,
     ): JsonObject =
         when (table.tableName) {
             "organization_settings" -> {
@@ -500,7 +511,10 @@ class OrganizationRestoreService(
             }
             "carpool_posting" -> {
                 val consented = (row["federation_opt_in"] as? JsonPrimitive)?.contentOrNull == "true"
-                if (consented) counter.incrementAndGet()
+                if (consented) {
+                    counter.incrementAndGet()
+                    restoredCarpoolConsents.note(row)
+                }
                 if (consented || (row["federation_opt_in_at"] != null && row["federation_opt_in_at"] != JsonNull)) {
                     JsonObject(row + mapOf("federation_opt_in" to JsonPrimitive(false), "federation_opt_in_at" to JsonNull))
                 } else {
@@ -522,6 +536,24 @@ class OrganizationRestoreService(
             logger.info { "restore: $written auction hint withdrawal(s) written${if (consents.truncated) " (list truncated)" else ""}" }
         } catch (e: Exception) {
             logger.warn { "restore: writing auction hint withdrawals failed (${e::class.simpleName})" }
+        }
+    }
+
+    /**
+     * Writes the global carpool tombstones for [consents] in their own transaction. Never throws (the restore result must not depend on it); logs
+     * numbers only, never an id, a place or a date. The two tell-partner steps are independent: one failing never skips the other.
+     */
+    private fun tellPartnersAboutRestoredCarpool(
+        consents: RestoredCarpoolConsents,
+        now: LocalDateTime,
+    ) {
+        val targets = consents.targets()
+        if (targets.isEmpty()) return
+        try {
+            val written = transaction(database) { CarpoolFederationStore.withdrawAfterRestore(targets = targets, now = now) }
+            logger.info { "restore: $written carpool hint withdrawal(s) written${if (consents.truncated) " (list truncated)" else ""}" }
+        } catch (e: Exception) {
+            logger.warn { "restore: writing carpool hint withdrawals failed (${e::class.simpleName})" }
         }
     }
 
@@ -694,6 +726,43 @@ internal class RestoredAuctionConsents(
     }
 
     fun targets(): List<AuctionWithdrawalTarget> = items.toList()
+
+    companion object {
+        const val CAP = 10_000
+    }
+}
+
+/**
+ * Collects (id, departure date) of the carpool OFFERs that carried a consent in the restored backup and whose departure grace period is not over
+ * yet (the same rule as the tombstone life: [CarpoolTeaserTombstonePolicy.expiresAt]). Only values of the backup's own rows are kept, so a
+ * manipulated backup cannot name ids that are not its own trips. Capped at [CAP] entries ([truncated] says so). Thread-safe.
+ */
+internal class RestoredCarpoolConsents(
+    private val restoreNow: LocalDateTime,
+) {
+    private val items = java.util.concurrent.ConcurrentLinkedQueue<CarpoolWithdrawalTarget>()
+    private val count =
+        java.util.concurrent.atomic
+            .AtomicInteger()
+
+    @Volatile
+    var truncated: Boolean = false
+        private set
+
+    fun note(row: JsonObject) {
+        if ((row["type"] as? JsonPrimitive)?.contentOrNull != "OFFER") return
+        val id = (row["id"] as? JsonPrimitive)?.contentOrNull?.let { runCatching { Uuid.parse(it) }.getOrNull() } ?: return
+        val departure =
+            (row["departure_date"] as? JsonPrimitive)?.contentOrNull?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return
+        if (CarpoolTeaserTombstonePolicy.expiresAt(createdAt = restoreNow, departure = departure) <= restoreNow) return
+        if (count.incrementAndGet() > CAP) {
+            truncated = true
+            return
+        }
+        items.add(CarpoolWithdrawalTarget(postingId = id, departureDate = departure))
+    }
+
+    fun targets(): List<CarpoolWithdrawalTarget> = items.toList()
 
     companion object {
         const val CAP = 10_000

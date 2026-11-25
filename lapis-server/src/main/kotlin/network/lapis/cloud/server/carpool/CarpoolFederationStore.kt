@@ -206,6 +206,29 @@ internal object CarpoolFederationStore {
         return true
     }
 
+    /**
+     * Called ONLY by the restore of a backup (pinned by `CarpoolFederationTripwireTest`): the rows came back WITHOUT their consent, but partners may
+     * still hold the hints of the old state. Writes one global tombstone (`partnerId = null`) per open, shared OFFER of the backup. Idempotent
+     * (derived tombstone id, `insertIgnore`); a trip whose grace period is over gets none. Without the teaser key nothing can be derived: nothing is
+     * written and the miss is counted in [CarpoolWithdrawalKey.skippedNoKey] (never an error: the restore result must not depend on it).
+     * No trip lock is taken: a restore runs exclusively against an empty target. `requireServed = false`, because the served moment is not part of
+     * a backup; `clearOptIn = false`, because the restore wrote the rows already without consent. @return the number of tombstone rows written.
+     */
+    internal fun withdrawAfterRestore(
+        targets: List<CarpoolWithdrawalTarget>,
+        now: LocalDateTime,
+    ): Int {
+        if (targets.isEmpty()) return 0
+        return withdraw(
+            targets = targets,
+            partnerId = null,
+            ids = CarpoolWithdrawalKey.current(),
+            now = now,
+            clearOptIn = false,
+            requireServed = false,
+        )
+    }
+
     /** The audit entry of [resetAfterRestore]; also used by the restore when it neutralized the rows while writing them (nothing left to reset). */
     fun auditResetByRestore(
         consents: Long,
