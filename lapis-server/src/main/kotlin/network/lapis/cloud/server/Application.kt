@@ -140,11 +140,13 @@ import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.documents.DocumentStorageSpaceReader
 import network.lapis.cloud.server.dsgvo.MailOutboxPersonalData
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
+import network.lapis.cloud.server.economy.oracle.FlywayRawValuesCutoff
 import network.lapis.cloud.server.economy.oracle.OracleSourceConfig
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
 import network.lapis.cloud.server.economy.oracle.PriceOracleSnapshotConfig
 import network.lapis.cloud.server.economy.oracle.PriceOracleSnapshotPoller
 import network.lapis.cloud.server.economy.oracle.PriceOracleStartupCheck
+import network.lapis.cloud.server.economy.oracle.RawValuesCutoffHolder
 import network.lapis.cloud.server.economy.oracle.defaultOracleSources
 import network.lapis.cloud.server.embed.EmbedAssets
 import network.lapis.cloud.server.embed.EmbedConfig
@@ -817,6 +819,8 @@ internal fun Application.module(
     val priceOracleOrchestrator = PriceOracleOrchestrator(sources = defaultOracleSources(config = oracleSourceConfig))
     PriceOracleStartupCheck.logSourceInventory(priceOracleOrchestrator)
     PriceOracleStartupCheck.warnIfActiveAnchorUnderprovisioned(priceOracleOrchestrator)
+    // V1.9.327: where "a snapshot from before V171" ends -- read once, after Flyway ran; a failure falls back to "no legacy snapshot".
+    RawValuesCutoffHolder.current = FlywayRawValuesCutoff.load()
 
     // V0.7.1 Authentifizierung -- constructed once here (owns the per-instance in-memory failure
     // map, see LoginRateLimiter KDoc "Known scope-cut"), same lifecycle as the other singletons

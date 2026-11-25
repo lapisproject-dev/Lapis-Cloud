@@ -126,6 +126,15 @@ classDiagram(name = "PriceOracle") {
         }
     }
 
+    // V173 (V1.9.327): id-only stub of payment_transaction (full model in 33-payments.kuml.kts) so the conversion can reference the converted payment.
+    val paymentTransaction = classOf(name = "PaymentTransaction") {
+        stereotype("Entity") { "tableName" to "payment_transaction"; "kotlinObjectName" to "PaymentTransactionTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
     // Literal order is load-bearing: PriceOracleSchemaDriftTest asserts ErmDataType.Enum.values in
     // exactly this order, matching network.lapis.cloud.shared.domain.AnchorAsset. Only BITCOIN_BTC
     // has real wired sources this wave -- see file header "Scope-cut: Bitcoin-only anchor".
@@ -155,6 +164,12 @@ classDiagram(name = "PriceOracle") {
     val referenceRateBasisEnum = enumOf(name = "ReferenceRateBasis") {
         literal(name = "CURRENT")
         literal(name = "SNAPSHOT")
+        literal(name = "MANUAL")
+    }
+
+    // V173: literal order is load-bearing (matches network.lapis.cloud.shared.domain.ReferenceDateSource).
+    val referenceDateSourceEnum = enumOf(name = "ReferenceDateSource") {
+        literal(name = "BANK_BOOKING")
         literal(name = "MANUAL")
     }
 
@@ -316,6 +331,18 @@ classDiagram(name = "PriceOracle") {
         attribute(name = "quorumRequired", type = "Int") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "quorum_required" }
+        }
+        // ---- V173 (V1.9.327): the bank payment that was converted, and where the reference date came from (server-derived only) ----
+        attribute(name = "paymentTransactionId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "payment_transaction_id"; "fkEntity" to "PaymentTransaction" }
+        }
+        attribute(name = "referenceDateSource", type = referenceDateSourceEnum) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") {
+                "columnName" to "reference_date_source"
+                "enumType" to "network.lapis.cloud.shared.domain.ReferenceDateSource"
+            }
         }
     }
 

@@ -189,6 +189,7 @@ internal object ReferenceRateConversion {
             deviationBpsFromSnapshot =
                 if (manual != null && comparison != null) deviationBps(price = manual.price, reference = comparison) else null,
             comparisonMedian = comparison,
+            rawValuesStored = resolution.rawValuesStored,
         )
     }
 }

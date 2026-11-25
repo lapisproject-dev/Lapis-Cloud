@@ -916,6 +916,8 @@ classDiagram(name = "Lapis Cloud Domain Model — Price Oracle (V0.6.5)") {
         attribute(name = "ltrLedgerEntryId", type = "UUID")
         attribute(name = "createdById", type = "UUID")
         attribute(name = "createdAt", type = "LocalDateTime")
+        attribute(name = "paymentTransactionId", type = "UUID")
+        attribute(name = "referenceDateSource", type = "ReferenceDateSource")
     }
 
     comment(
@@ -960,6 +962,8 @@ webhook intake (`convertDonationToLtr` is operator-triggered); and a shared/fede
 === Reference-date rates (V1.9.324, schema V171)
 
 `price_oracle_config.conversion_rate_basis` switches donation conversions to the closing rate of a reference date (gold anchor only). New tables: `price_oracle_snapshot_source` (raw value per source of each stored snapshot, `ON DELETE RESTRICT`) and `price_oracle_reference_rate` (a manually confirmed rate, unique per anchor, currency and effective date, never updated). `price_oracle_conversion` gained `rate_basis`, `reference_date`, `effective_date`, `fallback_reason`, `snapshot_id`, `reference_rate_id` and `quorum_required`. See link:price-oracle-reference-date.adoc[price-oracle-reference-date.adoc].
+
+From V173 (V1.9.327) `price_oracle_conversion` also carries `payment_transaction_id` (association to `payment_transaction`, `0..1`, UNIQUE: a bank payment is converted once, `ON DELETE RESTRICT`) and `reference_date_source` (`BANK_BOOKING` or `MANUAL`, set by the server only).
 
 == V1.3.0 — Public Ranking Consent (`GET /transparenz`)
 

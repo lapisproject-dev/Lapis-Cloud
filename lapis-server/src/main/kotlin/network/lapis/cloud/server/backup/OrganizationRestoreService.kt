@@ -15,6 +15,9 @@ import network.lapis.cloud.server.backup.OrganizationSchemaCatalog.TableMetadata
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
 import network.lapis.cloud.server.carpool.CarpoolTeaserTombstonePolicy
 import network.lapis.cloud.server.carpool.CarpoolWithdrawalTarget
+import network.lapis.cloud.server.economy.oracle.NO_LEGACY_CUTOFF
+import network.lapis.cloud.server.economy.oracle.RawValuesCutoff
+import network.lapis.cloud.server.economy.oracle.RawValuesCutoffHolder
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AuctionCurrencies
 import network.lapis.cloud.shared.domain.BackupOperationStatus
@@ -359,6 +362,14 @@ class OrganizationRestoreService(
                     tellPartnersAboutRestoredCarpool(consents = restoredCarpoolConsents, now = nowLocalDateTime())
                 } catch (resetFailure: Exception) {
                     if (errorMessage == null) throw resetFailure
+                }
+            }
+            if (tableWritten) {
+                // The restored snapshots decide where "a snapshot from before V171" ends: re-read the raw-values cutoff now, not at the next restart.
+                try {
+                    RawValuesCutoffHolder.refresh()
+                } catch (refreshFailure: Exception) {
+                    RawValuesCutoffHolder.current = RawValuesCutoff { NO_LEGACY_CUTOFF }
                 }
             }
             try {

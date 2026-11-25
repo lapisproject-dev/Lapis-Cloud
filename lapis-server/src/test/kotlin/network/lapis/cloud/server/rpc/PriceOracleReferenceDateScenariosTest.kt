@@ -27,8 +27,11 @@ import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
 import network.lapis.cloud.server.db.generated.PriceOracleReferenceRateTable
 import network.lapis.cloud.server.db.generated.PriceOracleSnapshotSourceTable
 import network.lapis.cloud.server.db.generated.PriceOracleSnapshotTable
+import network.lapis.cloud.server.economy.oracle.NO_LEGACY_CUTOFF
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
 import network.lapis.cloud.server.economy.oracle.PriceOracleSource
+import network.lapis.cloud.server.economy.oracle.RawValuesCutoff
+import network.lapis.cloud.server.economy.oracle.RawValuesCutoffHolder
 import network.lapis.cloud.server.economy.oracle.SourcePriceResult
 import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.server.time.ServerClock
@@ -170,7 +173,11 @@ class PriceOracleReferenceDateScenariosTest :
         }
         afterSpec { ServerClock.source = originalSource }
 
-        beforeTest { setConfig() }
+        // The raw-values cutoff is process-global (set by any module() start): these scenarios want "no legacy snapshot", the default.
+        beforeTest {
+            RawValuesCutoffHolder.current = RawValuesCutoff { NO_LEGACY_CUTOFF }
+            setConfig()
+        }
         afterTest {
             transaction {
                 PriceOracleConversionTable.deleteWhere { PriceOracleConversionTable.memberId inList createdMembers }

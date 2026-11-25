@@ -20,9 +20,11 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.ConversionRateBasis
 import network.lapis.cloud.shared.domain.DonationConversionInput
+import network.lapis.cloud.shared.domain.DonationPaymentCandidateDto
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.PriceOracleConfigDto
 import network.lapis.cloud.shared.domain.ReferenceDateFallback
+import network.lapis.cloud.shared.domain.ReferenceDateSource
 import network.lapis.cloud.shared.domain.ReferenceRateBasis
 import network.lapis.cloud.shared.domain.ReferenceRateConfirmationInput
 import network.lapis.cloud.shared.domain.ReferenceRateOutcome
@@ -55,11 +57,17 @@ internal fun renderReferenceDateConvertForm(
     ) { addCssClasses("text-muted small") }
 
     val memberSelect = panel.searchableSelect(options = untrustedOptions(members.map { it.id to it.displayName }), label = tr("Mitglied"))
+    val noPaymentLabel = tr("Ohne Bankzahlung (Datum manuell)")
+    val paymentSelect = panel.searchableSelect(options = emptyList(), label = tr("Bankzahlung (Spende)"), noneOption = noPaymentLabel)
+    val paymentHint = panel.div { addCssClasses("text-muted small") }
+    paymentHint.hide()
     val amountInput = panel.text(label = tr("Spendenbetrag"))
     val dateInput = panel.localDateInput(label = tr("Stichtag"))
     panel.div(tr("Der Tag, dessen Schlusskurs gelten soll. Frühestens gestern: der Kurs eines Tages steht erst nach Mitternacht fest.")) {
         addCssClasses("text-muted small")
     }
+    val dateHint = panel.div { addCssClasses("text-muted small") }
+    dateHint.hide()
     val noteInput = panel.text(label = tr("Notiz (optional)"))
     val errorBox =
         panel.div().apply {
@@ -79,15 +87,101 @@ internal fun renderReferenceDateConvertForm(
     convertButton.disabled = true
 
     var previewed: PreviewedRate? = null
+    var candidates: List<DonationPaymentCandidateDto> = emptyList()
+    var candidatesGeneration = 0
 
     fun invalidate() {
         previewed = null
         convertButton.disabled = true
         previewPanel.removeAll()
     }
-    memberSelect.subscribe { invalidate() }
+
+    fun selectedPayment(): DonationPaymentCandidateDto? = candidates.find { it.id == paymentSelect.value }
+
+    /** The hint under the date: whether it equals the bank booking day of the chosen payment. The server derives the origin itself. */
+    fun updateDateHint() {
+        val payment = selectedPayment()
+        val date = dateInput.dateOrNull()
+        when {
+            payment == null -> dateHint.hide()
+            payment.bookingDate >= organizationToday() -> {
+                dateHint.content =
+                    tr(
+                        "Die Bankzahlung wurde heute gebucht. " +
+                            "Der Kurs von heute steht erst nach Mitternacht fest: bitte morgen buchen.",
+                    )
+                dateHint.show()
+            }
+            date == payment.bookingDate -> {
+                dateHint.content = tr("Der Stichtag ist der Buchungstag der Bankzahlung.")
+                dateHint.show()
+            }
+            else -> {
+                dateHint.content =
+                    gettext(
+                        "Der Stichtag weicht vom Buchungstag der Bankzahlung (%1) ab und gilt als manuell gewählt.",
+                        formatDate(payment.bookingDate),
+                    )
+                dateHint.show()
+            }
+        }
+    }
+
+    fun applyPayment() {
+        val payment = selectedPayment()
+        if (payment == null) {
+            amountInput.readonly = false
+        } else {
+            amountInput.value = payment.amount.toString()
+            amountInput.readonly = true
+            // A booking from today has no closing rate yet: the date stays empty and the hint says why.
+            dateInput.setDate(if (payment.bookingDate < organizationToday()) payment.bookingDate else null)
+        }
+        updateDateHint()
+    }
+
+    fun loadCandidates(memberId: String?) {
+        candidatesGeneration++
+        val generation = candidatesGeneration
+        candidates = emptyList()
+        paymentSelect.options = listOf(NO_PAYMENT to noPaymentLabel)
+        paymentSelect.value = NO_PAYMENT
+        amountInput.readonly = false
+        amountInput.value = null
+        dateInput.setDate(null)
+        paymentHint.hide()
+        updateDateHint()
+        if (memberId == null) return
+        AppScope.launch {
+            val loaded = guarded { rpcService<IPriceOracleService>().listDonationPaymentCandidates(memberId) }
+            // A slower answer for a member that was changed away from meanwhile must not overwrite the current state.
+            if (loaded == null || generation != candidatesGeneration) return@launch
+            candidates = loaded
+            paymentSelect.options =
+                listOf(NO_PAYMENT to noPaymentLabel) +
+                loaded.map { it.id to "${formatDate(it.bookingDate)} · ${formatDonationAmount(it.amount, it.currency)}" }
+            if (loaded.isEmpty()) {
+                paymentHint.content = tr("Für dieses Mitglied gibt es keine offene Bankzahlung mit dem Zweck Spende.")
+                paymentHint.show()
+            } else if (loaded.size == 1) {
+                paymentSelect.value = loaded.single().id
+                applyPayment()
+            }
+        }
+    }
+    memberSelect.subscribe {
+        invalidate()
+        loadCandidates(memberSelect.value?.takeIf { it.isNotEmpty() })
+    }
+    paymentSelect.subscribe {
+        invalidate()
+        applyPayment()
+    }
     amountInput.subscribe { invalidate() }
-    dateInput.subscribe { invalidate() }
+    dateInput.subscribe {
+        invalidate()
+        updateDateHint()
+    }
 
     fun readInputs(): Triple<MemberSummaryDto, Decimal, LocalDate>? {
         val member = members.find { it.id == memberSelect.value }
@@ -145,6 +239,17 @@ internal fun renderReferenceDateConvertForm(
             return@onClick
         }
         val note = noteInput.value?.trim()?.takeIf { it.isNotBlank() }
+        val payment = selectedPayment()
+        val paymentLine =
+            payment
+                ?.let {
+                    " " +
+                        gettext(
+                            "Bankzahlung vom %1, Stichtag: %2.",
+                            formatDate(it.bookingDate),
+                            if (date == it.bookingDate) gettext("Buchungstag") else gettext("manuell gewählt"),
+                        )
+                }.orEmpty()
         confirmDialog(
             title = tr("Spenden-Konvertierung bestätigen"),
             message =
@@ -155,7 +260,7 @@ internal fun renderReferenceDateConvertForm(
                     formatDate(resolution.effectiveDate),
                     formatDonationAmount(price, config.donationCurrency),
                     anchorAssetLabel(config.anchorAsset),
-                ),
+                ) + paymentLine,
             confirmLabel = tr("Konvertieren"),
             dangerNote = tr("Diese Aktion mintet echtes LTR und kann nicht rückgängig gemacht werden."),
             focusCancel = true,
@@ -172,15 +277,17 @@ internal fun renderReferenceDateConvertForm(
                                 referenceDate = date,
                                 expectedPrice = price,
                                 expectedRateRefId = resolution.snapshotId ?: resolution.referenceRateId,
+                                paymentTransactionId = payment?.id,
                             ),
                         )
                     }
                 if (result != null) {
                     notifySuccess(gettext("%1 für %2 gemintet.", formatLtr(result.ltrMinted), member.displayName))
                     renderConversionResult(outcomePanel, result)
-                    amountInput.value = null
                     noteInput.value = null
                     invalidate()
+                    // The converted payment is gone from the list; the member stays selected.
+                    loadCandidates(memberSelect.value?.takeIf { it.isNotEmpty() })
                 } else {
                     // The rate may have changed meanwhile: the preview is no longer trustworthy.
                     invalidate()
@@ -244,7 +351,9 @@ private fun renderResolution(
         },
     ) { addCssClass("text-muted") }
     resolution.evidenceText?.let { box.div(gettext("Beleg: %1", it)) { addCssClass("text-muted") } }
-    if (resolution.sources.isNotEmpty()) {
+    if (!resolution.rawValuesStored) {
+        box.div(rawValuesNotStoredText()) { addCssClass("text-muted") }
+    } else if (resolution.sources.isNotEmpty()) {
         box.div(gettext("Quellen (mindestens %1 nötig):", resolution.quorumRequired)) { addCssClass("text-muted") }
         resolution.sources.forEach { source ->
             box.div(
@@ -366,6 +475,20 @@ private fun manualRateDialog(
 
 private const val BPS_PER_UNIT = 10_000
 
+/** The value of the "without a bank payment" choice of the payment select. */
+private const val NO_PAYMENT = ""
+
+/** Shared by the preview, the receipt and the travel expense panel: a legacy snapshot is accepted, but has no stored single values. */
+internal fun rawValuesNotStoredText(): String =
+    gettext("Quellen: Einzelwerte nicht gespeichert (Kurs aus einem älteren Kursverlauf, als Schlusskurs akzeptiert).")
+
+/** Where the reference date of a conversion came from, for the receipt. */
+internal fun referenceDateSourceLabel(source: ReferenceDateSource): String =
+    when (source) {
+        ReferenceDateSource.BANK_BOOKING -> gettext("Buchungstag der Bankzahlung")
+        ReferenceDateSource.MANUAL -> gettext("manuell gewählt")
+    }
+
 private fun fallbackLabel(reason: ReferenceDateFallback): String =
     when (reason) {
         ReferenceDateFallback.NONE -> ""
@@ -384,7 +507,10 @@ private fun outcomeLabel(outcome: ReferenceRateOutcome): String =
                     "Der Kurs muss manuell bestätigt werden.",
             )
         ReferenceRateOutcome.RAW_VALUES_MISSING ->
-            gettext("Für diesen Tag fehlen die Einzelwerte der Quellen (älterer Kursverlauf). Der Kurs muss manuell bestätigt werden.")
+            gettext(
+                "Der gespeicherte Kurs dieses Tages ist unvollständig: die Einzelwerte der Quellen fehlen oder passen nicht zum Kurs. " +
+                    "Er wird nicht verwendet, der Kurs muss manuell bestätigt werden.",
+            )
     }
 
 /** [typeBadge] grammar: the setting is a fixed choice, covers every literal. */

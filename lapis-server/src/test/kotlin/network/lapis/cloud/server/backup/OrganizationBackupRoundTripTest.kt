@@ -27,6 +27,7 @@ import network.lapis.cloud.server.db.generated.MemberNationalityTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.db.generated.PriceOracleConfigTable
 import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
@@ -57,9 +58,13 @@ import network.lapis.cloud.shared.domain.JournalEntryStatus
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.PaymentIntent
+import network.lapis.cloud.shared.domain.PaymentProvider
+import network.lapis.cloud.shared.domain.PaymentTransactionStatus
 import network.lapis.cloud.shared.domain.PostingSide
 import network.lapis.cloud.shared.domain.PriceStatus
 import network.lapis.cloud.shared.domain.ReferenceDateFallback
+import network.lapis.cloud.shared.domain.ReferenceDateSource
 import network.lapis.cloud.shared.domain.ReferenceRateBasis
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -380,6 +385,23 @@ class OrganizationBackupRoundTripTest :
                     it[referenceSnapshotMedian] = BigDecimal("2012.345678901234567891")
                     it[deviationAcknowledged] = true
                 }
+                val oraclePaymentId = Uuid.random()
+                PaymentTransactionTable.insert {
+                    it[id] = oraclePaymentId
+                    it[provider] = PaymentProvider.MANUAL
+                    it[providerEventId] = "evt-$oraclePaymentId"
+                    it[providerPaymentId] = "pay-$oraclePaymentId"
+                    it[status] = PaymentTransactionStatus.CAPTURED
+                    it[amount] = BigDecimal("10.00")
+                    it[currency] = "EUR"
+                    it[feeAmount] = null
+                    it[intent] = PaymentIntent.DONATION
+                    it[contributionId] = null
+                    it[PaymentTransactionTable.memberId] = adminId
+                    it[payerReference] = null
+                    it[receivedAt] = LocalDateTime(2027, 1, 4, 0, 0)
+                    it[rawPayloadDigest] = "0".repeat(64)
+                }
                 listOf(ReferenceRateBasis.SNAPSHOT, ReferenceRateBasis.MANUAL).forEach { basis ->
                     PriceOracleConversionTable.insert {
                         it[id] = Uuid.random()
@@ -404,6 +426,10 @@ class OrganizationBackupRoundTripTest :
                         it[snapshotId] = if (basis == ReferenceRateBasis.SNAPSHOT) oracleSnapshotId else null
                         it[referenceRateId] = if (basis == ReferenceRateBasis.MANUAL) oracleRateId else null
                         it[quorumRequired] = 2
+                        // V173: the SNAPSHOT conversion is tied to a bank payment (the restore must load payment_transaction first), the other is manual.
+                        it[paymentTransactionId] = if (basis == ReferenceRateBasis.SNAPSHOT) oraclePaymentId else null
+                        it[referenceDateSource] =
+                            if (basis == ReferenceRateBasis.SNAPSHOT) ReferenceDateSource.BANK_BOOKING else ReferenceDateSource.MANUAL
                     }
                 }
 

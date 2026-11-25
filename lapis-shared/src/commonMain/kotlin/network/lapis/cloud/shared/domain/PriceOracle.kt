@@ -179,6 +179,12 @@ data class DonationConversionInput(
     val expectedPrice: Decimal? = null,
     /** V1.9.324: the snapshot id or manual-rate id the treasurer saw in the preview. */
     val expectedRateRefId: String? = null,
+    /**
+     * V1.9.327: the bank payment (donation) this conversion converts. Only valid in mode REFERENCE_DATE. The server checks that the payment belongs
+     * to [memberId], is a captured donation in the donation currency with exactly [donationAmount], was booked on the bank and was not converted
+     * before. There is deliberately NO field for where the reference date came from: the server derives that itself.
+     */
+    val paymentTransactionId: String? = null,
 )
 
 /**
@@ -212,6 +218,12 @@ data class PriceOracleConversionDto(
     val snapshotId: String? = null,
     val referenceRateId: String? = null,
     val quorumRequired: Int? = null,
+    /** V1.9.327: the converted bank payment, if the conversion was tied to one. */
+    val paymentTransactionId: String? = null,
+    /** V1.9.327: where the reference date came from (null for a CURRENT conversion and for none-recorded). */
+    val referenceDateSource: ReferenceDateSource? = null,
+    /** V1.9.327: false when the snapshot behind this conversion has no stored single values (it was taken before V171). Derived on read. */
+    val rawValuesStored: Boolean = true,
 )
 
 /**
@@ -259,6 +271,13 @@ enum class ConversionRateBasis { CURRENT, REFERENCE_DATE }
 @Serializable
 enum class ReferenceRateBasis { CURRENT, SNAPSHOT, MANUAL }
 
+/**
+ * V1.9.327: where the reference date of a conversion came from -- [BANK_BOOKING] (the date equals the bank booking day of the converted payment)
+ * or [MANUAL] (typed or changed by the treasurer). Derived by the server only. Literal order is load-bearing (schema drift test, kUML model).
+ */
+@Serializable
+enum class ReferenceDateSource { BANK_BOOKING, MANUAL }
+
 /** V1.9.324: why the rate of an earlier trading day was used for the requested reference date. */
 @Serializable
 enum class ReferenceDateFallback { NONE, WEEKEND, HOLIDAY }
@@ -300,6 +319,18 @@ data class ReferenceRateResolutionDto(
     val deviationBpsFromSnapshot: Int? = null,
     /** Median of the latest stored snapshot of that day, whatever its status -- the yardstick for a manual rate, never a rate itself. */
     val comparisonMedian: Decimal? = null,
+    /** V1.9.327: false when the rate is a stored snapshot whose single values were not stored (taken before V171, accepted as a closing rate). */
+    val rawValuesStored: Boolean = true,
+)
+
+/** V1.9.327: a captured bank donation of one member that is not converted yet -- the choices of the reference-date form. */
+@Serializable
+data class DonationPaymentCandidateDto(
+    val id: String,
+    val amount: Decimal,
+    val currency: String,
+    /** The day the bank booked the money (calendar day as on the statement). */
+    val bookingDate: LocalDate,
 )
 
 /** V1.9.324: a manual reference rate. Anchor and currency always come from the server's configuration, never from the client. */

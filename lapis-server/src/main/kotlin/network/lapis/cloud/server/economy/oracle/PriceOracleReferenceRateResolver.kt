@@ -34,6 +34,8 @@ internal data class ReferenceRateResolution(
     val legacyMedianHint: BigDecimal?,
     /** Median of the latest snapshot of the day, whatever its status -- only a yardstick for a manual rate, never a rate itself. */
     val comparisonMedian: BigDecimal?,
+    /** V1.9.327: false when the rate is a legacy snapshot (taken before V171, no stored single values) accepted as a closing rate. */
+    val rawValuesStored: Boolean = true,
 )
 
 /**
@@ -43,8 +45,11 @@ internal data class ReferenceRateResolution(
  * Steps: (1) validate the date (not before 2000-01-01, strictly before today in the organization zone, anchor must be gold);
  * (2) move it back to the last London trading day ([LbmaGoldCalendar]); (3) a manually confirmed rate for that day wins; (4) otherwise the latest
  * qualifying snapshot of that calendar day (organization zone, converted to the UTC storage window with daylight-saving time) -- qualifying means
- * status LIVE, source count at least the quorum, and the stored raw values complete (`included` rows == `source_count`); (5) otherwise an outcome
- * that says why there is no rate.
+ * status LIVE, source count at least the quorum, and EITHER the stored raw values complete (`included` rows == `source_count`) OR a legacy snapshot
+ * (no stored values at all and captured before the raw-values cutoff, see [RawValuesCutoff]; its median is accepted and flagged
+ * `rawValuesStored = false`). Of several qualifying snapshots the latest wins. A snapshot captured after the cutoff with missing or incomplete values
+ * never qualifies (defect or manipulation): the outcome is [ReferenceRateOutcome.RAW_VALUES_MISSING]; (5) otherwise an outcome that says why there
+ * is no rate.
  */
 internal object PriceOracleReferenceRateResolver {
     fun resolve(
@@ -100,11 +105,13 @@ internal object PriceOracleReferenceRateResolver {
 
         val quorumOk = snapshots.filter { it.sourceCount >= quorumRequired }
         val statusAndQuorumOk = quorumOk.filter { it.status == PriceStatus.LIVE }
-        val qualified =
-            statusAndQuorumOk.firstOrNull { snap ->
-                snap.sources.count { it.included } == snap.sourceCount &&
-                    snap.sourceCount > 0
-            }
+        val cutoff = RawValuesCutoffHolder.current.cutoffUtc()
+
+        fun complete(snap: SnapshotWithSources) = snap.sourceCount > 0 && snap.sources.count { it.included } == snap.sourceCount
+
+        fun legacy(snap: SnapshotWithSources) = snap.sources.isEmpty() && snap.capturedAt < cutoff
+        // Snapshots are newest first: the latest QUALIFYING one wins (a defective newer one falls back to an older qualifying one).
+        val qualified = statusAndQuorumOk.firstOrNull { complete(it) || legacy(it) }
 
         fun outcome(
             outcome: ReferenceRateOutcome,
@@ -136,6 +143,7 @@ internal object PriceOracleReferenceRateResolver {
                     quorumRequired = quorumRequired,
                     legacyMedianHint = null,
                     comparisonMedian = comparison,
+                    rawValuesStored = complete(qualified),
                 )
             snapshots.isEmpty() -> outcome(ReferenceRateOutcome.NO_DATA)
             statusAndQuorumOk.isNotEmpty() -> outcome(ReferenceRateOutcome.RAW_VALUES_MISSING, hint = statusAndQuorumOk.first().medianPrice)

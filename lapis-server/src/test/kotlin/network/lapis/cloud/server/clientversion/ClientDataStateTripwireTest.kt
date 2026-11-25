@@ -192,7 +192,11 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * loaded ahead or cached); `AuctionScreen.kt` gains two reads in the administrator's switch for euro auctions (`getAuctionSettings(` after each switch, and
  * `getAuctionFiatOperatorDisclaimer(` once on the click that opens the legal notice), both on demand inside `guarded`.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 224
+private const val READ_OUTSIDE_STATE_REGION_MAX = 225
+
+// +1 V1.9.327 (bank payment of the reference-date conversion), in the (already counted) `PriceOracleReferenceDateForm.kt`: `listDonationPaymentCandidates(` is the one-shot
+// read behind the member choice (a request counter drops answers of a member that was left meanwhile; a failure toasts through `guarded` and leaves the choice
+// "without bank payment"; the select IS its state). 224 -> 225, no new file.
 
 // +2 V1.9.324 (gold price at a reference date): `getOracleConfig(` in the (already counted) `PriceOracleScreen.kt` decides once which conversion form is shown (a failed
 // read keeps the ordinary form, the failure toasts through `guarded`), and `previewReferenceRate(` in the new `PriceOracleReferenceDateForm.kt` is the on-demand

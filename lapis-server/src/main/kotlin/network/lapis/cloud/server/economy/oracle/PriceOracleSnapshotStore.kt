@@ -15,12 +15,15 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.min
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.math.BigDecimal
@@ -49,6 +52,8 @@ internal data class SnapshotWithSources(
     val sourceCount: Int,
     val sourcesUsed: String,
     val priceTimestamp: LocalDateTime,
+    /** V1.9.327: when the poller wrote the row (UTC, as stored) -- compared with the raw-values cutoff. */
+    val capturedAt: LocalDateTime,
     val sources: List<StoredSourceValue>,
 )
 
@@ -213,10 +218,27 @@ object PriceOracleSnapshotStore {
                 sourceCount = row[PriceOracleSnapshotTable.sourceCount],
                 sourcesUsed = row[PriceOracleSnapshotTable.sourcesUsed],
                 priceTimestamp = row[PriceOracleSnapshotTable.priceTimestamp],
+                capturedAt = row[PriceOracleSnapshotTable.capturedAt],
                 sources = sourcesBySnapshot[row[PriceOracleSnapshotTable.id]].orEmpty().sortedBy { it.sourceId },
             )
         }
     }
+
+    /**
+     * V1.9.327: the earliest `captured_at` (UTC) of a snapshot that HAS stored raw values, or `null` when there is none. It proves from when on the poller
+     * stores them: part of the raw-values cutoff ([FlywayRawValuesCutoff]). Inside an open transaction. Lives here because only this store names the raw table.
+     */
+    internal fun earliestCapturedWithRawValues(): LocalDateTime? =
+        PriceOracleSnapshotTable
+            .select(PriceOracleSnapshotTable.capturedAt.min())
+            .where {
+                exists(
+                    PriceOracleSnapshotSourceTable
+                        .selectAll()
+                        .where { PriceOracleSnapshotSourceTable.snapshotId eq PriceOracleSnapshotTable.id },
+                )
+            }.singleOrNull()
+            ?.get(PriceOracleSnapshotTable.capturedAt.min())
 
     /** V1.9.325: the stored raw source values of one snapshot (empty for a snapshot from before V171), ordered by source id. Inside an open transaction. */
     internal fun sourcesOf(snapshotId: Uuid): List<StoredSourceValue> =

@@ -1139,7 +1139,12 @@ internal fun renderConversionResult(
                 result.effectiveDate?.let { formatDate(it) }.orEmpty(),
             ),
         ) { addCssClass("text-muted") }
+        result.referenceDateSource?.let {
+            box.div(gettext("Stichtag: %1", referenceDateSourceLabel(it))) { addCssClass("text-muted") }
+        }
+        if (!result.rawValuesStored) box.div(rawValuesNotStoredText()) { addCssClass("text-muted") }
     }
+    result.paymentTransactionId?.let { box.div(gettext("Bankzahlung: %1", it)) { addCssClass("text-muted") } }
     box.div(gettext("Buchung: %1", result.ltrLedgerEntryId)) { addCssClass("text-muted") }
     box.div(gettext("Zeitstempel: %1", formatSystemDateTime(result.priceTimestamp))) { addCssClass("text-muted") }
 }

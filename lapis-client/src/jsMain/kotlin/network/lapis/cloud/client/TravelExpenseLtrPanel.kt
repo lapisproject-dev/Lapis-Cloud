@@ -79,6 +79,7 @@ fun renderTravelExpenseLtrSection(root: SimplePanel) {
                 body.div(gettext("Kurs: %1 EUR je Unze Gold", price.toString())) { addCssClass("fw-bold") }
                 val usedLabel = tr("verwendet")
                 val excludedLabel = tr("ausgeschlossen")
+                if (!res.rawValuesStored) body.div(rawValuesNotStoredText()) { addCssClasses("text-muted small") }
                 res.sources.forEach {
                     body.div(gettext("%1: %2 (%3)", it.sourceId, it.rawPrice.toString(), if (it.included) usedLabel else excludedLabel)) {
                         addCssClasses("text-muted small")

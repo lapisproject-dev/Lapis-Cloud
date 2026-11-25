@@ -9,6 +9,7 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.PriceStatus
 import network.lapis.cloud.shared.domain.ReferenceDateFallback
+import network.lapis.cloud.shared.domain.ReferenceDateSource
 import network.lapis.cloud.shared.domain.ReferenceRateBasis
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
@@ -38,6 +39,8 @@ public object PriceOracleConversionTable : Table("price_oracle_conversion") {
     public val snapshotId: Column<Uuid?> = optReference("snapshot_id", PriceOracleSnapshotTable.id)
     public val referenceRateId: Column<Uuid?> = optReference("reference_rate_id", PriceOracleReferenceRateTable.id)
     public val quorumRequired: Column<Int?> = integer("quorum_required").nullable()
+    public val paymentTransactionId: Column<Uuid?> = optReference("payment_transaction_id", PaymentTransactionTable.id)
+    public val referenceDateSource: Column<ReferenceDateSource?> = enumerationByName<ReferenceDateSource>("reference_date_source", 12).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

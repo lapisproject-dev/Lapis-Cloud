@@ -34419,8 +34419,8 @@ msgid "Das Mindest-Quorum war erfüllt, aber nicht alle Quellen waren verfügbar
 msgstr "Le quorum minimal était atteint, mais toutes les sources n'étaient pas disponibles (statut différent de LIVE). Le cours doit être confirmé manuellement."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
-msgid "Für diesen Tag fehlen die Einzelwerte der Quellen (älterer Kursverlauf). Der Kurs muss manuell bestätigt werden."
-msgstr "Les valeurs individuelles des sources manquent pour ce jour (ancien historique des cours). Le cours doit être confirmé manuellement."
+msgid "Der gespeicherte Kurs dieses Tages ist unvollständig: die Einzelwerte der Quellen fehlen oder passen nicht zum Kurs. Er wird nicht verwendet, der Kurs muss manuell bestätigt werden."
+msgstr "Le cours enregistré de ce jour est incomplet : les valeurs individuelles des sources manquent ou ne correspondent pas au cours. Il n'est pas utilisé, le cours doit être confirmé manuellement."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
 msgid "Aktueller Kurs"
@@ -34677,3 +34677,51 @@ msgstr "Réglage enregistré."
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSettingsScreen.kt:1
 msgid "Zum Einschalten müssen das Preis-Orakel auf Gold in Euro stehen und beide Konten gespeichert sein (erst Konten wählen, speichern, dann einschalten)."
 msgstr "Pour l'activer, l'oracle de prix doit être réglé sur l'or en euros et les deux comptes doivent être enregistrés (d'abord choisir les comptes, enregistrer, puis activer)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Ohne Bankzahlung (Datum manuell)"
+msgstr "Sans paiement bancaire (date manuelle)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Bankzahlung (Spende)"
+msgstr "Paiement bancaire (don)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Die Bankzahlung wurde heute gebucht. Der Kurs von heute steht erst nach Mitternacht fest: bitte morgen buchen."
+msgstr "Le paiement bancaire a été comptabilisé aujourd'hui. Le cours d'aujourd'hui n'est définitif qu'après minuit : veuillez convertir demain."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Der Stichtag ist der Buchungstag der Bankzahlung."
+msgstr "La date de référence est le jour de comptabilisation du paiement bancaire."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Der Stichtag weicht vom Buchungstag der Bankzahlung (%1) ab und gilt als manuell gewählt."
+msgstr "La date de référence diffère du jour de comptabilisation du paiement bancaire (%1) et compte comme choisie manuellement."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Für dieses Mitglied gibt es keine offene Bankzahlung mit dem Zweck Spende."
+msgstr "Ce membre n'a aucun paiement bancaire ouvert avec le motif don."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Bankzahlung vom %1, Stichtag: %2."
+msgstr "Paiement bancaire du %1, date de référence : %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Buchungstag"
+msgstr "jour de comptabilisation"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "manuell gewählt"
+msgstr "choisie manuellement"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Quellen: Einzelwerte nicht gespeichert (Kurs aus einem älteren Kursverlauf, als Schlusskurs akzeptiert)."
+msgstr "Sources : valeurs individuelles non enregistrées (cours d'un ancien historique, accepté comme cours de clôture)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Buchungstag der Bankzahlung"
+msgstr "Jour de comptabilisation du paiement bancaire"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Bankzahlung: %1"
+msgstr "Paiement bancaire : %1"

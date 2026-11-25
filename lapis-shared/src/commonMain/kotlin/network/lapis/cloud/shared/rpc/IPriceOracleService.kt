@@ -4,6 +4,7 @@ import dev.kilua.rpc.annotations.RpcService
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.DonationConversionInput
+import network.lapis.cloud.shared.domain.DonationPaymentCandidateDto
 import network.lapis.cloud.shared.domain.OraclePriceStatusDto
 import network.lapis.cloud.shared.domain.PriceHistoryRange
 import network.lapis.cloud.shared.domain.PriceOracleConfigDto
@@ -110,4 +111,10 @@ interface IPriceOracleService {
 
     /** V1.9.324: records a manual reference rate (evidence text required) when no automatic rate exists. Role: TREASURER/BOARD/ADMIN. Immutable once written. */
     suspend fun confirmReferenceRate(input: ReferenceRateConfirmationInput): ReferenceRateResolutionDto
+
+    /**
+     * V1.9.327: the captured bank donations of [memberId] (in the donation currency, booked on a bank statement, not converted yet) -- at most 50,
+     * newest first. Role: TREASURER/BOARD/ADMIN (same as [convertDonationToLtr]). Only in mode `REFERENCE_DATE`.
+     */
+    suspend fun listDonationPaymentCandidates(memberId: String): List<DonationPaymentCandidateDto>
 }

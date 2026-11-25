@@ -37,10 +37,11 @@ class PriceOracleSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the five price-oracle entities plus the Member stub") {
+        test("model declares exactly the five price-oracle entities plus the Member and PaymentTransaction stubs") {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
+                    "payment_transaction",
                     "price_oracle_config",
                     "price_oracle_conversion",
                     "price_oracle_snapshot",
@@ -193,6 +194,22 @@ class PriceOracleSchemaDriftTest :
                     name = "ReferenceRateBasis",
                     values = listOf("CURRENT", "SNAPSHOT", "MANUAL"),
                     externalFqName = "network.lapis.cloud.shared.domain.ReferenceRateBasis",
+                )
+        }
+
+        test("price_oracle_conversion links the converted payment (real FK) and the server-derived date source (V173)") {
+            val entity = model.entities.single { it.name == "price_oracle_conversion" }
+            val real = transaction { introspectPriceOracleTable("price_oracle_conversion") }
+            real.foreignKeys["payment_transaction_id"] shouldBe "payment_transaction"
+            model.entityNameOf(entity.attributeByName("payment_transaction_id")?.foreignKey?.targetEntityId ?: "") shouldBe
+                "payment_transaction"
+            entity.attributeByName("payment_transaction_id")?.nullable shouldBe true
+            entity.attributeByName("reference_date_source")?.nullable shouldBe true
+            entity.attributeByName("reference_date_source")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "ReferenceDateSource",
+                    values = listOf("BANK_BOOKING", "MANUAL"),
+                    externalFqName = "network.lapis.cloud.shared.domain.ReferenceDateSource",
                 )
         }
 

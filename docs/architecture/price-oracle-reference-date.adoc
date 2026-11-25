@@ -14,8 +14,17 @@ A donation that arrived on one day is booked as LTR some days later. In the defa
 . *Validation*: the date is not before 2000-01-01 and strictly before today in the organisation zone (Europe/Berlin). Today is refused: the rate of a day only becomes final at midnight.
 . *Trading day*: `LbmaGoldCalendar` moves a Saturday, a Sunday or a bank holiday of England and Wales back to the last London trading day. The reason (`WEEKEND`, `HOLIDAY`, or `NONE`) is stored with the conversion. The calendar contains a table of one-off changes (royal events: 2002, 2011, 2012, 2020, 2022, 2023) read from gov.uk/bank-holidays; nothing is fetched at run time. A future one-off closure needs a code update. Until then the calendar does not know it and the day resolves to `NO_DATA`/manual rate, never to a wrong automatic rate.
 . *Manual rate wins*: a confirmed rate for the trading day is used. A snapshot of that day is only a yardstick.
-. *Stored snapshot*: the latest snapshot of that Berlin calendar day that **qualifies**: status `LIVE`, `source_count` at least `max(minQuorum, quorum floor)`, and the raw values complete (the number of `included` rows in `price_oracle_snapshot_source` equals `source_count`). The Berlin day is converted to a UTC window with daylight-saving time (a day has 23, 24 or 25 hours).
-. *Otherwise* an outcome that says why: `NO_DATA`, `QUORUM_MISSING`, `STATUS_NOT_LIVE` (quorum met, but every snapshot of the day is DEGRADED), or `RAW_VALUES_MISSING` (a snapshot from before V171 has no raw values; its median is shown as a hint only and is never used as the rate).
+. *Stored snapshot*: the latest snapshot of that Berlin calendar day that **qualifies**: status `LIVE`, `source_count` at least `max(minQuorum, quorum floor)`, and either (a) the raw values complete (the number of `included` rows in `price_oracle_snapshot_source` equals `source_count`) or (b) a *legacy snapshot* (see below). The Berlin day is converted to a UTC window with daylight-saving time (a day has 23, 24 or 25 hours). Of several qualifying snapshots the **latest** wins: a defective newer snapshot never hides an older qualifying one.
+. *Otherwise* an outcome that says why: `NO_DATA`, `QUORUM_MISSING`, `STATUS_NOT_LIVE` (quorum met, but every snapshot of the day is DEGRADED), or `RAW_VALUES_MISSING` (a snapshot captured *after* the raw-values cutoff has no or incomplete raw values: a defect or a manipulation. Its median is shown as a hint only and is never used as the rate).
+
+=== Legacy snapshots and the raw-values cutoff
+
+A snapshot taken before V171 has no stored single values and never will. Refusing every such day would force a manual rate for the whole history, so a snapshot *without any* raw value row that was captured **before the cutoff** is accepted as the closing rate (b). The conversion and the preview then carry `rawValuesStored = false` and the screens say "single values not stored"; nothing else changes. The cutoff is `RawValuesCutoff` (read once at start-up, `FlywayRawValuesCutoff`): the minimum of
+
+* `installed_on` of the Flyway entry for V171 (converted to UTC), and
+* the earliest `captured_at` of any snapshot that *has* raw value rows.
+
+The second term protects a restore: onto a fresh server `installed_on` is later than every snapshot, but a snapshot with raw values proves that V171 was active earlier; the minimum only ever makes the boundary stricter. A missing Flyway entry or a failed read gives "no legacy snapshot" (a warning in the log, never a crash). A `CACHED` replay written after V171 has no raw value rows either, but it is not `LIVE` and captured after the cutoff, so it never qualifies.
 
 [[closing-rate]]
 == What "closing rate" means
@@ -43,9 +52,45 @@ The conversion runs in one transaction without any network call. It carries the 
 * `price_oracle_snapshot_source` has no personal data (allowlist in `PersonalDataRegistry`). `price_oracle_reference_rate.confirmed_by` is covered by `PriceOraclePersonalData` (export lists the member's confirmations; erasure retains them with a reason, GoBD).
 * Backup and restore read the schema from `information_schema`; the new tables and the new columns need no code (`OrganizationBackupRoundTripTest` covers them). A backup taken after V171 cannot be restored onto a server that is still before V171.
 
+== Reference date from the bank booking (V1.9.327, schema V173)
+
+The conversion can be tied to the bank payment that is converted. In the form the treasurer picks the member, then the donation (`listDonationPaymentCandidates`); the amount and, where possible, the reference date follow from the payment.
+
+[source,kuml,name="price-oracle-conversion-payment-link"]
+----
+classDiagram(name = "Price oracle conversion and bank payment (V173)") {
+
+    val paymentTransaction = classOf(name = "PaymentTransaction") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "intent", type = "PaymentIntent")
+        attribute(name = "status", type = "PaymentTransactionStatus")
+        attribute(name = "amount", type = "BigDecimal")
+    }
+
+    val bankStatementLine = classOf(name = "BankStatementLine") {
+        attribute(name = "bookingDate", type = "LocalDate")
+        attribute(name = "status", type = "BankStatementLineStatus")
+    }
+
+    val priceOracleConversion = classOf(name = "PriceOracleConversion") {
+        attribute(name = "paymentTransactionId", type = "UUID")
+        attribute(name = "referenceDateSource", type = "ReferenceDateSource")
+        attribute(name = "referenceDate", type = "LocalDate")
+    }
+}
+----
+
+* *Candidates*: captured donations (`intent = DONATION`, `status = CAPTURED`) of that member in the donation currency, backed by **exactly one** `bank_statement_line` in status `POSTED` (a payment with several is ambiguous and left out, as in V168), not converted yet; newest first, at most 50. PayPal and Stripe payments have no bank line and are not candidates; they go through "without bank payment".
+* *Booking day*: `bank_statement_line.booking_date`, the exact calendar day of the statement. It is **not** derived from `payment_transaction.received_at` (a start-of-day value in the organisation zone that may have been corrected afterwards).
+* *Origin of the date*: `price_oracle_conversion.reference_date_source` (`BANK_BOOKING` when the reference date equals the booking day, otherwise `MANUAL`) is derived by the server alone. There is no input field for it. A booking of today is no reference date (the day is not over), so the form leaves the date empty and says why.
+* *Checks* (all `ConflictException`, naming no foreign data): the payment exists and belongs to the member, is a captured donation in the donation currency, has exactly one posted bank line, and its amount equals `donationAmount` to the cent (`BigDecimal.compareTo`; the form makes the amount read-only). The payment row is locked (`FOR UPDATE`).
+* *Once only*: `uq_poc_payment_transaction` (UNIQUE) plus the lock. Two simultaneous requests: one wins, the other gets a conflict and its whole transaction, including the `MINT`, is rolled back. `fk_poc_payment_transaction` is `ON DELETE RESTRICT`.
+* *Mode CURRENT* is unchanged: a payment id there is refused (nothing is minted); the double-conversion guard exists only in the reference-date mode. It also only covers conversions linked to a payment: a donation converted earlier without a payment link (reference-date mode with `paymentTransactionId` empty, or in mode CURRENT) still appears as a candidate, and converting it via the payment mints a second time. The treasurer must check for an earlier unlinked conversion of the same donation first.
+* *Audit and notes*: ids and flags only (`paymentTransactionId`, `referenceDateSource`, `rawValuesStored`); never an IBAN, a payer reference or an amount.
+
 == Not in this wave
 
-Bitcoin and fiat anchors; the LBMA PM fixing; a PDF receipt; voiding a manual rate; a four-eyes rule; pre-filling the reference date from a bank booking date; rate limiting of the two new methods beyond the existing role check (no network call, one cheap indexed read each).
+Bitcoin and fiat anchors; the LBMA PM fixing; a PDF receipt; voiding a manual rate; a four-eyes rule; rate limiting of the two new methods beyond the existing role check (no network call, one cheap indexed read each).
 
 == Second user: refund of a travel expense report (V1.9.325)
 
