@@ -1,0 +1,19 @@
+= Donation conversion at the gold price of a reference date
+:toc:
+
+NOTE: Off by default. Not reviewed by a tax adviser. Architecture: link:../architecture/price-oracle-reference-date.adoc[price-oracle-reference-date].
+
+== Turning it on (administrator)
+
+. Set `LAPIS_ORACLE_SNAPSHOT_ENABLED=true` on one instance (see the deploy README). Without the hourly price history every reference-date rate has to be confirmed by hand.
+. Price oracle, edit the configuration: anchor *Gold (XAU)*, conversion rate *Gold price at the reference date*, save. The setting is only available with the gold anchor.
+
+== Converting a donation (treasurer, board, administrator)
+
+. Open the price oracle, section "Convert donation to LTR". Choose the member, enter the amount and the reference date (yesterday at the earliest).
+. Press "Check the rate for the reference date". The page shows the reference date, the day whose rate is used (a weekend or a London bank holiday moves it to the day before), the basis, the sources with their raw values and the rate.
+. Press "Convert to LTR" and confirm. The booking uses exactly the rate you saw; if it changed in the meantime, nothing is booked and you check again.
+
+== When there is no rate
+
+The page says why (no stored rate for that day, quorum not reached, or an older price history without the raw values) and offers "Confirm the rate manually": enter the rate and the evidence (source and reason, 20 to 2000 characters). A confirmed rate cannot be changed. If it deviates strongly from the stored price of that day you must acknowledge the deviation. A member who confirmed a rate cannot receive LTR converted at it; another person books it.

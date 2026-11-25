@@ -6,6 +6,22 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.324 gold price at a reference date (donation conversion)
+
+Schema **V171**. **Off by default (`conversion_rate_basis = CURRENT`, behaviour unchanged), not reviewed by a tax adviser, not released.**
+
+- **Switch:** `price_oracle_config.conversion_rate_basis` (`CURRENT` / `REFERENCE_DATE`), set by the administrator only; `PriceOracleConfigInput.conversionRateBasis = null` leaves it unchanged. The reference-date mode exists for the **gold anchor only** (fiat has a one-source quorum, Bitcoin has no trading calendar); leaving gold while it is on is refused.
+- **Resolver:** `PriceOracleReferenceRateResolver` is the one place that finds a rate for a reference date: not before 2000-01-01, strictly before today (Europe/Berlin), moved back to the last London trading day (`LbmaGoldCalendar`: England and Wales bank holidays with substitute days and a table of one-off royal-event changes; a new one-off closure needs a code update), then a manual rate, else the latest qualifying snapshot of that Berlin day (status `LIVE`, quorum reached, raw values complete). Outcomes: `RESOLVED`, `NO_DATA`, `QUORUM_MISSING`, `RAW_VALUES_MISSING`.
+- **"Closing rate" means the last qualifying hourly fetch of the day**, not the LBMA PM fixing (the snapshot time is the fetch time).
+- **Raw source values** are stored per snapshot in `price_oracle_snapshot_source` **from V171 on**; older snapshots have none, so such days need a manual rate. Written only by `PriceOracleSnapshotStore`, atomically with the snapshot.
+- **Manual rate:** `confirmReferenceRate` (treasurer, board, administrator) with an evidence text of 20 to 2000 characters, only where no automatic rate exists, stored immutably in `price_oracle_reference_rate`; a deviation above `maxSpreadBps` from the stored price of the day needs an acknowledgement. The confirmer cannot receive LTR converted at his own rate.
+- **Conversion:** `previewReferenceRate` (read only) and `convertDonationToLtr` with `referenceDate`, bound to the previewed price and snapshot or rate id; one transaction, no network call, nothing is minted on any mismatch. The conversion records `rate_basis`, dates, fallback reason, snapshot or rate id and the quorum. **RPC change:** two methods were appended to `IPriceOracleService`, `DonationConversionInput` and the config DTOs gained fields with defaults. A manual rate has no oracle status: `price_status` is `DEFERRED`, `rate_basis = MANUAL` tells the cases apart.
+- **Audit:** new entity types `PRICE_ORACLE_REFERENCE_RATE` and `PRICE_ORACLE_CONVERSION` (the latter only in the reference-date mode; no conversion audit existed before). No price, amount or evidence text in an entry.
+- **GDPR / backup:** the confirmations of a member are exported and retained on erasure (GoBD); the new tables travel with backup and restore without code changes. **A backup taken after V171 cannot be restored onto a server that is still before V171.**
+- **Client:** switch in the configuration form, a conversion form with the rate check and the manual-confirmation dialog; all texts in the seven catalogs.
+- Tests: calendar, resolver scenarios on H2 (Berlin day boundary, fallbacks, outcomes, binding, roles, self-confirmation, audit payload), raw-value atomicity, drift tests, backup round trip, tripwires, i18n guard.
+- Not done: Bitcoin and fiat anchors, the LBMA PM fixing, a PDF receipt, voiding a manual rate, a four-eyes rule, pre-filling the date from a bank booking date, browser test on a device, the PostgreSQL lane was not run in the authoring environment unless stated in the release report.
+
 ### V1.9.323 (Fiat wave b2) price offers: limits, decline block, withdrawal, notice version
 
 Schema **V170** (V167 untouched: it may already be applied). **Off by default, not legally reviewed, not released; the legal-review gate stands.**

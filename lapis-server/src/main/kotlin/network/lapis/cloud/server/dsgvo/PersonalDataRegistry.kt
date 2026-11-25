@@ -270,6 +270,9 @@ object PersonalDataRegistry {
                 "Welle Preishistorie. Reine Kurs-Zeitreihe des Price-Oracles (Anker, Waehrung, Medianpreis, " +
                 "Quellen-Ids, Zeitstempel) -- kein Mitglieds-FK, kein Personenbezug; dieselbe Einstufung wie " +
                 "price_oracle_config.",
+            "price_oracle_snapshot_source" to
+                "V1.9.324. Raw source values behind a price snapshot (source id, price, timestamp, included flag) -- no member FK, " +
+                "no personal data; same classification as price_oracle_snapshot.",
             "oidc_guest_login_event" to
                 "Forensic security-monitoring log, deliberately no member FK (references the subject only " +
                 "by an unconstrained UUID) -- same accountability-is-its-own-legal-basis treatment as " +

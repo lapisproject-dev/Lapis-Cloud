@@ -1,0 +1,48 @@
+= Price oracle: gold price at a reference date
+:toc:
+
+NOTE: Status: **implemented (V1.9.324, schema V171), off by default** (`price_oracle_config.conversion_rate_basis = CURRENT`). **Not reviewed by a tax adviser, not released.** Whether the "closing rate" defined here (see <<closing-rate>>) is acceptable as a booking basis is a question for the tax adviser.
+
+== Goal
+
+A donation that arrived on one day is booked as LTR some days later. In the default mode (`CURRENT`) the conversion uses the live quote of the moment of booking, exactly as before. In the mode `REFERENCE_DATE` the treasurer names the **reference date** (the day of the donation) and the conversion uses the closing rate of that day. The mode exists for the `GOLD_XAU` anchor only: the `FIAT` anchor has a quorum floor of one source (a single value, never acceptable as a stored basis), and Bitcoin has no trading calendar.
+
+== One resolver
+
+`PriceOracleReferenceRateResolver` is the only place that turns a reference date into a rate. It reads the database and never the network, and it runs inside an open transaction.
+
+. *Validation*: the date is not before 2000-01-01 and strictly before today in the organisation zone (Europe/Berlin). Today is refused: the rate of a day only becomes final at midnight.
+. *Trading day*: `LbmaGoldCalendar` moves a Saturday, a Sunday or a bank holiday of England and Wales back to the last London trading day. The reason (`WEEKEND`, `HOLIDAY`, or `NONE`) is stored with the conversion. The calendar contains a table of one-off changes (royal events: 2002, 2011, 2012, 2020, 2022, 2023) read from gov.uk/bank-holidays; nothing is fetched at run time. A future one-off closure needs a code update. Until then the calendar does not know it and the day resolves to `NO_DATA`/manual rate, never to a wrong automatic rate.
+. *Manual rate wins*: a confirmed rate for the trading day is used. A snapshot of that day is only a yardstick.
+. *Stored snapshot*: the latest snapshot of that Berlin calendar day that **qualifies**: status `LIVE`, `source_count` at least `max(minQuorum, quorum floor)`, and the raw values complete (the number of `included` rows in `price_oracle_snapshot_source` equals `source_count`). The Berlin day is converted to a UTC window with daylight-saving time (a day has 23, 24 or 25 hours).
+. *Otherwise* an outcome that says why: `NO_DATA`, `QUORUM_MISSING`, `STATUS_NOT_LIVE` (quorum met, but every snapshot of the day is DEGRADED), or `RAW_VALUES_MISSING` (a snapshot from before V171 has no raw values; its median is shown as a hint only and is never used as the rate).
+
+[[closing-rate]]
+== What "closing rate" means
+
+`price_timestamp` of a snapshot is the moment the oracle fetched the prices (the poller runs hourly), not the source's own observation time. The closing rate is therefore *the last qualifying hourly fetch of the calendar day*. It is **not** the LBMA PM fixing. The source's own timestamp is stored per raw value (`observed_at`).
+
+== Data
+
+* `price_oracle_config.conversion_rate_basis` -- the switch (`CURRENT`, `REFERENCE_DATE`). Only the administrator sets it; `PriceOracleConfigInput.conversionRateBasis = null` leaves it unchanged. The mode needs the gold anchor; leaving the gold anchor while the mode is on is refused.
+* `price_oracle_snapshot_source` -- raw value per source of each snapshot taken from V171 on (`raw_price`, `observed_at`, `included`). Written only by `PriceOracleSnapshotStore`, in the same transaction as the snapshot (a unique-index collision rolls both back, no orphan rows). Sources outside the plausibility band or rejected as outliers are stored with `included = false`.
+* `price_oracle_reference_rate` -- a manually confirmed rate, unique per (anchor, currency, effective date). Written only by `PriceOracleReferenceRateStore`, which has **no update and no delete** (`ReferenceDateTripwireTest`).
+* `price_oracle_conversion` -- `rate_basis` (`CURRENT`, `SNAPSHOT`, `MANUAL`), `reference_date`, `effective_date`, `fallback_reason`, `snapshot_id` or `reference_rate_id`, `quorum_required`. A CHECK constraint ties the columns together per basis. A manual rate has no oracle status: the conversion stores `DEFERRED` as `price_status`, `source_count = 0`, `sources_used = 'manual'`, and the 00:00 UTC of the effective date as `price_timestamp`; `rate_basis` is what tells the cases apart.
+
+== Manual confirmation
+
+`confirmReferenceRate` (treasurer, board or administrator) records a rate with an evidence text of 20 to 2000 characters (trimmed). It is only possible where no automatic rate exists (a gap, never an override): a day that has a qualifying snapshot is refused, and so is a day that already has a manual rate. The server decides the effective date, the anchor and the currency; the client sends none of them. A price that deviates from the latest stored snapshot of that day by more than `maxSpreadBps` needs `acknowledgeDeviation`.
+
+== Binding and self-confirmation
+
+The conversion runs in one transaction without any network call. It carries the price and the snapshot or rate id the treasurer saw in the preview (`expectedPrice`, `expectedRateRefId`); a different rate (compared numerically, so `1.50` equals `1.5`) is refused and mints nothing. A member must not receive LTR converted at a rate he confirmed himself (`ForbiddenException`, also shown in the preview as `selfConfirmationBlocked`).
+
+== Audit, data protection, restore
+
+* Audit entries `PRICE_ORACLE_REFERENCE_RATE` (confirmation) and `PRICE_ORACLE_CONVERSION` (conversion in the reference-date mode only; the ordinary mode writes none, as before). Payloads hold dates, ids and the *length* of the evidence text, never a price, an amount or the text.
+* `price_oracle_snapshot_source` has no personal data (allowlist in `PersonalDataRegistry`). `price_oracle_reference_rate.confirmed_by` is covered by `PriceOraclePersonalData` (export lists the member's confirmations; erasure retains them with a reason, GoBD).
+* Backup and restore read the schema from `information_schema`; the new tables and the new columns need no code (`OrganizationBackupRoundTripTest` covers them). A backup taken after V171 cannot be restored onto a server that is still before V171.
+
+== Not in this wave
+
+Bitcoin and fiat anchors; the LBMA PM fixing; a PDF receipt; voiding a manual rate; a four-eyes rule; pre-filling the reference date from a bank booking date; rate limiting of the two new methods beyond the existing role check (no network call, one cheap indexed read each).

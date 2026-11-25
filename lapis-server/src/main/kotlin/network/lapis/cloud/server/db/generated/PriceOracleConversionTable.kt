@@ -4,11 +4,15 @@ package network.lapis.cloud.server.db.generated
 
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.PriceStatus
+import network.lapis.cloud.shared.domain.ReferenceDateFallback
+import network.lapis.cloud.shared.domain.ReferenceRateBasis
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.datetime.date
 import org.jetbrains.exposed.v1.datetime.datetime
 
 public object PriceOracleConversionTable : Table("price_oracle_conversion") {
@@ -27,6 +31,13 @@ public object PriceOracleConversionTable : Table("price_oracle_conversion") {
     public val createdById: Column<Uuid?> = optReference("created_by", MemberTable.id)
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
     public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)
+    public val rateBasis: Column<ReferenceRateBasis> = enumerationByName<ReferenceRateBasis>("rate_basis", 8).default(ReferenceRateBasis.CURRENT)
+    public val referenceDate: Column<LocalDate?> = date("reference_date").nullable()
+    public val effectiveDate: Column<LocalDate?> = date("effective_date").nullable()
+    public val fallbackReason: Column<ReferenceDateFallback?> = enumerationByName<ReferenceDateFallback>("fallback_reason", 7).nullable()
+    public val snapshotId: Column<Uuid?> = optReference("snapshot_id", PriceOracleSnapshotTable.id)
+    public val referenceRateId: Column<Uuid?> = optReference("reference_rate_id", PriceOracleReferenceRateTable.id)
+    public val quorumRequired: Column<Int?> = integer("quorum_required").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

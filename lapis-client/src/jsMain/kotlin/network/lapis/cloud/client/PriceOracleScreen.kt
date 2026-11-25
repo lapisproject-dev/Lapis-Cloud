@@ -29,6 +29,7 @@ import network.lapis.cloud.client.chart.MutationObserver
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.AnchorPolicy
+import network.lapis.cloud.shared.domain.ConversionRateBasis
 import network.lapis.cloud.shared.domain.DonationConversionInput
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.OraclePriceStatusDto
@@ -38,6 +39,7 @@ import network.lapis.cloud.shared.domain.PriceOracleConfigInput
 import network.lapis.cloud.shared.domain.PriceOracleConversionDto
 import network.lapis.cloud.shared.domain.PriceSnapshotDto
 import network.lapis.cloud.shared.domain.PriceStatus
+import network.lapis.cloud.shared.domain.ReferenceRateBasis
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IPriceOracleService
 import org.w3c.dom.HTMLCanvasElement
@@ -209,8 +211,15 @@ fun renderPriceOracleScreen(container: SimplePanel) {
     convertPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     AppScope.launch {
         val members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
+        val config = guarded { rpcService<IPriceOracleService>().getOracleConfig() }
         convertPanel.removeAll()
-        renderConvertForm(convertPanel, members)
+        // V1.9.324: in the reference-date mode the conversion has its own form (date, rate check, binding to the checked rate); the ordinary
+        // form below stays exactly as it was.
+        if (config != null && config.conversionRateBasis == ConversionRateBasis.REFERENCE_DATE) {
+            renderReferenceDateConvertForm(convertPanel, members, config)
+        } else {
+            renderConvertForm(convertPanel, members)
+        }
     }
 }
 
@@ -233,6 +242,10 @@ private fun renderConfigSummary(
     row2.labeledValue(tr("Mindest-Quorum")) { it.div(gettext("%1 Quellen", config.minQuorum)) }
     row2.labeledValue(tr("Ausreißer-Schwelle")) { it.div(gettext("%1 bps", config.outlierThresholdBps)) }
     row2.labeledValue(tr("Max. Spread")) { it.div(gettext("%1 bps", config.maxSpreadBps)) }
+
+    // V1.9.324: which rate a donation conversion uses.
+    val row3 = box.div(className = "lapis-button-row") { addCssClass("gap-4") }
+    row3.labeledValue(tr("Umrechnungskurs")) { it.div(conversionRateBasisLabel(config.conversionRateBasis)) }
 
     box.div(gettext("Zuletzt aktualisiert: %1", formatSystemDateTime(config.updatedAt))) { addCssClasses("text-muted small") }
 }
@@ -275,6 +288,15 @@ private fun renderConfigForm(
     val donationCurrencyOptions = listOf("EUR" to "EUR", "USD" to "USD")
     val donationCurrencySelect =
         panel.select(options = donationCurrencyOptions, value = config.donationCurrency, label = tr("Spendenwährung"))
+
+    // V1.9.324: the switch of the conversion rate. Reference-date mode exists for the gold anchor only (the server refuses anything else).
+    val rateBasisSelect =
+        panel.select(
+            options = ConversionRateBasis.entries.map { it.name to conversionRateBasisLabel(it) },
+            value = config.conversionRateBasis.name,
+            label = tr("Umrechnungskurs"),
+        )
+    val rateBasisHelp = panel.div("") { addCssClasses("text-muted small") }
 
     val anchorUnitsInput = panel.text(label = tr("Peg: Einheiten des Anker-Assets je LTR"))
     anchorUnitsInput.value = displayDigits(config.anchorUnitsPerLtr)
@@ -326,6 +348,27 @@ private fun renderConfigForm(
     }
     renderAnchorHelp()
     anchorAssetSelect.subscribe { renderAnchorHelp() }
+
+    fun renderRateBasisHelp() {
+        val reference = rateBasisSelect.value == ConversionRateBasis.REFERENCE_DATE.name
+        val pollerNote =
+            if (reference && !config.snapshotPollerEnabled) {
+                gettext("Ohne Kursverlauf muss jeder Stichtagskurs manuell bestätigt werden.")
+            } else {
+                ""
+            }
+        rateBasisHelp.content =
+            if (reference) {
+                gettext(
+                    "Jede Spende wird zum Goldpreis eines gewählten Stichtags umgerechnet (nur beim Anker Gold). " +
+                        "Der Kurs kommt aus dem gespeicherten Kursverlauf; fehlt er, muss er mit Beleg manuell bestätigt werden.",
+                ) + " " + pollerNote
+            } else {
+                gettext("Jede Spende wird zum aktuellen Kurs umgerechnet, der beim Bestätigen live abgefragt wird.")
+            }
+    }
+    renderRateBasisHelp()
+    rateBasisSelect.subscribe { renderRateBasisHelp() }
 
     val errorBox =
         panel.div().apply {
@@ -420,6 +463,7 @@ private fun renderConfigForm(
                                 minQuorum = minQuorum,
                                 outlierThresholdBps = outlierThreshold,
                                 maxSpreadBps = maxSpread,
+                                conversionRateBasis = ConversionRateBasis.valueOf(rateBasisSelect.value ?: config.conversionRateBasis.name),
                             ),
                         )
                     }
@@ -1065,7 +1109,7 @@ private fun convertDonationConfirmDialog(
  * server actually computed, shown inline verbatim -- never a bare success toast alone, never
  * re-summed or re-derived client-side.
  */
-private fun renderConversionResult(
+internal fun renderConversionResult(
     panel: SimplePanel,
     result: PriceOracleConversionDto,
 ) {
@@ -1085,6 +1129,17 @@ private fun renderConversionResult(
     val mintedRow = box.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     mintedRow.div(tr("Gemintet:")) { addCssClass("text-muted") }
     mintedRow.ltrSpan(result.ltrMinted)
+    // V1.9.324: how the rate of a reference-date conversion was found (nothing extra for an ordinary conversion).
+    if (result.rateBasis != ReferenceRateBasis.CURRENT) {
+        box.div(
+            gettext(
+                "Grundlage: %1, Stichtag %2, Kurstag %3",
+                referenceRateBasisLabel(result.rateBasis),
+                result.referenceDate?.let { formatDate(it) }.orEmpty(),
+                result.effectiveDate?.let { formatDate(it) }.orEmpty(),
+            ),
+        ) { addCssClass("text-muted") }
+    }
     box.div(gettext("Buchung: %1", result.ltrLedgerEntryId)) { addCssClass("text-muted") }
     box.div(gettext("Zeitstempel: %1", formatSystemDateTime(result.priceTimestamp))) { addCssClass("text-muted") }
 }

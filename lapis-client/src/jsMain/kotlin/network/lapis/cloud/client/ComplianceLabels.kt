@@ -244,6 +244,9 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.AUCTION -> gettext("Auktion in Euro")
         // V1.9.322 -- a partner pulled the auction hint feed (counts only).
         AuditEntityType.AUCTION_FEDERATION_FEED -> gettext("Auktionshinweise abgerufen")
+        // V1.9.324 -- a manually confirmed gold rate for a reference date, and a donation conversion at such a rate.
+        AuditEntityType.PRICE_ORACLE_REFERENCE_RATE -> gettext("Stichtagskurs bestätigt")
+        AuditEntityType.PRICE_ORACLE_CONVERSION -> gettext("Spendenumrechnung zum Stichtag")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -411,6 +414,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // V1.9.320 -- no LTR and no money moves through Lapis for a Fiat auction: neutral hue.
         AuditEntityType.AUCTION -> "secondary"
         AuditEntityType.AUCTION_FEDERATION_FEED -> "secondary"
+        AuditEntityType.PRICE_ORACLE_REFERENCE_RATE -> "warning"
+        AuditEntityType.PRICE_ORACLE_CONVERSION -> "warning"
     }
 
 // ------------------------------------------------------------------------------------------------

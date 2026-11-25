@@ -192,7 +192,11 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * loaded ahead or cached); `AuctionScreen.kt` gains two reads in the administrator's switch for euro auctions (`getAuctionSettings(` after each switch, and
  * `getAuctionFiatOperatorDisclaimer(` once on the click that opens the legal notice), both on demand inside `guarded`.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 222
+private const val READ_OUTSIDE_STATE_REGION_MAX = 224
+
+// +2 V1.9.324 (gold price at a reference date): `getOracleConfig(` in the (already counted) `PriceOracleScreen.kt` decides once which conversion form is shown (a failed
+// read keeps the ordinary form, the failure toasts through `guarded`), and `previewReferenceRate(` in the new `PriceOracleReferenceDateForm.kt` is the on-demand
+// rate check behind the button "Kurs zum Stichtag prüfen" (one-shot inside `guarded`, the card it draws IS its state). 222 -> 224, 75 -> 76 files.
 
 // +1 V1.9.323 (notice version of price offers), in the (already counted) `AuctionOfferUi.kt`: `getAuctionOfferNotice(` is the one-shot read of the notice
 // text inside the offer dialog. The dialog IS its state: until the text is there the "send" button stays off, and a failed read replaces the text box by
@@ -208,7 +212,7 @@ private const val READ_OUTSIDE_STATE_REGION_MAX = 222
 
 // +4 V1.9.321 (price offers: list reads on the auction card, its offer panels and the screen)
 // +2 V1.9.322: `AuctionFederationUi.kt` and `AuctionHintScreen.kt`. 73 -> 75.
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 75
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 76
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

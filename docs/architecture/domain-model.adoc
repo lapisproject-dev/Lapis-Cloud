@@ -957,6 +957,10 @@ literals -- no free, no-API-key, multi-source feed set exists for either); a pay
 webhook intake (`convertDonationToLtr` is operator-triggered); and a shared/federated quote cache
 (in-memory, per-server only -- a V0.7 federation concern).
 
+=== Reference-date rates (V1.9.324, schema V171)
+
+`price_oracle_config.conversion_rate_basis` switches donation conversions to the closing rate of a reference date (gold anchor only). New tables: `price_oracle_snapshot_source` (raw value per source of each stored snapshot, `ON DELETE RESTRICT`) and `price_oracle_reference_rate` (a manually confirmed rate, unique per anchor, currency and effective date, never updated). `price_oracle_conversion` gained `rate_basis`, `reference_date`, `effective_date`, `fallback_reason`, `snapshot_id`, `reference_rate_id` and `quorum_required`. See link:price-oracle-reference-date.adoc[price-oracle-reference-date.adoc].
+
 == V1.3.0 — Public Ranking Consent (`GET /transparenz`)
 
 One new table, `public_ranking_consent_event`

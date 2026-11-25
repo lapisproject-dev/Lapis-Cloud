@@ -53,12 +53,28 @@ private const val BPS_PER_UNIT = 10_000
  */
 private const val HARD_FLOOR_FANOUT_DIVISOR = 3
 
-/** A successful oracle price quote for the active anchor -- see [PriceOracleOrchestrator.currentQuote]. */
+/**
+ * V1.9.324: one raw value a source returned during the fan-out behind a [PriceQuote]. [included] is `true` for a value that survived the
+ * plausibility band and the outlier rejection (and so went into the median), `false` for one that was dropped. [observedAt] is the source's own
+ * timestamp, not the moment of the fetch.
+ */
+data class SourceObservation(
+    val sourceId: String,
+    val price: BigDecimal,
+    val observedAt: Instant,
+    val included: Boolean,
+)
+
+/**
+ * A successful oracle price quote for the active anchor -- see [PriceOracleOrchestrator.currentQuote]. [observations] holds the raw values of a
+ * real fan-out (empty for a [PriceStatus.CACHED] quote, which has no fresh fan-out of its own); the snapshot poller persists them (V1.9.324).
+ */
 data class PriceQuote(
     val status: PriceStatus,
     val medianPrice: BigDecimal,
     val contributingSourceIds: List<String>,
     val priceTimestamp: Instant,
+    val observations: List<SourceObservation> = emptyList(),
 )
 
 /** The result of [PriceOracleOrchestrator.currentQuote] -- either a usable [PriceQuote], or [Halt] (no LTR may be minted from this call). */
@@ -408,8 +424,25 @@ class PriceOracleOrchestrator(
         val now = clock.now()
         val sourceIds = survivors.map { it.sourceId }
         cache[key] = CachedQuote(price = finalMedian, sourceIds = sourceIds, timestamp = now, status = status)
+        val survivorIds = survivors.map { it.sourceId }.toSet()
+        val observations =
+            responded.filter { it.price.signum() > 0 }.map {
+                SourceObservation(
+                    sourceId = it.sourceId,
+                    price = it.price,
+                    observedAt = it.observedAt,
+                    included =
+                        it.sourceId in survivorIds,
+                )
+            }
         return QuoteOutcome.Ok(
-            PriceQuote(status = status, medianPrice = finalMedian, contributingSourceIds = sourceIds, priceTimestamp = now),
+            PriceQuote(
+                status = status,
+                medianPrice = finalMedian,
+                contributingSourceIds = sourceIds,
+                priceTimestamp = now,
+                observations = observations,
+            ),
         )
     }
 

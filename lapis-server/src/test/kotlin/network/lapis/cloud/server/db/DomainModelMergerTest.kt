@@ -619,7 +619,9 @@ class DomainModelMergerTest :
             // 21-auction.kuml.kts (V1.9.322, Fiat wave c) adds FOUR real tables (auction_teaser_snapshot, auction_teaser_tombstone,
             // auction_received_hint, auction_received_tombstone); its PartnerServer stub is a duplicate name and adds none, 288 -> 292.
             // 21-auction.kuml.kts (V1.9.323, Fiat wave b2) adds ONE real table (auction_offer_buyer_restriction), 292 -> 293.
-            val distinctTableNames = 293
+            // 19-price-oracle.kuml.kts (V1.9.324, gold price at a reference date) adds TWO real tables (price_oracle_snapshot_source,
+            // price_oracle_reference_rate), 293 -> 295.
+            val distinctTableNames = 295
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -713,6 +715,8 @@ class DomainModelMergerTest :
                     "PriceOracleConfigTable.kt",
                     "PriceOracleConversionTable.kt",
                     "PriceOracleSnapshotTable.kt",
+                    "PriceOracleSnapshotSourceTable.kt",
+                    "PriceOracleReferenceRateTable.kt",
                     "PoliticianProfileTable.kt",
                     "PoliticianReactionTable.kt",
                     "PoliticianWeightSnapshotTable.kt",

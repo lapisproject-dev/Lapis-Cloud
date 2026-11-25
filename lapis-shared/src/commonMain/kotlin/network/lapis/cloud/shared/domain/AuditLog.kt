@@ -727,6 +727,15 @@ enum class AuditEntityType {
      * 23 chars. Appended LAST. Switch and consent events reuse [PARTNER_SERVER] and [AUCTION].
      */
     AUCTION_FEDERATION_FEED,
+
+    /**
+     * V1.9.324 -- a manually confirmed reference rate of the Price-Oracle (gold price at a reference date). The snapshot lists anchor, currency, dates, the
+     * rate id and the LENGTH of the evidence text, never the price or the text. 27 chars. Appended LAST.
+     */
+    PRICE_ORACLE_REFERENCE_RATE,
+
+    /** V1.9.324 -- a donation conversion made at a reference-date rate (basis, dates, snapshot or rate id; never an amount or a price). 23 chars. Appended LAST. */
+    PRICE_ORACLE_CONVERSION,
 }
 
 /** V1.9.322 -- after-snapshot of an [AuditEntityType.AUCTION_FEDERATION_FEED] entry: numbers only, never a title, price or id. */

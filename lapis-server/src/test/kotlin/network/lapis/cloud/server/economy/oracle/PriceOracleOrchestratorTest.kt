@@ -151,6 +151,43 @@ class PriceOracleOrchestratorTest :
             outcome.quote.contributingSourceIds shouldContainExactlyInAnyOrder listOf("a", "b", "c")
         }
 
+        test("V1.9.324: the quote carries the raw value of every source that responded, flagged included only for the survivors") {
+            val orchestrator =
+                PriceOracleOrchestrator(
+                    sources =
+                        listOf(
+                            FakeSource(id = "a", price = BigDecimal("50000")),
+                            FakeSource(id = "b", price = BigDecimal("50100")),
+                            FakeSource(id = "c", price = BigDecimal("90000")),
+                            FakeSource(id = "d", price = BigDecimal("1")), // outside the plausibility band
+                            FakeSource(id = "e", price = null), // did not respond at all
+                        ),
+                )
+            val outcome = orchestrator.currentQuote(testConfig(minQuorum = 2)) as QuoteOutcome.Ok
+            val byId = outcome.quote.observations.associateBy { it.sourceId }
+            // A value outside the plausibility band is stored too (as not included); a source that did not respond is not.
+            byId.keys shouldContainExactlyInAnyOrder listOf("a", "b", "c", "d")
+            byId.getValue("a").included shouldBe true
+            byId.getValue("b").included shouldBe true
+            byId.getValue("c").included shouldBe false
+            byId.getValue("d").included shouldBe false
+            outcome.quote.observations.count { it.included } shouldBe outcome.quote.contributingSourceIds.size
+        }
+
+        test("V1.9.324: a CACHED quote (served from the cache after a failed fan-out) carries no observations") {
+            val clock = FakeClock()
+            val flaky = MutablePriceSource(id = "b", price = BigDecimal("50100"))
+            val orchestrator =
+                PriceOracleOrchestrator(sources = listOf(FakeSource(id = "a", price = BigDecimal("50000")), flaky), clock = clock)
+            val first = orchestrator.currentQuote(testConfig(minQuorum = 2)) as QuoteOutcome.Ok
+            first.quote.observations.size shouldBe 2
+            flaky.price = null
+            clock.advanceBy(10)
+            val second = orchestrator.currentQuote(testConfig(minQuorum = 2)) as QuoteOutcome.Ok
+            second.quote.status shouldBe PriceStatus.CACHED
+            second.quote.observations.size shouldBe 0
+        }
+
         test("even-count median is the true midpoint average of the two middle survivors") {
             val orchestrator =
                 PriceOracleOrchestrator(

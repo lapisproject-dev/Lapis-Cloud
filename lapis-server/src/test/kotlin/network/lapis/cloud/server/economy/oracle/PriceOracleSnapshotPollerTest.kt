@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.economy.oracle
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
@@ -8,13 +9,17 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.PriceOracleConfigTable
+import network.lapis.cloud.server.db.generated.PriceOracleSnapshotSourceTable
 import network.lapis.cloud.server.db.generated.PriceOracleSnapshotTable
 import network.lapis.cloud.server.rpc.PRICE_ORACLE_CONFIG_ID
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.AnchorPolicy
 import network.lapis.cloud.shared.domain.PriceOracleConfigDto
+import network.lapis.cloud.shared.domain.PriceStatus
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.deleteAll
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -22,6 +27,7 @@ import java.math.BigDecimal
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Clock
 import kotlin.time.Instant
+import kotlin.uuid.Uuid
 
 /** A [PriceOracleSource] test double that always returns [price] -- never performs real network I/O. */
 private class FixedPriceSource(
@@ -101,7 +107,10 @@ class PriceOracleSnapshotPollerTest :
         }
 
         afterTest {
-            transaction { PriceOracleSnapshotTable.deleteAll() }
+            transaction {
+                PriceOracleSnapshotSourceTable.deleteAll()
+                PriceOracleSnapshotTable.deleteAll()
+            }
             setOracleConfig()
         }
 
@@ -124,6 +133,103 @@ class PriceOracleSnapshotPollerTest :
             snapshotCountFor(AnchorAsset.BITCOIN_BTC) shouldBe 1L
             snapshotCountFor(AnchorAsset.FIAT) shouldBe 1L
             snapshotCountFor(AnchorAsset.GOLD_XAU) shouldBe 0L
+        }
+
+        test("tick() stores the raw source values of the snapshot with the included flag (V1.9.324), atomically with the snapshot") {
+            setOracleConfig(anchorAsset = AnchorAsset.BITCOIN_BTC, donationCurrency = "EUR")
+            val orchestrator =
+                PriceOracleOrchestrator(
+                    sources =
+                        listOf(
+                            FixedPriceSource(id = "btc-a", price = BigDecimal("50000")),
+                            FixedPriceSource(id = "btc-b", price = BigDecimal("50100")),
+                            FixedPriceSource(id = "btc-c", price = BigDecimal("90000")),
+                        ),
+                )
+            val poller = PriceOracleSnapshotPoller(orchestrator = orchestrator, config = PriceOracleSnapshotConfig.load { null })
+
+            runBlocking { poller.tick() }
+
+            val rows =
+                transaction {
+                    PriceOracleSnapshotSourceTable.selectAll().toList().associate {
+                        it[PriceOracleSnapshotSourceTable.sourceId] to
+                            (it[PriceOracleSnapshotSourceTable.rawPrice] to it[PriceOracleSnapshotSourceTable.included])
+                    }
+                }
+            rows.keys shouldBe setOf("btc-a", "btc-b", "btc-c")
+            rows.getValue("btc-a").second shouldBe true
+            rows.getValue("btc-b").second shouldBe true
+            // 90000 deviates far more than the 300 bps outlier threshold from the median -- stored, but not part of the median.
+            rows.getValue("btc-c").second shouldBe false
+            rows.getValue("btc-c").first.compareTo(BigDecimal("90000")) shouldBe 0
+            val snapshotSourceCount = transaction { PriceOracleSnapshotTable.selectAll().single()[PriceOracleSnapshotTable.sourceCount] }
+            rows.values.count { it.second } shouldBe snapshotSourceCount
+        }
+
+        test("a replayed snapshot is skipped by the pre-check and adds no second set of source rows") {
+            setOracleConfig(anchorAsset = AnchorAsset.BITCOIN_BTC, donationCurrency = "EUR")
+            val fixedInstant = Instant.parse("2026-01-01T00:00:00Z")
+            val orchestrator =
+                PriceOracleOrchestrator(
+                    sources =
+                        listOf(
+                            FixedPriceSource(id = "btc-a", price = BigDecimal("50000")),
+                            FixedPriceSource(id = "btc-b", price = BigDecimal("50100")),
+                        ),
+                    clock = fixedInstantClock(fixedInstant),
+                )
+            val poller = PriceOracleSnapshotPoller(orchestrator = orchestrator, config = PriceOracleSnapshotConfig.load { null })
+
+            runBlocking {
+                poller.tick()
+                poller.tick()
+            }
+
+            transaction { PriceOracleSnapshotSourceTable.selectAll().count() } shouldBe 2L
+        }
+
+        test("a unique-index collision on the snapshot rolls back the source rows written in the same transaction") {
+            val ts = LocalDateTime.parse("2026-01-01T00:00:00")
+            shouldThrow<ExposedSQLException> {
+                transaction {
+                    val first = Uuid.random()
+                    PriceOracleSnapshotTable.insert {
+                        it[id] = first
+                        it[anchorAsset] = AnchorAsset.BITCOIN_BTC
+                        it[donationCurrency] = "EUR"
+                        it[medianPrice] = BigDecimal("50000")
+                        it[priceStatus] = PriceStatus.LIVE
+                        it[sourceCount] = 1
+                        it[sourcesUsed] = "btc-a"
+                        it[priceTimestamp] = ts
+                        it[capturedAt] = ts
+                    }
+                    PriceOracleSnapshotSourceTable.insert {
+                        it[id] = Uuid.random()
+                        it[snapshotId] = first
+                        it[sourceId] = "btc-a"
+                        it[rawPrice] = BigDecimal("50000")
+                        it[observedAt] = ts
+                        it[included] = true
+                    }
+                    // Same (anchor, currency, priceTimestamp): the unique index fires and the whole transaction, sources included, is rolled back.
+                    PriceOracleSnapshotTable.insert {
+                        it[id] = Uuid.random()
+                        it[anchorAsset] = AnchorAsset.BITCOIN_BTC
+                        it[donationCurrency] = "EUR"
+                        it[medianPrice] = BigDecimal("50001")
+                        it[priceStatus] = PriceStatus.LIVE
+                        it[sourceCount] = 1
+                        it[sourcesUsed] = "btc-a"
+                        it[priceTimestamp] = ts
+                        it[capturedAt] = ts
+                    }
+                }
+            }
+
+            snapshotCountFor(AnchorAsset.BITCOIN_BTC) shouldBe 0L
+            transaction { PriceOracleSnapshotSourceTable.selectAll().count() } shouldBe 0L
         }
 
         test("tick() writes nothing for an anchor whose quote HALTs") {

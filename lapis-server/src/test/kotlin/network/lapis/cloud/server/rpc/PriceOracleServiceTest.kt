@@ -31,6 +31,7 @@ import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PriceOracleConfigTable
 import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
+import network.lapis.cloud.server.db.generated.PriceOracleSnapshotSourceTable
 import network.lapis.cloud.server.db.generated.PriceOracleSnapshotTable
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
 import network.lapis.cloud.server.economy.oracle.PriceOracleSource
@@ -235,7 +236,10 @@ class PriceOracleServiceTest :
             }
             cleanUpPriceOracleTestData(createdMemberIds)
             createdMemberIds.clear()
-            transaction { PriceOracleSnapshotTable.deleteAll() }
+            transaction {
+                PriceOracleSnapshotSourceTable.deleteAll()
+                PriceOracleSnapshotTable.deleteAll()
+            }
         }
 
         fun createTestMember(email: String): Uuid {

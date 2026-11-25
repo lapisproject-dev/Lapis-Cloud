@@ -2,25 +2,62 @@ package network.lapis.cloud.server.economy.oracle
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.generated.PriceOracleSnapshotSourceTable
 import network.lapis.cloud.server.db.generated.PriceOracleSnapshotTable
+import network.lapis.cloud.server.db.truncatedToDbPrecision
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.PriceSnapshotDto
+import network.lapis.cloud.shared.domain.PriceStatus
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
+import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
+import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import java.math.BigDecimal
+import java.math.RoundingMode
 import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
 /** Name of the unique index (V41__price_oracle_snapshot.sql) that backstops [PriceOracleSnapshotStore.recordIfAbsent] -- used to tell the EXPECTED replay-race collision apart from any other [ExposedSQLException] (missing table, a value exceeding `sources_used VARCHAR(500)`/`median_price DECIMAL(38,18)`, an exhausted connection pool, ...), which must never fail silently -- see Security-Audit finding "Stiller Schluck-Pfad". */
 private const val UNIQUE_INDEX_NAME = "uq_price_oracle_snapshot_anchor_ts"
+
+/** Width of `price_oracle_snapshot_source.source_id`. */
+private const val MAX_SOURCE_ID_LENGTH = 64
+
+/** Scale of `price_oracle_snapshot_source.raw_price` (DECIMAL(38,18)). */
+private const val RAW_PRICE_SCALE = 18
+
+/** Hard cap for [PriceOracleSnapshotStore.loadDay]: an hourly poller writes at most 24 rows per day (25 on a clock change); anything beyond the cap is never read. */
+internal const val MAX_SNAPSHOTS_PER_DAY = 48
+
+/** A stored snapshot together with its raw source values (empty for a snapshot taken before V171). */
+internal data class SnapshotWithSources(
+    val id: Uuid,
+    val status: PriceStatus,
+    val medianPrice: BigDecimal,
+    val sourceCount: Int,
+    val sourcesUsed: String,
+    val priceTimestamp: LocalDateTime,
+    val sources: List<StoredSourceValue>,
+)
+
+internal data class StoredSourceValue(
+    val sourceId: String,
+    val rawPrice: BigDecimal,
+    val observedAt: LocalDateTime,
+    val included: Boolean,
+)
 
 /**
  * Welle "Price-Oracle-Preishistorie" -- the shared read/write layer for `price_oracle_snapshot`,
@@ -72,8 +109,9 @@ object PriceOracleSnapshotStore {
                 if (exists) {
                     false
                 } else {
+                    val snapshotId = Uuid.random()
                     PriceOracleSnapshotTable.insert {
-                        it[id] = Uuid.random()
+                        it[id] = snapshotId
                         it[PriceOracleSnapshotTable.anchorAsset] = anchorAsset
                         it[PriceOracleSnapshotTable.donationCurrency] = normalizedDonationCurrency
                         it[medianPrice] = quote.medianPrice
@@ -82,6 +120,20 @@ object PriceOracleSnapshotStore {
                         it[sourcesUsed] = quote.contributingSourceIds.joinToString(",")
                         it[PriceOracleSnapshotTable.priceTimestamp] = priceTimestamp
                         it[PriceOracleSnapshotTable.capturedAt] = capturedAt
+                    }
+                    // V1.9.324: the raw source values, in THE SAME transaction as the snapshot -- a unique-index collision on the snapshot rolls the
+                    // source rows back with it, so there are never orphan source rows. A quote without observations (a CACHED replay) writes none.
+                    val observations = quote.observations.distinctBy { it.sourceId }
+                    if (observations.isNotEmpty()) {
+                        PriceOracleSnapshotSourceTable.batchInsert(observations, shouldReturnGeneratedValues = false) { obs ->
+                            this[PriceOracleSnapshotSourceTable.id] = Uuid.random()
+                            this[PriceOracleSnapshotSourceTable.snapshotId] = snapshotId
+                            this[PriceOracleSnapshotSourceTable.sourceId] = obs.sourceId.take(MAX_SOURCE_ID_LENGTH)
+                            this[PriceOracleSnapshotSourceTable.rawPrice] = obs.price.setScale(RAW_PRICE_SCALE, RoundingMode.HALF_UP)
+                            this[PriceOracleSnapshotSourceTable.observedAt] =
+                                obs.observedAt.toLocalDateTime(ServerClock.zone).truncatedToDbPrecision()
+                            this[PriceOracleSnapshotSourceTable.included] = obs.included
+                        }
                     }
                     true
                 }
@@ -115,6 +167,54 @@ object PriceOracleSnapshotStore {
                 }
             }
             false
+        }
+    }
+
+    /**
+     * V1.9.324: every snapshot of (anchor, currency) whose `priceTimestamp` lies in `[fromUtc, toUtcExclusive)`, with its raw source values.
+     * At most [MAX_SNAPSHOTS_PER_DAY] rows (the newest), sources read in ONE second query (no N+1). Must be called inside an open
+     * transaction. ONLY `PriceOracleReferenceRateResolver` calls this (tripwire).
+     */
+    internal fun loadDay(
+        anchorAsset: AnchorAsset,
+        donationCurrency: String,
+        fromUtc: LocalDateTime,
+        toUtcExclusive: LocalDateTime,
+    ): List<SnapshotWithSources> {
+        val rows =
+            PriceOracleSnapshotTable
+                .selectAll()
+                .where {
+                    (PriceOracleSnapshotTable.anchorAsset eq anchorAsset) and
+                        (PriceOracleSnapshotTable.donationCurrency eq donationCurrency.uppercase()) and
+                        (PriceOracleSnapshotTable.priceTimestamp greaterEq fromUtc) and
+                        (PriceOracleSnapshotTable.priceTimestamp less toUtcExclusive)
+                }.orderBy(PriceOracleSnapshotTable.priceTimestamp to SortOrder.DESC)
+                .limit(MAX_SNAPSHOTS_PER_DAY)
+                .toList()
+        if (rows.isEmpty()) return emptyList()
+        val sourcesBySnapshot =
+            PriceOracleSnapshotSourceTable
+                .selectAll()
+                .where { PriceOracleSnapshotSourceTable.snapshotId inList rows.map { it[PriceOracleSnapshotTable.id] } }
+                .groupBy({ it[PriceOracleSnapshotSourceTable.snapshotId] }) {
+                    StoredSourceValue(
+                        sourceId = it[PriceOracleSnapshotSourceTable.sourceId],
+                        rawPrice = it[PriceOracleSnapshotSourceTable.rawPrice],
+                        observedAt = it[PriceOracleSnapshotSourceTable.observedAt],
+                        included = it[PriceOracleSnapshotSourceTable.included],
+                    )
+                }
+        return rows.map { row ->
+            SnapshotWithSources(
+                id = row[PriceOracleSnapshotTable.id],
+                status = row[PriceOracleSnapshotTable.priceStatus],
+                medianPrice = row[PriceOracleSnapshotTable.medianPrice],
+                sourceCount = row[PriceOracleSnapshotTable.sourceCount],
+                sourcesUsed = row[PriceOracleSnapshotTable.sourcesUsed],
+                priceTimestamp = row[PriceOracleSnapshotTable.priceTimestamp],
+                sources = sourcesBySnapshot[row[PriceOracleSnapshotTable.id]].orEmpty().sortedBy { it.sourceId },
+            )
         }
     }
 

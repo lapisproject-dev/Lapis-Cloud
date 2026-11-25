@@ -758,7 +758,10 @@ private val R24_JUSTIFIED: Map<String, List<String>> =
  * raw `text(` date/time fields (the event form's three, the shift forms, the CRM, GDPR, contribution, honor and filter dates)
  * became `localDateInput`/`localDateTimeInput`/`dateRangeFilter` calls, which are not `text(` calls any more. Only ever lowered.
  */
-private const val R24_REMAINING_MAX = 132 // +1 V1.9.321 (the price field of the offer dialog, answered by its own send button),
+private const val R24_REMAINING_MAX = 136
+
+// +4 V1.9.324 (reference-date conversion form: amount, note, price and evidence text of the manual-rate dialog; each answered by its own button),
+// +1 V1.9.321 (the price field of the offer dialog, answered by its own send button),
 // +4 V1.9.320 (euro auction: the three payment-detail inputs of the listing form, and
 // the bid amount of a euro auction card, a dialog-like control answered by its own button; the listing form's other fields are counted already),
 // +2 V1.9.222 (gallery inputs), +1 V1.9.225 (party-report hint dialog),
@@ -975,7 +978,10 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
  * a checkbox whose value feeds `setEventCaptureAllowed` after the event is saved -- a genuine field, not a filter, so it cannot be justified). The new consent screen
  * (`EventCaptureConsent.kt`) and the guest page were built with the form grammar and add nothing here. 71 -> 72.
  */
-private const val R24B_REMAINING_MAX = 87 // +1 V1.9.322 (the consent tick of the euro auction to partners: a genuine field),
+private const val R24B_REMAINING_MAX = 89
+
+// +2 V1.9.324 (conversion-rate choice of the oracle configuration, deviation tick of the manual-rate dialog: genuine fields),
+// +1 V1.9.322 (the consent tick of the euro auction to partners: a genuine field),
 // +1 V1.9.321 (the "Preisvorschläge erlauben" tick of the euro listing form),
 // +2 V1.9.320 (euro auction listing form: the currency choice "Bezahlung" and the one
 // acknowledgment tick of the seller notice -- genuine fields of the same unmigrated form, answered by its own submit button),

@@ -2786,7 +2786,15 @@ internal fun Application.module(
         registerService(ILtrLedgerService::class) { call -> LtrLedgerService(call = call) }
         registerService(ICrowdfundingService::class) { call -> CrowdfundingService(call = call) }
         registerService(IPeerTransferService::class) { call -> PeerTransferService(call = call) }
-        registerService(IPriceOracleService::class) { call -> PriceOracleService(call = call, orchestrator = priceOracleOrchestrator) }
+        registerService(
+            IPriceOracleService::class,
+        ) { call ->
+            PriceOracleService(
+                call = call,
+                orchestrator = priceOracleOrchestrator,
+                snapshotPollerEnabled = priceOracleSnapshotConfig.enabled,
+            )
+        }
         registerService(IPoliticianService::class) { call -> PoliticianService(call = call) }
         // V1.9.320: Fiat (EUR) auctions seal the seller's payment details with the same LAPIS_SECRET_ENCRYPTION_KEY as the SEPA/travel IBANs.
         registerService(

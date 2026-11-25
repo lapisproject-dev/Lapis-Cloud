@@ -1,6 +1,7 @@
 package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
+import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.DonationConversionInput
 import network.lapis.cloud.shared.domain.OraclePriceStatusDto
@@ -9,6 +10,8 @@ import network.lapis.cloud.shared.domain.PriceOracleConfigDto
 import network.lapis.cloud.shared.domain.PriceOracleConfigInput
 import network.lapis.cloud.shared.domain.PriceOracleConversionDto
 import network.lapis.cloud.shared.domain.PriceSnapshotDto
+import network.lapis.cloud.shared.domain.ReferenceRateConfirmationInput
+import network.lapis.cloud.shared.domain.ReferenceRateResolutionDto
 
 /**
  * V0.6.5 Price-Oracle fuer die Anker-Bindung -- see `19-price-oracle.kuml.kts` file header for the
@@ -95,4 +98,16 @@ interface IPriceOracleService {
         donationCurrency: String? = null,
         limit: Int = 2_000,
     ): List<PriceSnapshotDto>
+
+    /**
+     * V1.9.324: which rate would apply for [referenceDate] (read only, never touches the network). Role: TREASURER/BOARD/ADMIN. Only in
+     * mode `REFERENCE_DATE`. [memberId] is the intended recipient and only decides `selfConfirmationBlocked`.
+     */
+    suspend fun previewReferenceRate(
+        referenceDate: LocalDate,
+        memberId: String? = null,
+    ): ReferenceRateResolutionDto
+
+    /** V1.9.324: records a manual reference rate (evidence text required) when no automatic rate exists. Role: TREASURER/BOARD/ADMIN. Immutable once written. */
+    suspend fun confirmReferenceRate(input: ReferenceRateConfirmationInput): ReferenceRateResolutionDto
 }

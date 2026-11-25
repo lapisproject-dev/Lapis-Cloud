@@ -180,7 +180,7 @@ msgstr "El importe difiere del asiento"
 msgid "Bisherige SEPA-Dateien"
 msgstr "Archivos SEPA anteriores"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:186
+#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:191
 msgid "Bitte melden Sie sich über Ihre Organisation an."
 msgstr "Inicie sesión a través de su organización."
 
@@ -370,7 +370,7 @@ msgstr "IBAN •••• %1"
 msgid "Ich habe den Hinweistext vollständig gelesen und bestätige ihn."
 msgstr "He leído el aviso completo y lo confirmo."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:215
+#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:220
 msgid "Interner Notfall-Zugang für Administratoren"
 msgstr "Acceso interno de emergencia para administradores"
 
@@ -411,6 +411,7 @@ msgstr "Vinculación de Keycloak de %1 eliminada."
 msgid "Konto nach Einreichung geändert"
 msgstr "Cuenta modificada tras el envío"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:85
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt:328
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt:580
 msgid "Kontoinhaber"
@@ -440,7 +441,7 @@ msgstr "Consulta en vivo activa · aún sin consulta exitosa (código de error: 
 msgid "Live-Abruf nicht verfügbar: LAPIS_SECRET_ENCRYPTION_KEY ist nicht konfiguriert."
 msgstr "Consulta en vivo no disponible: LAPIS_SECRET_ENCRYPTION_KEY no está configurada."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:188
+#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:193
 msgid "Mit %1 anmelden"
 msgstr "Iniciar sesión con %1"
 
@@ -605,7 +606,7 @@ msgstr "-- Seleccionar base legal --"
 msgid "-- Typ wählen --"
 msgstr "-- Seleccionar tipo --"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1163
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1165
 msgid "-- kein --"
 msgstr "-- ninguno --"
 
@@ -617,12 +618,12 @@ msgstr "-- ninguna (nueva moción principal) --"
 msgid "-- kein Spender --"
 msgstr "-- ningún donante --"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1521
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1523
 msgid "-- kein Tagesordnungspunkt --"
 msgstr "-- ningún punto del orden del día --"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1666
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1376
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1378
 msgid "-- keine --"
 msgstr "-- ninguna --"
 
@@ -676,9 +677,9 @@ msgid "Archivierte anzeigen"
 msgstr "Mostrar archivados"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:431
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:818
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:834
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:104
-#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:403
+#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:412
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:234
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusScreen.kt:130
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt:62
@@ -1071,8 +1072,8 @@ msgstr "Aún no se han importado extractos bancarios."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:524
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:47
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1302
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1403
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1304
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1405
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinderScreen.kt:478
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:634
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:283
@@ -1194,6 +1195,7 @@ msgstr "Pagado fuera de Lapis"
 msgid "Vertrag (Art. 6 Abs. 1 lit. b)"
 msgstr "Contrato (art. 6, apdo. 1, letra b)"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:169
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:142
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:144
 msgid "Verwendungszweck"
@@ -1325,7 +1327,8 @@ msgstr "Modifica: %1"
 msgid "— Nicht zugeordnet —"
 msgstr "— Sin asignar —"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:174
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:362
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:505
 msgid ", Sofortkaufpreis %1"
 msgstr ", precio de compra inmediata %1"
 
@@ -1359,7 +1362,7 @@ msgstr ""
 msgid "\"%1\" wirklich abbrechen? Es wird keine Abrechnung durchgeführt."
 msgstr "¿Desea cancelar realmente \"%1\"? No se realizará ninguna liquidación."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:504
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:506
 msgid "\"%1\" wirklich absagen?"
 msgstr "¿Desea cancelar realmente \"%1\"?"
 
@@ -1479,6 +1482,7 @@ msgstr "%1 – %2"
 msgid "%1 · %2"
 msgstr "%1 · %2"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:138
 msgid "%1 · %2 · %3"
 msgstr "%1 · %2 · %3"
 
@@ -1496,7 +1500,7 @@ msgid "%1 (%2 Bytes)"
 msgstr "%1 (%2 bytes)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:386
-#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:729
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:734
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:321
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:7738
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:7874
@@ -1506,8 +1510,8 @@ msgstr "%1 (%2 bytes)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionCompare.kt:108
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReportRows.kt:529
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:962
-#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:167
-#: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:313
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:171
+#: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:325
 msgid "%1 (%2)"
 msgstr "%1 (%2)"
 
@@ -1523,7 +1527,7 @@ msgstr "%1 (%2): falta %3"
 msgid "%1 (Freund-Konto seit %2)"
 msgstr "%1 (cuenta de amigo desde %2)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:727
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:732
 msgid "%1 (Gast)"
 msgstr "%1 (invitado)"
 
@@ -1538,11 +1542,11 @@ msgid "%1 am %2 von IBAN %3 (Mandatsreferenz %4, Gläubiger-ID %5)"
 msgstr ""
 "%1 el %2 desde el IBAN %3 (referencia del mandato %4, ID de acreedor %5)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:763
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:775
 msgid "%1 an %2 gutgeschrieben."
 msgstr "%1 abonado a %2."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:535
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:547
 msgid "%1 an %2 übertragen."
 msgstr "%1 transferido a %2."
 
@@ -1558,8 +1562,8 @@ msgstr "%1 respuestas · %2 impulsos"
 msgid "%1 bis %2"
 msgstr "%1 a %2"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:234
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:235
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:243
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:244
 msgid "%1 bps"
 msgstr "%1 pb"
 
@@ -1587,7 +1591,8 @@ msgstr ""
 "actualiza, un perfil anterior (revocado) se reactiva -- nunca se crea un "
 "segundo perfil para el mismo miembro."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:954
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:175
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:996
 msgid "%1 für %2 gemintet."
 msgstr "%1 acuñado para %2."
 
@@ -1623,11 +1628,11 @@ msgid_plural "%1 Positionen konnten nicht gebucht werden."
 msgstr[0] "No se pudo contabilizar %1 posición."
 msgstr[1] "No se pudieron contabilizar %1 posiciones."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:233
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:242
 msgid "%1 Quellen"
 msgstr "%1 fuentes"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:232
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:241
 msgid "%1 s"
 msgstr "%1 s"
 
@@ -1658,17 +1663,17 @@ msgstr "%1 está compartiendo la pantalla"
 msgid "%1 von %2"
 msgstr "%1 de %2"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1726
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1728
 msgid "%1 von %2 anwesend (erforderlich: %3, %4%)."
 msgstr "%1 de %2 presentes (requerido: %3, %4 %)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1007
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:744
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1009
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:746
 msgid "%1 von %2 Briefen erfolgreich übergeben."
 msgstr "%1 de %2 cartas entregadas correctamente."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1010
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:747
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1012
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:749
 msgid "%1 von %2 Briefen fehlgeschlagen -- Details unten."
 msgstr "%1 de %2 cartas fallidas -- detalles a continuación."
 
@@ -1694,7 +1699,7 @@ msgstr "%1–%2"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2483
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5615
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1478
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1480
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:314
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportConsolidationTab.kt:93
 msgid "%1: %2"
@@ -1712,15 +1717,15 @@ msgstr "%1: %2, %3"
 msgid "%1: %2, %3 · belastet: %4"
 msgstr "%1: %2, %3 · cargado: %4"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1663
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1665
 msgid "%1: %2%3%4"
 msgstr "%1: %2%3%4"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1522
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1524
 msgid "%1. %2"
 msgstr "%1. %2"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1687
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1689
 msgid "%1. %2%3%4"
 msgstr "%1. %2%3%4"
 
@@ -1757,15 +1762,17 @@ msgstr "Suscripción cancelada el %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:512
 #: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:532
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt:226
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:255
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:276
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:512
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:538
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:298
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:323
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:94
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:624
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:693
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:719
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupScreen.kt:261
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:344
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:398
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:236
-#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:365
+#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:374
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:220
 #: src/jsMain/kotlin/network/lapis/cloud/client/CollapsibleCreateForm.kt:250
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteeRuleUi.kt:149
@@ -1819,8 +1826,8 @@ msgstr "Suscripción cancelada el %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/LanguageChange.kt:57
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2326
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:602
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:889
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:614
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:901
 #: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncCredentialsSection.kt:44
 #: src/jsMain/kotlin/network/lapis/cloud/client/MailingHtmlEditor.kt:121
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingEventLinkUi.kt:239
@@ -1844,6 +1851,7 @@ msgstr "Suscripción cancelada el %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:305
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:56
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportPositions.kt:79
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportReviewerAccess.kt:234
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:357
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTransferDialog.kt:83
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionDialogs.kt:124
@@ -1858,7 +1866,8 @@ msgstr "Suscripción cancelada el %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PollBooth.kt:98
 #: src/jsMain/kotlin/network/lapis/cloud/client/PostalMailScreen.kt:253
 #: src/jsMain/kotlin/network/lapis/cloud/client/PostalMailScreen.kt:321
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1051
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:297
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1093
 #: src/jsMain/kotlin/network/lapis/cloud/client/PulpitRecordingSettings.kt:184
 #: src/jsMain/kotlin/network/lapis/cloud/client/RatingBooth.kt:249
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:339
@@ -1869,7 +1878,7 @@ msgstr "Suscripción cancelada el %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:679
 #: src/jsMain/kotlin/network/lapis/cloud/client/StreamCommentsPanel.kt:122
 #: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:308
-#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:343
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:347
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt:136
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt:199
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt:236
@@ -1879,17 +1888,19 @@ msgstr "Suscripción cancelada el %1"
 msgid "Abbrechen"
 msgstr "Cancelar"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:314
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:365
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusScreen.kt:112
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceDeclarationsCard.kt:172
 msgid "Abgegeben"
 msgstr "Emitido"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:37
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolParticipationUi.kt:117
-#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:226
+#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:235
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:488
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRegistrationsSection.kt:74
 #: src/jsMain/kotlin/network/lapis/cloud/client/NoticeBoardTexts.kt:39
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportReviewerLogic.kt:36
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:17
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:28
 msgid "Abgelaufen"
@@ -1897,21 +1908,22 @@ msgstr "Caducado"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismTexts.kt:49
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleLabels.kt:44
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:35
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolParticipationUi.kt:58
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:586
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:616
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt:146
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt:215
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:111
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:58
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:503
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:631
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1797
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1799
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:26
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1311
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:168
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:385
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:400
-#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:485
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:489
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:148
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:23
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceLabels.kt:22
@@ -1925,19 +1937,19 @@ msgid "Abgerechnet"
 msgstr "Contabilizado"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismTexts.kt:33
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:482
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:502
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:512
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:532
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt:304
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:16
-#: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:146
+#: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:155
 msgid "Abgeschlossen"
 msgstr "Finalizado"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:561
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:742
 msgid "Abgeschlossen (kein Verkauf)"
 msgstr "Finalizado (sin venta)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:560
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:741
 msgid "Abgeschlossen (verkauft)"
 msgstr "Finalizado (vendido)"
 
@@ -1949,6 +1961,8 @@ msgstr "Medidas correctoras (opcional)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismDetailScreen.kt:95
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticlesScreen.kt:432
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticlesScreen.kt:460
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:219
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:326
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolParticipationUi.kt:172
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt:186
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt:238
@@ -1962,7 +1976,7 @@ msgstr "Medidas correctoras (opcional)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinderScreen.kt:485
 #: src/jsMain/kotlin/network/lapis/cloud/client/PrivilegedActionsCard.kt:175
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:317
-#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:718
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:824
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt:250
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt:303
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:280
@@ -1979,7 +1993,8 @@ msgstr ""
 msgid "Ablehnungsgrund: %1"
 msgstr "Motivo del rechazo: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:692
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:697
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:160
 msgid "Abmelden"
 msgstr "Cerrar sesión"
 
@@ -2004,29 +2019,29 @@ msgid "Abrechnen"
 msgstr "Contabilizar"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventDetailScreen.kt:193
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:500
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:505
-#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:573
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:502
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:507
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:679
 msgid "Absagen"
 msgstr "Suspender"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:779
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:791
 msgid "Absender"
 msgstr "Remitente"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:728
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:744
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusScreen.kt:129
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionPhase.kt:47
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:946
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:962
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1147
 msgid "Abstimmung"
 msgstr "Votación"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:912
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:924
 msgid "Abstimmungseinsatz"
 msgstr "Apuesta de votación"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:130
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:153
 msgid "Abwickeln"
 msgstr "Liquidar"
 
@@ -2060,7 +2075,7 @@ msgstr "Actor: %1 · Miembro afectado: %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MailingListsScreen.kt:98
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:257
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:161
-#: src/jsMain/kotlin/network/lapis/cloud/client/OrganizationScreen.kt:164
+#: src/jsMain/kotlin/network/lapis/cloud/client/OrganizationScreen.kt:175
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:425
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportConsolidationTab.kt:162
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportDonorCombineBlock.kt:56
@@ -2068,8 +2083,8 @@ msgstr "Actor: %1 · Miembro afectado: %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportOverview.kt:29
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:166
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:86
-#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:394
-#: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:241
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:398
+#: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:253
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt:56
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt:591
 msgid "Aktionen"
@@ -2091,7 +2106,7 @@ msgstr "activo"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionBoardUi.kt:216
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:23
 #: src/jsMain/kotlin/network/lapis/cloud/client/NoticeBoardTexts.kt:38
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:160
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:359
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:1068
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:191
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:329
@@ -2117,7 +2132,8 @@ msgstr "Reuniones activas"
 msgid "Aktivieren"
 msgstr "Activar"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:462
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:536
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:643
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:135
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:461
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:990
@@ -2130,7 +2146,7 @@ msgstr "Activado"
 msgid "Aktivkonto"
 msgstr "Cuenta de activo"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:137
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:162
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:171
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolMessagesUi.kt:146
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:104
@@ -2171,11 +2187,13 @@ msgstr "actualizado"
 msgid "Aktuell keine Vorstandsmitglieder erfasst."
 msgstr "Actualmente no hay miembros de la junta directiva registrados."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:78
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:82
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFederationUi.kt:85
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerAuctionHintsUi.kt:47
 msgid "Aktueller Preis"
 msgstr "Precio actual"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:78
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:82
 msgid "Aktueller Preis (Sie führen)"
 msgstr "Precio actual (usted encabeza)"
 
@@ -2197,7 +2215,7 @@ msgstr "Peso actual (decaimiento del 10 %/día)"
 msgid "Aktuelles Passwort"
 msgstr "Contraseña actual"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:363
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:457
 msgid "Aktuelles Passwort ist falsch."
 msgstr "La contraseña actual es incorrecta."
 
@@ -2207,7 +2225,7 @@ msgstr "La contraseña actual es incorrecta."
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:97
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:593
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerUnitControls.kt:59
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:135
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:136
 #: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:93
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:608
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:670
@@ -2217,16 +2235,16 @@ msgstr "La contraseña actual es incorrecta."
 #: src/jsMain/kotlin/network/lapis/cloud/client/NoticeBoardScreen.kt:86
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:93
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:146
-#: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:142
+#: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:151
 msgid "Alle"
 msgstr "Todos"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:140
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:165
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:112
 msgid "Alle (persistierter Status)"
 msgstr "Todos (estado persistido)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:644
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:646
 msgid "Alle abwählen"
 msgstr "Deseleccionar todo"
 
@@ -2238,7 +2256,7 @@ msgstr ""
 "Todos los participantes presentes en ese momento ven de inmediato que se "
 "está grabando -- independientemente de quién inicie la grabación."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:643
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:645
 msgid "Alle auswählen"
 msgstr "Seleccionar todo"
 
@@ -2328,7 +2346,7 @@ msgstr "Marcado como pagado."
 msgid "Als Dokument speichern"
 msgstr "Guardar como documento"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:490
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:492
 msgid "Als durchgeführt markieren"
 msgstr "Marcar como realizado"
 
@@ -2341,7 +2359,7 @@ msgstr "Marcar como presentado"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AgreementTextsScreen.kt:587
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:362
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1902
-#: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:402
+#: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:414
 msgid "Als Entwurf speichern"
 msgstr "Guardar como borrador"
 
@@ -2354,9 +2372,9 @@ msgstr "Unirse como invitado"
 msgid "Als neuen Entwurf duplizieren"
 msgstr "Duplicar como nuevo borrador"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:688
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:896
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:901
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:690
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:898
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:903
 msgid "Als PDF herunterladen"
 msgstr "Descargar como PDF"
 
@@ -2416,12 +2434,12 @@ msgstr "Nota de modificación (opcional)"
 msgid "Anfrage fehlgeschlagen."
 msgstr "La solicitud ha fallado."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:207
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:274
 msgid "Angebot \"%1\" erstellt."
 msgstr "Oferta \"%1\" creada."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:119
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:176
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:262
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:507
 msgid "Angebot erstellen"
 msgstr "Crear oferta"
 
@@ -2448,8 +2466,8 @@ msgstr "Usuarios conectados + externos"
 msgid "Angemeldete Nutzer"
 msgstr "Usuarios conectados"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:227
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:272
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:236
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:285
 msgid "Anker-Asset"
 msgstr "Activo de referencia"
 
@@ -2466,15 +2484,16 @@ msgstr "Plazo de aviso: %1 días"
 msgid "Anlegen"
 msgstr "Crear"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:636
-#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:124
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:641
+#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:127
 #: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:40
 #: src/jsMain/kotlin/network/lapis/cloud/client/MyVolunteerShiftsScreen.kt:131
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:231
 #: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt:201
 msgid "Anmelden"
 msgstr "Iniciar sesión"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:142
+#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:145
 msgid "Anmeldung erfolgreich, aber Sitzungsdaten konnten nicht geladen werden."
 msgstr ""
 "Inicio de sesión correcto, pero no se pudieron cargar los datos de la sesión."
@@ -2483,6 +2502,8 @@ msgstr ""
 msgid "Anmeldung fehlgeschlagen."
 msgstr "El inicio de sesión ha fallado."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:187
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:316
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:231
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:424
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinderScreen.kt:483
@@ -2499,11 +2520,11 @@ msgstr "Anónimo"
 msgid "Anonyme öffentliche Meldung"
 msgstr "Informe público anónimo"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:602
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:632
 msgid "Anonymisierung"
 msgstr "Anonimización"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:603
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:633
 msgid "Anonymisierung + Hartlöschung eigener Nachrichten"
 msgstr "Anonimización + eliminación definitiva de los propios mensajes"
 
@@ -2535,12 +2556,12 @@ msgstr "Solicitud rechazada."
 msgid "Antrag angenommen zur Terminierung."
 msgstr "Moción aceptada para su programación."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:283
+#: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:317
 msgid "Antrag eingereicht"
 msgstr "Moción presentada"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:326
-#: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:165
+#: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:194
 msgid "Antrag einreichen"
 msgstr "Presentar moción"
 
@@ -2622,17 +2643,18 @@ msgstr "Responder"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt:585
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt:391
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1204
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1651
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:144
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1206
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1653
 msgid "Anwesenheit"
 msgstr "Asistencia"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1251
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1253
 msgid "Anwesenheit erfassen"
 msgstr "Registrar asistencia"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1332
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1435
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1334
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1437
 msgid "Anwesenheit von %1 gespeichert."
 msgstr "Asistencia de %1 guardada."
 
@@ -2644,14 +2666,14 @@ msgstr "Número de salas de grupos reducidos"
 msgid "Anzeige"
 msgstr "Visualización"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:891
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:933
 msgid "Anzeige-Info: Währung"
 msgstr "Información de visualización: moneda"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRegistrationsSection.kt:165
 #: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt:832
 #: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt:902
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:677
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:689
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:937
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportFindings.kt:50
 #: src/jsMain/kotlin/network/lapis/cloud/client/PublicMemberCountSettings.kt:102
@@ -2678,14 +2700,14 @@ msgstr "Confirmar revocación de la clave de API"
 msgid "Art der Löschung"
 msgstr "Tipo de eliminación"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:500
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:530
 msgid "Aufsichtsbehörde benachrichtigt"
 msgstr "Autoridad de control notificada"
 
 msgid "Aufsichtsbehörde benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "Autoridad de control notificada el (AAAA-MM-DDTHH:MM:SS, opcional)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:461
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:491
 msgid "Auftragskontrolle"
 msgstr "Control de encargo de tratamiento"
 
@@ -2742,66 +2764,67 @@ msgstr "Combinando la grabación…"
 msgid "Aufzeichnungen"
 msgstr "Grabaciones"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:302
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:127
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:948
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:349
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionOfferUi.kt:419
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:137
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:964
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:171
 msgid "Auktion"
 msgstr "Subasta"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:137
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:160
 msgid "Auktion \"%1\" abgewickelt."
 msgstr "Subasta \"%1\" liquidada."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:500
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:681
 msgid "Auktion aktivieren -- rechtlicher Hinweis (Version %1)"
 msgstr "Activar subasta -- aviso legal (versión %1)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:351
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:414
 msgid "Auktion aktivieren …"
 msgstr "Activando subasta…"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:370
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:433
 msgid "Auktion aktiviert."
 msgstr "Subasta activada."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:382
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:445
 msgid "Auktion deaktivieren"
 msgstr "Desactivar subasta"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:530
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:711
 msgid "Auktion deaktivieren bestätigen"
 msgstr "Confirmar desactivación de la subasta"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:390
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:453
 msgid "Auktion deaktiviert."
 msgstr "Subasta desactivada."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:134
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:159
 msgid "Auktionen"
 msgstr "Subastas"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:255
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:301
 msgid "Auktionen konnten nicht geladen werden."
 msgstr "No se pudieron cargar las subastas."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:915
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:927
 msgid "Auktions-Einstellgebühr"
 msgstr "Tarifa de publicación de subasta"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:916
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:928
 msgid "Auktions-Reservierung"
 msgstr "Reserva de subasta"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:917
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:929
 msgid "Auktions-Reservierung freigegeben"
 msgstr "Reserva de subasta liberada"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:918
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:930
 msgid "Auktionskauf"
 msgstr "Compra en subasta"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:919
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:931
 msgid "Auktionsverkauf"
 msgstr "Venta en subasta"
 
@@ -2828,7 +2851,7 @@ msgstr "Gasto"
 msgid "Ausgaben"
 msgstr "Gastos"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:587
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:617
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:59
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:512
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:526
@@ -2844,7 +2867,7 @@ msgstr "Ejecutado el %1"
 msgid "Ausgelöst am: %1"
 msgstr "Activado el: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:668
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:698
 msgid "Ausgeschieden"
 msgstr "Dado de baja"
 
@@ -2865,7 +2888,7 @@ msgstr "Baja"
 msgid "Auskunft"
 msgstr "Solicitud de acceso"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:639
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:669
 msgid "Auskunft exportiert"
 msgstr "Solicitud de acceso exportada"
 
@@ -2873,11 +2896,11 @@ msgstr "Solicitud de acceso exportada"
 msgid "Auskunftsübersicht anzeigen"
 msgstr "Mostrar resumen de solicitudes de acceso"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:234
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:243
 msgid "Ausreißer-Schwelle"
 msgstr "Umbral de valores atípicos"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:285
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:307
 msgid "Ausreißer-Schwelle (Basispunkte, 1-10000)"
 msgstr "Umbral de valores atípicos (puntos básicos, 1-10000)"
 
@@ -2948,7 +2971,7 @@ msgstr "Archivo de copia de seguridad (.zip)"
 msgid "Bankkonto"
 msgstr "Cuenta bancaria"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:797
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:813
 msgid "Bankkonto (LedgerAccount-ID)"
 msgstr "Cuenta bancaria (ID de cuenta contable)"
 
@@ -2956,7 +2979,7 @@ msgstr "Cuenta bancaria (ID de cuenta contable)"
 msgid "Beantragen"
 msgstr "Solicitar"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:584
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:614
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:56
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:510
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:524
@@ -2994,7 +3017,7 @@ msgstr "Solicitado por %1 el %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:334
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:441
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventDetailScreen.kt:111
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1236
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1238
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1069
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:292
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:111
@@ -3017,7 +3040,7 @@ msgid "Beendet"
 msgstr "Finalizado"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismFormScreen.kt:73
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:760
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:776
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt:381
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventImportScreen.kt:154
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventOfficerForm.kt:39
@@ -3043,7 +3066,7 @@ msgstr "Inicio"
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:602
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:673
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:721
-#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:441
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:445
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSepaPanel.kt:247
 msgid "Begründung"
 msgstr "Justificación"
@@ -3107,7 +3130,7 @@ msgstr ""
 "junta directiva NO podrán ver posteriormente la grabación -- seleccione "
 "\"Miembros\" si la grabación debe ser accesible para todos los participantes."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:48
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:65
 msgid "Beim Einstellen wird eine feste Gebühr von %1 fällig."
 msgstr "Al publicar se aplicará una tarifa fija de %1."
 
@@ -3121,7 +3144,7 @@ msgstr "Vocalía"
 msgid "Beitrag"
 msgstr "Cuota"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:949
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:965
 msgid "Beitrag (Soziales Netzwerk)"
 msgstr "Publicación (red social)"
 
@@ -3188,11 +3211,11 @@ msgstr "Publicación: %1"
 msgid "Beiträge"
 msgstr "Cuotas"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:921
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:933
 msgid "Beitrags-Boost"
 msgstr "Impulso de publicación"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:920
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:932
 msgid "Beitrags-Einsatz"
 msgstr "Apuesta de publicación"
 
@@ -3203,7 +3226,7 @@ msgstr "Solicitudes de eliminación de publicaciones"
 msgid "Beitragserlöskonto"
 msgstr "Cuenta de ingresos por cuotas"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:800
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:816
 msgid "Beitragserlöskonto (LedgerAccount-ID)"
 msgstr "Cuenta de ingresos por cuotas (ID de cuenta contable)"
 
@@ -3225,18 +3248,18 @@ msgstr "Resumen de cuotas"
 msgid "Beitreten"
 msgstr "Unirse"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:149
+#: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:178
 msgid "Beitrittsvertrag (Version %1)"
 msgstr "Contrato de adhesión (versión %1)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:50
+#: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:56
 msgid "Beitrittsvertrag wird geladen ..."
 msgstr "Cargando el contrato de adhesión..."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:431
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:502
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:580
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:690
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:706
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1124
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:354
 msgid "Beleg"
@@ -3244,6 +3267,7 @@ msgstr "Comprobante"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1303
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:938
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:237
 msgid "Beleg: %1"
 msgstr "Comprobante: %1"
 
@@ -3280,6 +3304,7 @@ msgstr ""
 "duplicados."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:8485
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:311
 msgid "Bereit"
 msgstr "Listo"
 
@@ -3287,7 +3312,7 @@ msgstr "Listo"
 msgid "Bereit für Dateierzeugung:"
 msgstr "Listo para generar el archivo:"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:163
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:166
 msgid "Bereits ein Konto? Zur Anmeldung."
 msgstr "¿Ya tiene una cuenta? Inicie sesión."
 
@@ -3295,7 +3320,7 @@ msgstr "¿Ya tiene una cuenta? Inicie sesión."
 msgid "Bereits in einem laufenden Lastschriftlauf"
 msgstr "Ya está incluido en un lote de domiciliación en curso"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:532
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:713
 msgid ""
 "Bereits laufende (OPEN) Auktionen können bis zur erneuten Aktivierung nicht "
 "mehr abgewickelt werden (kein Gebot, kein Sofortkauf, kein Abwickeln) -- sie "
@@ -3305,7 +3330,7 @@ msgstr ""
 "reactivación (sin pujas, sin compra inmediata, sin liquidación) -- "
 "permanecerán congeladas."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:246
+#: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:280
 msgid "Bereits Mitglied? Zur Anmeldung."
 msgstr "¿Ya es miembro? Ir a iniciar sesión."
 
@@ -3318,11 +3343,11 @@ msgstr "Asociación profesional o empresarial"
 msgid "Beschluss"
 msgstr "Resolución"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1557
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1559
 msgid "Beschluss \"%1\" wurde erfasst."
 msgstr "La resolución \"%1\" ha sido registrada."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1516
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1518
 msgid "Beschluss erfassen (Gremienbeschluss)"
 msgstr "Registrar resolución (resolución de órgano)"
 
@@ -3330,23 +3355,23 @@ msgstr "Registrar resolución (resolución de órgano)"
 msgid "Beschluss konnte nicht geladen werden."
 msgstr "No se pudo cargar la resolución."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1536
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1538
 msgid "Beschluss speichern"
 msgstr "Guardar resolución"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt:871
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1451
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1694
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1453
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1696
 msgid "Beschlüsse"
 msgstr "Resoluciones"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1525
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1527
 msgid "Beschlusstext"
 msgstr "Texto de la resolución"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismFormScreen.kt:69
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:52
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:689
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:69
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:705
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:133
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:210
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:277
@@ -3366,11 +3391,11 @@ msgstr "Texto de la resolución"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1123
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1609
 #: src/jsMain/kotlin/network/lapis/cloud/client/MailingListCreateForm.kt:72
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1158
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1160
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt:210
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:194
-#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:112
-#: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:333
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:114
+#: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:345
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt:138
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt:249
 msgid "Beschreibung"
@@ -3419,10 +3444,13 @@ msgstr "Reunión: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:272
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismDetailScreen.kt:263
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:69
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionFiatSettlementPanel.kt:91
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolParticipationUi.kt:169
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolFinalSection.kt:391
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConfirmDialog.kt:125
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConfirmDialog.kt:27
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionSettings.kt:171
 msgid "Bestätigen"
 msgstr "Confirmar"
 
@@ -3441,8 +3469,8 @@ msgstr "Procesando confirmación ..."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:431
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:502
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:580
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:713
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:817
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:729
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:833
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:142
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:201
@@ -3454,7 +3482,8 @@ msgstr "Procesando confirmación ..."
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:107
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1651
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2037
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:432
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:437
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingAttendanceRecognitionCard.kt:148
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt:212
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:201
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:136
@@ -3473,9 +3502,9 @@ msgstr "Procesando confirmación ..."
 msgid "Betrag"
 msgstr "Importe"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:479
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:715
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:781
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:491
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:727
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:793
 msgid "Betrag (LTR)"
 msgstr "Importe (LTR)"
 
@@ -3539,7 +3568,8 @@ msgstr "Denominación"
 msgid "Bezeichnung (z. B. \"PdV YouTube-Kanal\")"
 msgstr "Denominación (p. ej., \"Canal de YouTube de PdV\")"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:161
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:188
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:391
 msgid "Bieten"
 msgstr "Pujar"
 
@@ -3559,8 +3589,8 @@ msgstr "Balance NO cuadrado"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1865
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4748
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestCallView.kt:247
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestCallView.kt:262
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestCallView.kt:279
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestCallView.kt:294
 msgid "Bildschirm teilen"
 msgstr "Compartir pantalla"
 
@@ -3577,15 +3607,15 @@ msgstr "Hasta (AAAA-MM-DD)"
 msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "Hasta (AAAA-MM-DDTHH:MM:SS, opcional)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:780
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:796
 msgid "Bisherige Jahressumme (vor dieser Spende)"
 msgstr "Importe anual acumulado hasta ahora (antes de este donativo)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1112
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1165
 msgid "Bitcoin (BTC)"
 msgstr "Bitcoin (BTC)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:300
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:322
 msgid ""
 "Bitcoin nutzt drei kostenlose, schlüssellose Quellen (Coinbase/Kraken/"
 "Bitstamp). Mindest-Quorum: %1. Kein Refresh-Intervall -- jede Anfrage ruft "
@@ -3596,7 +3626,7 @@ msgstr "Bitcoin utiliza tres fuentes gratuitas y sin clave (Coinbase/Kraken/Bits
 msgid "Bitte 1 bis %1 Ziele auswählen."
 msgstr "Seleccione entre 1 y %1 destinos."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:377
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:418
 msgid ""
 "Bitte alle Felder gültig ausfüllen: Peg positiv, Cache-TTL positiv und "
 "mindestens %1s (Refresh-Intervall für %2), Mindest-Quorum mindestens %3, "
@@ -3611,12 +3641,12 @@ msgstr ""
 "Explique por qué esta publicación es ilegal (Ley de Servicios Digitales, "
 "Reglamento (UE) 2022/2065, art. 16)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1308
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1410
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1310
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1412
 msgid "Bitte bei \"Vertreten\" angeben, durch wen."
 msgstr "Indique en \"Representado por\" por quién."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:162
+#: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:191
 msgid "Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben."
 msgstr "Confirme que ha leído el contrato de adhesión."
 
@@ -3653,11 +3683,11 @@ msgstr "Indique un ejercicio válido (p. ej., 2026)."
 msgid "Bitte ein Mitglied auswählen."
 msgstr "Seleccione un miembro."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:921
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:963
 msgid "Bitte ein Mitglied und einen positiven Spendenbetrag angeben."
 msgstr "Indique un miembro y un importe de donativo positivo."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:175
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:202
 msgid "Bitte ein positives Höchstgebot (LTR) angeben."
 msgstr "Indique una puja máxima positiva (LTR)."
 
@@ -3759,7 +3789,7 @@ msgstr "Indique un nombre."
 msgid "Bitte einen positiven Betrag (LTR) angeben."
 msgstr "Indique un importe positivo (LTR)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:509
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:521
 msgid ""
 "Bitte Empfänger, einen positiven LTR-Betrag und eine Charakterisierung "
 "angeben."
@@ -3793,7 +3823,7 @@ msgstr ""
 msgid "Bitte Kategorie, Titel und Beschreibung angeben."
 msgstr "Indique la categoría, el título y la descripción."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:502
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:683
 msgid ""
 "Bitte lesen Sie den folgenden rechtlichen Hinweistext vollständig, bevor Sie "
 "die Auktion aktivieren. Diese Plattform führt keine automatisierte "
@@ -3827,7 +3857,7 @@ msgstr "Tras iniciar sesión, continuará con la conexión de su asistente."
 msgid "Bitte mindestens 2 unterschiedliche Optionen angeben."
 msgstr "Indique al menos 2 opciones distintas."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:735
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:747
 msgid "Bitte Mitglied und einen positiven LTR-Betrag angeben."
 msgstr "Indique el miembro y un importe positivo en LTR."
 
@@ -3845,7 +3875,7 @@ msgid ""
 msgstr ""
 "Indique el título, la descripción y un peso de visibilidad positivo (LTR)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:142
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:473
 msgid "Bitte Titel, Beschreibung und einen positiven Startpreis (LTR) angeben."
 msgstr ""
 "Indique el título, la descripción y un precio de salida positivo (LTR)."
@@ -3854,7 +3884,7 @@ msgstr ""
 msgid "Bitte Titel, Verarbeitungsbeschreibung und Status angeben."
 msgstr "Indique el título, la descripción del tratamiento y el estado."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:821
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:833
 msgid ""
 "Bitte unterschiedliche Absender/Empfänger, einen positiven LTR-Betrag, eine "
 "Charakterisierung und eine Schiedsanordnungs-Referenz angeben."
@@ -3878,7 +3908,7 @@ msgstr "Establezca su nueva contraseña."
 msgid "Bitte wählen Sie mindestens ein Ziel aus."
 msgstr "Seleccione al menos un destino."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:249
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:295
 msgid ""
 "Bitte wenden Sie sich an ein ADMIN-Mitglied, falls Sie hierauf Zugriff "
 "benötigen."
@@ -3938,7 +3968,7 @@ msgstr "La carta a %1 ha sido enviada a Letterxpress."
 msgid "Buchen"
 msgstr "Contabilizar"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:882
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:924
 msgid ""
 "Bucht eine bereits eingegangene Spende als LTR-Mint auf das gewählte "
 "Mitglied. Der aktuelle Kurs wird beim Bestätigen live abgefragt -- der "
@@ -3954,11 +3984,11 @@ msgstr ""
 msgid "Buchung"
 msgstr "Asiento"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:575
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:587
 msgid "Buchung (Haben): %1"
 msgstr "Asiento (haber): %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:574
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:586
 msgid "Buchung (Soll): %1"
 msgstr "Asiento (debe): %1"
 
@@ -3975,7 +4005,7 @@ msgstr "Seleccione un asiento arriba para ver los detalles."
 msgid "Buchung wurde gebucht."
 msgstr "El asiento ha sido contabilizado."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1088
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1141
 msgid "Buchung: %1"
 msgstr "Asiento: %1"
 
@@ -3989,24 +4019,24 @@ msgstr "Añadir línea de asiento"
 msgid "Buchungszeilen"
 msgstr "Líneas de asiento"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:704
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:720
 msgid "Buchungszeilen:"
 msgstr "Líneas de asiento:"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:232
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:241
 msgid "Cache-TTL"
 msgstr "TTL de caché"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:281
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:303
 msgid "Cache-TTL (Sekunden)"
 msgstr "TTL de caché (segundos)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:485
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:787
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:497
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:799
 msgid "Charakterisierung"
 msgstr "Caracterización"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:572
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:584
 msgid "Charakterisierung: %1"
 msgstr "Caracterización: %1"
 
@@ -4026,7 +4056,7 @@ msgstr "Chat"
 msgid "Crowdfunding"
 msgstr "Crowdfunding"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:945
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:961
 msgid "Crowdfunding-Projekt"
 msgstr "Proyecto de crowdfunding"
 
@@ -4133,14 +4163,14 @@ msgstr "Estado de los datos"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:431
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:502
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:686
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:702
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt:378
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:476
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:179
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1057
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1122
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1237
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:417
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:422
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt:208
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt:203
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:265
@@ -4160,7 +4190,8 @@ msgstr "Fecha: %1"
 msgid "davon überfällig"
 msgstr "de los cuales vencidos"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:540
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:558
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:721
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:261
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:273
@@ -4183,7 +4214,8 @@ msgid "Deaktivieren"
 msgstr "Desactivar"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:264
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:462
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:536
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:643
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:135
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:461
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:990
@@ -33869,3 +33901,175 @@ msgstr "Esta propuesta de precio ya ha caducado."
 msgid "Dieser Preisvorschlag wurde bereits zurückgezogen."
 msgstr "Esta propuesta de precio ya ha sido retirada."
 
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Bucht eine bereits eingegangene Spende als LTR-Mint auf das gewählte Mitglied, zum Goldpreis des Stichtags. Zuerst wird der Kurs des Stichtags geprüft; gebucht wird genau dieser Kurs."
+msgstr "Registra una donación ya recibida como emisión de LTR al miembro elegido, al precio del oro de la fecha de referencia. Primero se comprueba el precio de la fecha de referencia; se registra exactamente ese precio."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Der Tag, dessen Schlusskurs gelten soll. Frühestens gestern: der Kurs eines Tages steht erst nach Mitternacht fest."
+msgstr "El día cuyo precio de cierre debe aplicarse. Como pronto ayer: el precio de un día solo es definitivo después de medianoche."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Kurs zum Stichtag prüfen"
+msgstr "Comprobar el precio de la fecha de referencia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Bitte ein Mitglied, einen positiven Spendenbetrag und einen gültigen Stichtag angeben."
+msgstr "Indique un miembro, un importe de donación positivo y una fecha de referencia válida."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Die Eingaben wurden geändert. Bitte den Kurs erneut prüfen."
+msgstr "Los datos han cambiado. Vuelva a comprobar el precio."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Sie buchen eine Spende von %1 für %2 zum Kurs vom %3 (%4 je %5)."
+msgstr "Va a registrar una donación de %1 para %2 al precio del %3 (%4 por %5)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Für diesen Tag gibt es keinen Handelskurs (%1). Verwendet wird der Kurs vom %2."
+msgstr "No hay precio de mercado para este día (%1). Se utiliza el precio del %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Gespeicherter Median dieses Tages (nur zur Orientierung, nicht verwendbar): %1"
+msgstr "Mediana almacenada de este día (solo orientativa, no utilizable): %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Kurs manuell bestätigen"
+msgstr "Confirmar el precio manualmente"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Grundlage: manuell bestätigter Kurs (%1, %2)"
+msgstr "Base: precio confirmado manualmente (%1, %2)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Grundlage: gespeicherter Kurs aus dem Kursverlauf"
+msgstr "Base: precio almacenado del historial de precios"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Quellen (mindestens %1 nötig):"
+msgstr "Fuentes (se necesitan al menos %1):"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "%1: %2 (%3, %4)"
+msgstr "%1: %2 (%3, %4)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "verwendet"
+msgstr "utilizado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "ausgeschlossen"
+msgstr "excluido"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Kurs: %1 je %2"
+msgstr "Precio: %1 por %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Geschätzt: ca. %1 (der genaue Betrag steht nach der Buchung fest)."
+msgstr "Estimado: aprox. %1 (el importe exacto se fija tras el registro)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Sie haben diesen Kurs selbst bestätigt und dürfen damit keine Spende für sich selbst umrechnen. Bitte eine andere Person buchen lassen."
+msgstr "Usted confirmó este precio y no puede convertir con él una donación para sí mismo. Pida a otra persona que lo registre."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Kurs für den %1 (Kurstag %2) in %3 je %4. Der Kurs kann danach nicht mehr geändert werden."
+msgstr "Precio del %1 (día de precio %2) en %3 por %4. Después el precio ya no se puede cambiar."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Kurs"
+msgstr "Precio"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Beleg (Quelle und Begründung)"
+msgstr "Justificante (fuente y motivo)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Ich bestätige, dass der Kurs deutlich vom gespeicherten Kurs dieses Tages abweicht"
+msgstr "Confirmo que el precio se desvía considerablemente del precio almacenado de este día"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Kurs bestätigen"
+msgstr "Confirmar precio"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Bitte einen positiven Kurs und einen Beleg mit %1 bis %2 Zeichen angeben."
+msgstr "Indique un precio positivo y un justificante de %1 a %2 caracteres."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Der Kurs weicht stark vom gespeicherten Kurs ab. Bitte die Abweichung bestätigen oder den Kurs prüfen."
+msgstr "El precio se desvía mucho del precio almacenado. Confirme la desviación o revise el precio."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Kurs bestätigt."
+msgstr "Precio confirmado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Wochenende"
+msgstr "fin de semana"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Feiertag"
+msgstr "festivo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Für diesen Tag liegt kein gespeicherter Kurs vor."
+msgstr "No hay ningún precio almacenado para este día."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Die gespeicherten Kurse dieses Tages erfüllen das Mindest-Quorum nicht."
+msgstr "Los precios almacenados de este día no alcanzan el quórum mínimo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Das Mindest-Quorum war erfüllt, aber nicht alle Quellen waren verfügbar (Status nicht LIVE). Der Kurs muss manuell bestätigt werden."
+msgstr "Se alcanzó el quórum mínimo, pero no todas las fuentes estaban disponibles (estado distinto de LIVE). El precio debe confirmarse manualmente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Für diesen Tag fehlen die Einzelwerte der Quellen (älterer Kursverlauf). Der Kurs muss manuell bestätigt werden."
+msgstr "Faltan los valores individuales de las fuentes de este día (historial de precios antiguo). El precio debe confirmarse manualmente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Aktueller Kurs"
+msgstr "Precio actual"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Goldpreis zum Stichtag"
+msgstr "Precio del oro en la fecha de referencia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Gespeicherter Kurs des Stichtags"
+msgstr "Precio almacenado de la fecha de referencia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Manuell bestätigter Kurs"
+msgstr "Precio confirmado manualmente"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Umrechnungskurs"
+msgstr "Tipo de conversión"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Jede Spende wird zum Goldpreis eines gewählten Stichtags umgerechnet (nur beim Anker Gold). Der Kurs kommt aus dem gespeicherten Kursverlauf; fehlt er, muss er mit Beleg manuell bestätigt werden."
+msgstr "Cada donación se convierte al precio del oro de una fecha de referencia elegida (solo con ancla de oro). El precio procede del historial de precios almacenado; si falta, debe confirmarse manualmente con justificante."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Ohne Kursverlauf muss jeder Stichtagskurs manuell bestätigt werden."
+msgstr "Sin historial de precios, cada precio de fecha de referencia debe confirmarse manualmente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Jede Spende wird zum aktuellen Kurs umgerechnet, der beim Bestätigen live abgefragt wird."
+msgstr "Cada donación se convierte al precio actual, que se consulta en directo al confirmar."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Grundlage: %1, Stichtag %2, Kurstag %3"
+msgstr "Base: %1, fecha de referencia %2, día de precio %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Stichtagskurs bestätigt"
+msgstr "Precio de fecha de referencia confirmado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Spendenumrechnung zum Stichtag"
+msgstr "Conversión de donación en la fecha de referencia"

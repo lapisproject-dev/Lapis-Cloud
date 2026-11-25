@@ -4,6 +4,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
+import network.lapis.cloud.server.db.generated.PriceOracleReferenceRateTable
 import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
@@ -31,7 +32,7 @@ import kotlin.uuid.Uuid
 object PriceOraclePersonalData : MemberPersonalDataContributor {
     override val sectionKey = "priceOracleConversions"
     override val displayName = "Price-Oracle-Konvertierungen"
-    override val coveredTables = setOf(PriceOracleConversionTable)
+    override val coveredTables = setOf(PriceOracleConversionTable, PriceOracleReferenceRateTable)
 
     override fun exportMember(memberId: Uuid) =
         buildJsonObject {
@@ -47,6 +48,25 @@ object PriceOraclePersonalData : MemberPersonalDataContributor {
                     .where { PriceOracleConversionTable.createdById eq memberId }
                     .forEach { row -> add(conversionSummaryJson(row)) }
             }
+            // V1.9.324: the manual reference rates this member confirmed -- date, rate and the length of the evidence text (the text itself stays with
+            // the booking record, it is the treasurer's justification for a financial entry, not data about the person).
+            putJsonArray("referenceRatesConfirmed") {
+                PriceOracleReferenceRateTable
+                    .selectAll()
+                    .where { PriceOracleReferenceRateTable.confirmedBy eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("id", row[PriceOracleReferenceRateTable.id].toString())
+                                put("anchorAsset", row[PriceOracleReferenceRateTable.anchorAsset].name)
+                                put("effectiveDate", row[PriceOracleReferenceRateTable.effectiveDate].toString())
+                                put("price", row[PriceOracleReferenceRateTable.price].toPlainString())
+                                put("evidenceLength", row[PriceOracleReferenceRateTable.evidenceText].length)
+                                put("confirmedAt", row[PriceOracleReferenceRateTable.confirmedAt].toString())
+                            },
+                        )
+                    }
+            }
         }
 
     override fun eraseMember(
@@ -55,11 +75,17 @@ object PriceOraclePersonalData : MemberPersonalDataContributor {
     ): List<TableErasureOutcome> {
         val condition = (PriceOracleConversionTable.memberId eq memberId) or (PriceOracleConversionTable.createdById eq memberId)
         val total = PriceOracleConversionTable.selectAll().where { condition }.count()
+        val confirmed = PriceOracleReferenceRateTable.selectAll().where { PriceOracleReferenceRateTable.confirmedBy eq memberId }.count()
         return listOf(
             TableErasureOutcome(
                 table = "price_oracle_conversion",
                 rowsRetained = total.toInt(),
                 retentionReason = "Finanzielle Provenienz-/Auditspur fuer einen LTR-Mint -- keine Loeschung/Anonymisierung.",
+            ),
+            TableErasureOutcome(
+                table = "price_oracle_reference_rate",
+                rowsRetained = confirmed.toInt(),
+                retentionReason = "GoBD-Aufbewahrung: Beleg (Kurs und Begruendung) einer LTR-Ausgabe -- keine Loeschung/Anonymisierung.",
             ),
         )
     }

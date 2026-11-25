@@ -43,6 +43,11 @@
 // single unkeyed slot) -- both were latent bugs that would have let e.g. a BTC price be served as a
 // gold price the moment a second anchor existed.
 //
+// **Reference-date rates (V171, V1.9.324)**: `price_oracle_config.conversion_rate_basis` (CURRENT by default) can switch donation conversions
+// to the closing rate of a chosen reference date. The rate comes from the stored hourly snapshots (`price_oracle_snapshot` plus the raw
+// values in `price_oracle_snapshot_source`) or, when none qualifies, from a manually confirmed `price_oracle_reference_rate`. A conversion
+// records how its rate was found (`rate_basis`, `reference_date`, `effective_date`, `fallback_reason`, `snapshot_id` / `reference_rate_id`).
+//
 // **price_oracle_config is a single-row, ADMIN-tunable policy row** -- same "exactly one row by
 // convention, seeded once with a fixed sentinel id" idiom `organization_settings`
 // (11-organization-settings.kuml.kts)/`crowdfunding_submission_gate` (17-crowdfunding.kuml.kts)
@@ -141,6 +146,24 @@ classDiagram(name = "PriceOracle") {
     }
 
     // Single-row, ADMIN-tunable oracle policy -- see file header. No FK to Member at all.
+    // V171 (V1.9.324): "Goldpreis zum Stichtag" -- see the "Reference-date rates" paragraph in the file header.
+    val conversionRateBasisEnum = enumOf(name = "ConversionRateBasis") {
+        literal(name = "CURRENT")
+        literal(name = "REFERENCE_DATE")
+    }
+
+    val referenceRateBasisEnum = enumOf(name = "ReferenceRateBasis") {
+        literal(name = "CURRENT")
+        literal(name = "SNAPSHOT")
+        literal(name = "MANUAL")
+    }
+
+    val referenceDateFallbackEnum = enumOf(name = "ReferenceDateFallback") {
+        literal(name = "NONE")
+        literal(name = "WEEKEND")
+        literal(name = "HOLIDAY")
+    }
+
     val priceOracleConfig = classOf(name = "PriceOracleConfig") {
         stereotype("Entity") { "tableName" to "price_oracle_config"; "kotlinObjectName" to "PriceOracleConfigTable" }
 
@@ -177,6 +200,14 @@ classDiagram(name = "PriceOracle") {
         }
         attribute(name = "updatedAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "updated_at" }
+        }
+        // V171: the switch. CURRENT keeps every conversion on the live quote exactly as before.
+        attribute(name = "conversionRateBasis", type = conversionRateBasisEnum) {
+            defaultValue = "CURRENT"
+            stereotype("Column") {
+                "columnName" to "conversion_rate_basis"
+                "enumType" to "network.lapis.cloud.shared.domain.ConversionRateBasis"
+            }
         }
     }
 
@@ -251,6 +282,41 @@ classDiagram(name = "PriceOracle") {
         attribute(name = "createdAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "created_at" }
         }
+        // ---- V171 rate provenance for a reference-date conversion (CURRENT and all NULL for an ordinary conversion) ----
+        attribute(name = "rateBasis", type = referenceRateBasisEnum) {
+            defaultValue = "CURRENT"
+            stereotype("Column") {
+                "columnName" to "rate_basis"
+                "enumType" to "network.lapis.cloud.shared.domain.ReferenceRateBasis"
+            }
+        }
+        attribute(name = "referenceDate", type = "LocalDate") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reference_date" }
+        }
+        attribute(name = "effectiveDate", type = "LocalDate") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "effective_date" }
+        }
+        attribute(name = "fallbackReason", type = referenceDateFallbackEnum) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") {
+                "columnName" to "fallback_reason"
+                "enumType" to "network.lapis.cloud.shared.domain.ReferenceDateFallback"
+            }
+        }
+        attribute(name = "snapshotId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "snapshot_id"; "fkEntity" to "PriceOracleSnapshot" }
+        }
+        attribute(name = "referenceRateId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reference_rate_id"; "fkEntity" to "PriceOracleReferenceRate" }
+        }
+        attribute(name = "quorumRequired", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "quorum_required" }
+        }
     }
 
     // Persistent price-history snapshot -- see file header "Welle: Preishistorie". No FK to
@@ -304,6 +370,84 @@ classDiagram(name = "PriceOracle") {
         // When the poller actually wrote this row. See file header.
         attribute(name = "capturedAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "captured_at" }
+        }
+    }
+
+    // V171: the raw source values behind a stored snapshot. Written only by PriceOracleSnapshotStore (same transaction as the snapshot), only for
+    // snapshots taken from V171 on. `included` is false for a value that was dropped as implausible or as an outlier.
+    val priceOracleSnapshotSource = classOf(name = "PriceOracleSnapshotSource") {
+        stereotype("Entity") { "tableName" to "price_oracle_snapshot_source"; "kotlinObjectName" to "PriceOracleSnapshotSourceTable" }
+        stereotype("Index") {
+            "columns" to listOf("snapshot_id", "source_id")
+            "unique" to true
+            "name" to "uq_price_oracle_snapshot_source"
+        }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "snapshotId", type = "UUID") {
+            stereotype("Column") { "columnName" to "snapshot_id"; "fkEntity" to "PriceOracleSnapshot" }
+        }
+        attribute(name = "sourceId", type = "String") {
+            stereotype("Column") { "columnName" to "source_id"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "rawPrice", type = "BigDecimal") {
+            stereotype("Column") { "columnName" to "raw_price"; "sqlType" to "DECIMAL(38,18)" }
+        }
+        attribute(name = "observedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "observed_at" }
+        }
+        attribute(name = "included", type = "Boolean") {
+            stereotype("Column") { "columnName" to "included" }
+        }
+    }
+
+    // V171: a manually confirmed rate for (anchor, currency, effective date). Written only by PriceOracleReferenceRateStore; never updated or deleted.
+    val priceOracleReferenceRate = classOf(name = "PriceOracleReferenceRate") {
+        stereotype("Entity") { "tableName" to "price_oracle_reference_rate"; "kotlinObjectName" to "PriceOracleReferenceRateTable" }
+        stereotype("Index") {
+            "columns" to listOf("anchor_asset", "donation_currency", "effective_date")
+            "unique" to true
+            "name" to "uq_price_oracle_reference_rate"
+        }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "anchorAsset", type = anchorAssetEnum) {
+            stereotype("Column") {
+                "columnName" to "anchor_asset"
+                "enumType" to "network.lapis.cloud.shared.domain.AnchorAsset"
+            }
+        }
+        attribute(name = "donationCurrency", type = "String") {
+            stereotype("Column") { "columnName" to "donation_currency"; "sqlType" to "VARCHAR(3)" }
+        }
+        attribute(name = "effectiveDate", type = "LocalDate") {
+            stereotype("Column") { "columnName" to "effective_date" }
+        }
+        attribute(name = "price", type = "BigDecimal") {
+            stereotype("Column") { "columnName" to "price"; "sqlType" to "DECIMAL(38,18)" }
+        }
+        attribute(name = "evidenceText", type = "String") {
+            stereotype("Column") { "columnName" to "evidence_text"; "sqlType" to "VARCHAR(2000)" }
+        }
+        attribute(name = "confirmedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "confirmed_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "confirmedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "confirmed_at" }
+        }
+        attribute(name = "referenceSnapshotMedian", type = "BigDecimal") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reference_snapshot_median"; "sqlType" to "DECIMAL(38,18)" }
+        }
+        attribute(name = "deviationAcknowledged", type = "Boolean") {
+            defaultValue = "false"
+            stereotype("Column") { "columnName" to "deviation_acknowledged" }
         }
     }
 

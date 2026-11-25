@@ -1,6 +1,7 @@
 package network.lapis.cloud.shared.domain
 
 import dev.kilua.rpc.types.Decimal
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
 
@@ -125,6 +126,10 @@ data class PriceOracleConfigDto(
     val outlierThresholdBps: Int,
     val maxSpreadBps: Int,
     val updatedAt: LocalDateTime,
+    /** V1.9.324: which rate a donation conversion uses -- the current quote (default, unchanged) or the closing rate of a reference date. */
+    val conversionRateBasis: ConversionRateBasis = ConversionRateBasis.CURRENT,
+    /** V1.9.324: read-only hint for the form -- whether the hourly snapshot poller is enabled on this server (without it, every reference-date rate must be confirmed by hand). */
+    val snapshotPollerEnabled: Boolean = false,
 )
 
 /** Replaces every field of the single [PriceOracleConfigDto] row wholesale (no partial update). Role: ADMIN only -- see [PriceOracleConfigDto] KDoc "SSRF invariant". */
@@ -137,6 +142,8 @@ data class PriceOracleConfigInput(
     val minQuorum: Int,
     val outlierThresholdBps: Int,
     val maxSpreadBps: Int,
+    /** V1.9.324: `null` leaves the stored switch unchanged (an older client that does not know the field must never reset it). */
+    val conversionRateBasis: ConversionRateBasis? = null,
 )
 
 /**
@@ -166,6 +173,12 @@ data class DonationConversionInput(
     val memberId: String,
     val donationAmount: Decimal,
     val note: String? = null,
+    /** V1.9.324: required in mode [ConversionRateBasis.REFERENCE_DATE], forbidden in mode CURRENT. */
+    val referenceDate: LocalDate? = null,
+    /** V1.9.324: the price the treasurer saw in the preview; the server refuses if the resolved price differs (compared numerically). */
+    val expectedPrice: Decimal? = null,
+    /** V1.9.324: the snapshot id or manual-rate id the treasurer saw in the preview. */
+    val expectedRateRefId: String? = null,
 )
 
 /**
@@ -192,6 +205,13 @@ data class PriceOracleConversionDto(
     val ltrLedgerEntryId: String,
     val createdById: String?,
     val createdAt: LocalDateTime,
+    val rateBasis: ReferenceRateBasis = ReferenceRateBasis.CURRENT,
+    val referenceDate: LocalDate? = null,
+    val effectiveDate: LocalDate? = null,
+    val fallbackReason: ReferenceDateFallback? = null,
+    val snapshotId: String? = null,
+    val referenceRateId: String? = null,
+    val quorumRequired: Int? = null,
 )
 
 /**
@@ -230,3 +250,74 @@ data class PriceSnapshotDto(
     val priceTimestamp: LocalDateTime,
     val capturedAt: LocalDateTime,
 )
+
+/** V1.9.324: which rate [network.lapis.cloud.shared.rpc.IPriceOracleService.convertDonationToLtr] uses. Additively extensible. */
+@Serializable
+enum class ConversionRateBasis { CURRENT, REFERENCE_DATE }
+
+/** V1.9.324: where a stored conversion's rate came from -- [CURRENT] (live quote, the historical behaviour), [SNAPSHOT] (stored hourly snapshot of the reference day) or [MANUAL] (a confirmed manual reference rate). */
+@Serializable
+enum class ReferenceRateBasis { CURRENT, SNAPSHOT, MANUAL }
+
+/** V1.9.324: why the rate of an earlier trading day was used for the requested reference date. */
+@Serializable
+enum class ReferenceDateFallback { NONE, WEEKEND, HOLIDAY }
+
+/** V1.9.324: result of resolving a reference-date rate. Everything except [RESOLVED] means no automatic rate exists. */
+@Serializable
+enum class ReferenceRateOutcome { RESOLVED, NO_DATA, QUORUM_MISSING, STATUS_NOT_LIVE, RAW_VALUES_MISSING }
+
+/** V1.9.324: one raw source value that went into a stored snapshot (visible to treasurer/board/admin only). */
+@Serializable
+data class ReferenceRateSourceDto(
+    val sourceId: String,
+    val rawPrice: Decimal,
+    val observedAt: LocalDateTime,
+    val included: Boolean,
+)
+
+/** V1.9.324: the server's answer to "which rate applies for this reference date" -- the preview, and the result of a manual confirmation. */
+@Serializable
+data class ReferenceRateResolutionDto(
+    val referenceDate: LocalDate,
+    val effectiveDate: LocalDate,
+    val fallbackReason: ReferenceDateFallback,
+    val outcome: ReferenceRateOutcome,
+    val basis: ReferenceRateBasis? = null,
+    val price: Decimal? = null,
+    val snapshotId: String? = null,
+    val referenceRateId: String? = null,
+    val sources: List<ReferenceRateSourceDto> = emptyList(),
+    val quorumRequired: Int = 0,
+    /** Median of an older snapshot that has no raw values: shown as a hint only, never used as the rate. */
+    val legacyMedianHint: Decimal? = null,
+    val confirmedByDisplayName: String? = null,
+    val confirmedAt: LocalDateTime? = null,
+    val evidenceText: String? = null,
+    /** True when the asking member confirmed this manual rate himself and must not convert his own donation with it. */
+    val selfConfirmationBlocked: Boolean = false,
+    /** Deviation of a manual rate from the comparison median in basis points, if there was a comparison value. */
+    val deviationBpsFromSnapshot: Int? = null,
+    /** Median of the latest stored snapshot of that day, whatever its status -- the yardstick for a manual rate, never a rate itself. */
+    val comparisonMedian: Decimal? = null,
+)
+
+/** V1.9.324: a manual reference rate. Anchor and currency always come from the server's configuration, never from the client. */
+@Serializable
+data class ReferenceRateConfirmationInput(
+    val referenceDate: LocalDate,
+    val price: Decimal,
+    val evidenceText: String,
+    val acknowledgeDeviation: Boolean = false,
+)
+
+/** V1.9.324: limits shared by client and server (never duplicate a server constant). */
+object ReferenceRateRules {
+    const val EVIDENCE_MIN = 20
+    const val EVIDENCE_MAX = 2000
+
+    /** The earliest reference date the server accepts. */
+    fun earliest(): LocalDate = LocalDate(2000, 1, 1)
+
+    fun normalizeEvidence(text: String): String = text.trim()
+}

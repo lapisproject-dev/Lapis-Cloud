@@ -7,6 +7,8 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.PriceOracleConfigTable
 import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
+import network.lapis.cloud.server.db.generated.PriceOracleReferenceRateTable
+import network.lapis.cloud.server.db.generated.PriceOracleSnapshotSourceTable
 import network.lapis.cloud.server.db.generated.PriceOracleSnapshotTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -35,9 +37,16 @@ class PriceOracleSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the three price-oracle entities plus the Member stub") {
+        test("model declares exactly the five price-oracle entities plus the Member stub") {
             model.entities.map { it.name }.toSet() shouldBe
-                setOf("member", "price_oracle_config", "price_oracle_conversion", "price_oracle_snapshot")
+                setOf(
+                    "member",
+                    "price_oracle_config",
+                    "price_oracle_conversion",
+                    "price_oracle_snapshot",
+                    "price_oracle_snapshot_source",
+                    "price_oracle_reference_rate",
+                )
         }
 
         // ── price_oracle_config ───────────────────────────────────────────────
@@ -152,6 +161,66 @@ class PriceOracleSchemaDriftTest :
                     values = listOf("LIVE", "DEGRADED", "CACHED", "DEFERRED"),
                     externalFqName = "network.lapis.cloud.shared.domain.PriceStatus",
                 )
+        }
+
+        // ── V171 (V1.9.324): reference-date rates ─────────────────────────────
+
+        test("price_oracle_config has the conversion_rate_basis switch with the two literals CURRENT, REFERENCE_DATE") {
+            val entity = model.entities.single { it.name == "price_oracle_config" }
+            entity.attributeByName("conversion_rate_basis")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "ConversionRateBasis",
+                    values = listOf("CURRENT", "REFERENCE_DATE"),
+                    externalFqName = "network.lapis.cloud.shared.domain.ConversionRateBasis",
+                )
+            entity.attributeByName("conversion_rate_basis")?.nullable shouldBe false
+        }
+
+        test("price_oracle_conversion carries the rate provenance columns; snapshot and rate are real FKs, the rest nullable") {
+            val entity = model.entities.single { it.name == "price_oracle_conversion" }
+            val real = transaction { introspectPriceOracleTable("price_oracle_conversion") }
+            real.foreignKeys["snapshot_id"] shouldBe "price_oracle_snapshot"
+            real.foreignKeys["reference_rate_id"] shouldBe "price_oracle_reference_rate"
+            model.entityNameOf(entity.attributeByName("snapshot_id")?.foreignKey?.targetEntityId ?: "") shouldBe "price_oracle_snapshot"
+            model.entityNameOf(entity.attributeByName("reference_rate_id")?.foreignKey?.targetEntityId ?: "") shouldBe
+                "price_oracle_reference_rate"
+            listOf("reference_date", "effective_date", "fallback_reason", "snapshot_id", "reference_rate_id", "quorum_required").forEach {
+                withClue(clue = "column '$it'") { entity.attributeByName(it)?.nullable shouldBe true }
+            }
+            entity.attributeByName("rate_basis")?.nullable shouldBe false
+            entity.attributeByName("rate_basis")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "ReferenceRateBasis",
+                    values = listOf("CURRENT", "SNAPSHOT", "MANUAL"),
+                    externalFqName = "network.lapis.cloud.shared.domain.ReferenceRateBasis",
+                )
+        }
+
+        test("price_oracle_snapshot_source table shape matches the real migrated schema and PriceOracleSnapshotSourceTable 1:1") {
+            val entity = model.entities.single { it.name == "price_oracle_snapshot_source" }
+            val real = transaction { introspectPriceOracleTable("price_oracle_snapshot_source") }
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.forEach { attr ->
+                withClue(clue = "column '${attr.name}'") { real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable }
+            }
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder PriceOracleSnapshotSourceTable.columns.map { it.name }
+            real.primaryKeyColumns shouldBe setOf("id")
+            real.foreignKeys shouldBe mapOf("snapshot_id" to "price_oracle_snapshot")
+            entity.attributeByName("raw_price")?.type shouldBe ErmDataType.Decimal(38, 18)
+        }
+
+        test("price_oracle_reference_rate table shape matches the real migrated schema and PriceOracleReferenceRateTable 1:1") {
+            val entity = model.entities.single { it.name == "price_oracle_reference_rate" }
+            val real = transaction { introspectPriceOracleTable("price_oracle_reference_rate") }
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.forEach { attr ->
+                withClue(clue = "column '${attr.name}'") { real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable }
+            }
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder PriceOracleReferenceRateTable.columns.map { it.name }
+            real.primaryKeyColumns shouldBe setOf("id")
+            real.foreignKeys shouldBe mapOf("confirmed_by" to "member")
+            entity.attributeByName("price")?.type shouldBe ErmDataType.Decimal(38, 18)
+            entity.attributeByName("reference_snapshot_median")?.nullable shouldBe true
         }
     })
 

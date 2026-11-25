@@ -1234,3 +1234,16 @@ dto:AuctionOfferDto.buyerBlockedUntil	A	stamped by the server clock (DbClock/Ser
 dto:AuctionFiatAuditSnapshot.blockedUntil	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AuctionOfferBuyerRestrictionTable.blockedUntil	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AuctionOfferBuyerRestrictionTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PriceOracleConversionDto.referenceDate	D	calendar date (LocalDate); never converted
+dto:PriceOracleConversionDto.effectiveDate	D	calendar date (LocalDate); never converted
+dto:DonationConversionInput.referenceDate	D	calendar date (LocalDate); never converted
+dto:ReferenceRateSourceDto.observedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ReferenceRateResolutionDto.referenceDate	D	calendar date (LocalDate); never converted
+dto:ReferenceRateResolutionDto.effectiveDate	D	calendar date (LocalDate); never converted
+dto:ReferenceRateResolutionDto.confirmedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ReferenceRateConfirmationInput.referenceDate	D	calendar date (LocalDate); never converted
+col:PriceOracleConversionTable.referenceDate	D	calendar date (LocalDate); never converted
+col:PriceOracleConversionTable.effectiveDate	D	calendar date (LocalDate); never converted
+col:PriceOracleSnapshotSourceTable.observedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PriceOracleReferenceRateTable.effectiveDate	D	calendar date (LocalDate); never converted
+col:PriceOracleReferenceRateTable.confirmedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

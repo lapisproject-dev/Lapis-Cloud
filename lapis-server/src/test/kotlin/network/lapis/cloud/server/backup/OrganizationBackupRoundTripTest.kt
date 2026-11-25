@@ -28,6 +28,11 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostingTable
+import network.lapis.cloud.server.db.generated.PriceOracleConfigTable
+import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
+import network.lapis.cloud.server.db.generated.PriceOracleReferenceRateTable
+import network.lapis.cloud.server.db.generated.PriceOracleSnapshotSourceTable
+import network.lapis.cloud.server.db.generated.PriceOracleSnapshotTable
 import network.lapis.cloud.server.db.generated.PulpitRecordingDocumentTable
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.security.CurrentMember
@@ -35,12 +40,14 @@ import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.AgreementTextRules
+import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.BackupOperationStatus
 import network.lapis.cloud.shared.domain.BackupOperationType
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.ConferenceBroadcastView
+import network.lapis.cloud.shared.domain.ConversionRateBasis
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventStatus
@@ -51,6 +58,9 @@ import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PostingSide
+import network.lapis.cloud.shared.domain.PriceStatus
+import network.lapis.cloud.shared.domain.ReferenceDateFallback
+import network.lapis.cloud.shared.domain.ReferenceRateBasis
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -327,6 +337,74 @@ class OrganizationBackupRoundTripTest :
                     it[consentVersion] = "2027-01-03.rec.v1"
                     it[consentSha256] = "e".repeat(64)
                     it[acknowledgedOn] = LocalDate(2027, 2, 1)
+                }
+
+                // V1.9.324 "Goldpreis zum Stichtag": the switch on the config row, a snapshot with raw source values, a manual reference rate and
+                // one conversion of each basis. All four tables are exported automatically (the schema is read from information_schema) and must come
+                // back bit-identical, foreign keys (source -> snapshot, conversion -> snapshot / rate, rate -> member) restored in dependency order.
+                val oracleSnapshotId = Uuid.random()
+                val oracleRateId = Uuid.random()
+                PriceOracleConfigTable.update({ PriceOracleConfigTable.id eq Uuid.parse("00000000-0000-0000-0000-0000000000f5") }) {
+                    it[conversionRateBasis] = ConversionRateBasis.REFERENCE_DATE
+                }
+                PriceOracleSnapshotTable.insert {
+                    it[id] = oracleSnapshotId
+                    it[anchorAsset] = AnchorAsset.GOLD_XAU
+                    it[donationCurrency] = "EUR"
+                    it[medianPrice] = BigDecimal("2012.345678901234567891")
+                    it[priceStatus] = PriceStatus.LIVE
+                    it[sourceCount] = 2
+                    it[sourcesUsed] = "goldapi,metalpriceapi"
+                    it[priceTimestamp] = LocalDateTime(2027, 1, 4, 15, 0)
+                    it[capturedAt] = LocalDateTime(2027, 1, 4, 15, 0)
+                }
+                listOf("goldapi" to true, "metalpriceapi" to true, "alphavantage" to false).forEachIndexed { i, (source, included) ->
+                    PriceOracleSnapshotSourceTable.insert {
+                        it[id] = Uuid.random()
+                        it[snapshotId] = oracleSnapshotId
+                        it[sourceId] = source
+                        it[rawPrice] = BigDecimal("2012.345678").add(BigDecimal(i))
+                        it[observedAt] = LocalDateTime(2027, 1, 4, 14, 59, 30)
+                        it[PriceOracleSnapshotSourceTable.included] = included
+                    }
+                }
+                PriceOracleReferenceRateTable.insert {
+                    it[id] = oracleRateId
+                    it[anchorAsset] = AnchorAsset.GOLD_XAU
+                    it[donationCurrency] = "EUR"
+                    it[effectiveDate] = LocalDate(2027, 1, 5)
+                    it[price] = BigDecimal("2020.5")
+                    it[evidenceText] = "Roundtrip: Kurs laut Bankbeleg vom 5. Januar"
+                    it[confirmedBy] = adminId
+                    it[confirmedAt] = LocalDateTime(2027, 1, 6, 9, 0)
+                    it[referenceSnapshotMedian] = BigDecimal("2012.345678901234567891")
+                    it[deviationAcknowledged] = true
+                }
+                listOf(ReferenceRateBasis.SNAPSHOT, ReferenceRateBasis.MANUAL).forEach { basis ->
+                    PriceOracleConversionTable.insert {
+                        it[id] = Uuid.random()
+                        it[memberId] = adminId
+                        it[donationAmount] = BigDecimal("10.00")
+                        it[donationCurrency] = "EUR"
+                        it[anchorAsset] = AnchorAsset.GOLD_XAU
+                        it[anchorPrice] = BigDecimal("2012.345678")
+                        it[anchorUnitsPerLtr] = BigDecimal("0.0001")
+                        it[ltrMinted] = BigDecimal("49.69")
+                        it[priceStatus] = if (basis == ReferenceRateBasis.SNAPSHOT) PriceStatus.LIVE else PriceStatus.DEFERRED
+                        it[sourceCount] = if (basis == ReferenceRateBasis.SNAPSHOT) 2 else 0
+                        it[sourcesUsed] = if (basis == ReferenceRateBasis.SNAPSHOT) "goldapi,metalpriceapi" else "manual"
+                        it[priceTimestamp] = LocalDateTime(2027, 1, 4, 15, 0)
+                        it[ltrLedgerEntryId] = Uuid.random()
+                        it[createdById] = adminId
+                        it[createdAt] = LocalDateTime(2027, 1, 6, 9, 30)
+                        it[rateBasis] = basis
+                        it[referenceDate] = LocalDate(2027, 1, 4)
+                        it[effectiveDate] = LocalDate(2027, 1, 4)
+                        it[fallbackReason] = ReferenceDateFallback.NONE
+                        it[snapshotId] = if (basis == ReferenceRateBasis.SNAPSHOT) oracleSnapshotId else null
+                        it[referenceRateId] = if (basis == ReferenceRateBasis.MANUAL) oracleRateId else null
+                        it[quorumRequired] = 2
+                    }
                 }
 
                 AuditLogRecorder.record(

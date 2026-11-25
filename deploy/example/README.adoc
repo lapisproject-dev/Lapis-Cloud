@@ -1875,6 +1875,8 @@ enabled on any production deployment. Without it, `price_oracle_snapshot` stays 
 and `getPriceHistory` silently returns `[]` to every caller, with no error and no log.
 `LAPIS_ORACLE_SNAPSHOT_INTERVAL_SECONDS` (default 3600, floor 300) tunes the poll interval.
 
+**Gold price at a reference date (V1.9.324):** the switch "conversion rate" is a database setting (price oracle configuration, administrator), not an environment variable. `LAPIS_ORACLE_SNAPSHOT_ENABLED=true` is the precondition for *automatic* reference-date rates: the raw source values behind each snapshot are stored from schema V171 on, and older snapshots have none (such a day needs a manually confirmed rate). Without the poller every reference-date rate is manual.
+
 **Set `LAPIS_ORACLE_SNAPSHOT_ENABLED=true` on at most one instance**, exactly like
 `LAPIS_SEPA_POLLER_ENABLED` below (Security-Audit finding "Kontingent-Erschoepfung durch
 Multi-Instanz-Betrieb", 2026-09-17) -- `recordIfAbsent`'s idempotency only covers the DATABASE

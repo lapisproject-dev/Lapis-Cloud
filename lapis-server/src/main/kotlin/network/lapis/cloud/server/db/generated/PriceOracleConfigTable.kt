@@ -6,6 +6,7 @@ import java.math.BigDecimal
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AnchorAsset
+import network.lapis.cloud.shared.domain.ConversionRateBasis
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.datetime.datetime
@@ -20,6 +21,8 @@ public object PriceOracleConfigTable : Table("price_oracle_config") {
     public val outlierThresholdBps: Column<Int> = integer("outlier_threshold_bps")
     public val maxSpreadBps: Column<Int> = integer("max_spread_bps")
     public val updatedAt: Column<LocalDateTime> = datetime("updated_at")
+    public val conversionRateBasis: Column<ConversionRateBasis> =
+        enumerationByName<ConversionRateBasis>("conversion_rate_basis", 14).default(ConversionRateBasis.CURRENT)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }
