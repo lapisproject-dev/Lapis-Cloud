@@ -173,7 +173,8 @@ class PaymentsRegressionScanTest :
             // V1.9.297: 14 with NOTICE_BOOST (the bulletin board; a member-to-notice debit, nothing Euro-adjacent).
             // V1.9.308: 15 with TENDER_PAYOUT (the tender payout, an issuance of LTR to the winner; nothing Euro-adjacent: EUR stays unreachable).
             // V1.9.316: 16 with MEETING_REWARD (the recognition for attending a Sitzung, an issuance of LTR; nothing Euro-adjacent: EUR stays unreachable).
-            LtrLedgerEntryType.entries.size shouldBe 16
+            // V1.9.325: 18 with TRAVEL_REFUND and TRAVEL_REFUND_REVERSE (the refund of a travel expense report in LTR, an issuance by the organisation and its reversal; EUR stays unreachable).
+            LtrLedgerEntryType.entries.size shouldBe 18
         }
     })
 

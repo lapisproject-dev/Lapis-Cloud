@@ -4,6 +4,7 @@ import io.kvision.i18n.tr
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
+import network.lapis.cloud.shared.domain.TravelExpenseLtrBlocker
 import network.lapis.cloud.shared.domain.TravelExpensePayoutChoice
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
 import network.lapis.cloud.shared.domain.TravelExpenseSepaBlocker
@@ -88,6 +89,7 @@ fun travelExpensePayoutChoiceLabel(choice: TravelExpensePayoutChoice): String =
     when (choice) {
         TravelExpensePayoutChoice.PAYOUT -> tr("Auszahlen")
         TravelExpensePayoutChoice.DONATION_WAIVER -> tr("Spendenquittung (Aufwandsverzicht)")
+        TravelExpensePayoutChoice.LTR -> tr("In LTR gutschreiben")
     }
 
 /** Weekday name for the day-grid legend; reuses the weekday msgids that already exist for the recurring-event editor. */
@@ -182,6 +184,8 @@ internal enum class TravelExpensePostingErrorCode(
     TRAVEL_ADVANCE_ACCOUNT_NOT_CONFIGURED("travel_advance_account_not_configured"),
     DONATION_WAIVER_ACCOUNT_NOT_CONFIGURED("donation_waiver_account_not_configured"),
     DONATION_WAIVER_ACCOUNT_NOT_INCOME_TYPE("donation_waiver_account_not_income_type"),
+    TRAVEL_LTR_PAYABLE_ACCOUNT_NOT_CONFIGURED("travel_ltr_payable_account_not_configured"),
+    TRAVEL_LTR_PAYABLE_ACCOUNT_NOT_LIABILITY_TYPE("travel_ltr_payable_account_not_liability_type"),
 }
 
 internal fun parseTravelExpensePostingErrorCode(raw: String): TravelExpensePostingErrorCode? =
@@ -212,6 +216,10 @@ fun travelExpensePostingErrorMessage(raw: String?): String {
             tr("Das Ertragskonto für Aufwandsspenden ist noch nicht zugeordnet -- bitte einen ADMIN informieren.")
         TravelExpensePostingErrorCode.DONATION_WAIVER_ACCOUNT_NOT_INCOME_TYPE ->
             tr("Das Konto für Aufwandsspenden hat den falschen Kontentyp -- bitte einen ADMIN informieren.")
+        TravelExpensePostingErrorCode.TRAVEL_LTR_PAYABLE_ACCOUNT_NOT_CONFIGURED ->
+            tr("Das Verbindlichkeitskonto für LTR-Erstattungen ist noch nicht zugeordnet -- bitte einen ADMIN informieren.")
+        TravelExpensePostingErrorCode.TRAVEL_LTR_PAYABLE_ACCOUNT_NOT_LIABILITY_TYPE ->
+            tr("Das Verbindlichkeitskonto für LTR-Erstattungen hat den falschen Kontentyp -- bitte einen ADMIN informieren.")
     }
 }
 
@@ -260,3 +268,34 @@ fun travelExpenseSepaHolderDiffers(
     holder: String?,
     memberName: String,
 ): Boolean = holder != null && holder.trim().lowercase() != memberName.trim().lowercase()
+
+/** V1.9.325 -- why a report cannot be credited in LTR (shown instead of a disabled button without a reason). */
+fun travelExpenseLtrBlockerText(blocker: TravelExpenseLtrBlocker): String =
+    when (blocker) {
+        TravelExpenseLtrBlocker.NOT_BOOKED -> tr("Die Abrechnung ist noch nicht gebucht.")
+        TravelExpenseLtrBlocker.NOT_LTR -> tr("Für diese Abrechnung wurde keine Erstattung in LTR gewählt.")
+        TravelExpenseLtrBlocker.NOTHING_PAYABLE -> tr("Es ist nichts auszuzahlen.")
+        TravelExpenseLtrBlocker.DISABLED -> tr("Die Erstattung in LTR ist derzeit ausgeschaltet.")
+        TravelExpenseLtrBlocker.OWN_REPORT -> tr("Die eigene Abrechnung kann nicht selbst gutgeschrieben werden.")
+        TravelExpenseLtrBlocker.REFERENCE_DATE_NOT_PAST ->
+            tr(
+                "Der Kurstag ist noch nicht vorüber. Frühestens am Tag nach dem Reiseende möglich.",
+            )
+        TravelExpenseLtrBlocker.ORACLE_NOT_READY -> tr("Das Preis-Orakel ist nicht auf Gold eingestellt.")
+        TravelExpenseLtrBlocker.ORACLE_NOT_EUR -> tr("Das Preis-Orakel rechnet nicht in Euro.")
+        TravelExpenseLtrBlocker.ACCOUNTS_MISSING -> tr("Die Konten für die LTR-Erstattung sind nicht vollständig eingerichtet.")
+        TravelExpenseLtrBlocker.ALREADY_PAID -> tr("Die Gutschrift wurde bereits ausgelöst.")
+        TravelExpenseLtrBlocker.RATE_MISSING -> tr("Für den Kurstag liegt kein Kurs vor. Bitte einen Kurs bestätigen.")
+        TravelExpenseLtrBlocker.AMOUNT_TOO_SMALL -> tr("Der Betrag ergibt weniger als 0,01 LTR.")
+        TravelExpenseLtrBlocker.RECIPIENT_NOT_ELIGIBLE -> tr("Die Person kann derzeit kein LTR empfangen.")
+        TravelExpenseLtrBlocker.SELF_CONFIRMED_RATE -> tr("Der Kurs wurde von der empfangenden Person selbst bestätigt.")
+    }
+
+/** Server wire codes of the LTR credit (`ConflictException` messages) mapped to a sentence; unknown codes are shown generically. */
+fun travelExpenseLtrErrorText(code: String?): String =
+    when (code) {
+        "LTR_PAYOUT_DISABLED" -> tr("Die Erstattung in LTR wird derzeit nicht angeboten.")
+        "rate_or_amount_changed" -> tr("Kurs oder Betrag haben sich seit der Vorschau geändert. Bitte die Vorschau erneut prüfen.")
+        "LTR_BALANCE_INSUFFICIENT" -> tr("Die Person hat das LTR schon ausgegeben. Der Storno ist deshalb nicht möglich.")
+        else -> tr("Die Aktion ist fehlgeschlagen.")
+    }

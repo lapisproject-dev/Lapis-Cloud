@@ -1247,3 +1247,12 @@ col:PriceOracleConversionTable.effectiveDate	D	calendar date (LocalDate); never 
 col:PriceOracleSnapshotSourceTable.observedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PriceOracleReferenceRateTable.effectiveDate	D	calendar date (LocalDate); never converted
 col:PriceOracleReferenceRateTable.confirmedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TravelExpenseLtrPayoutDto.referenceDate	D	calendar date (LocalDate); never converted
+dto:TravelExpenseLtrPayoutDto.effectiveDate	D	calendar date (LocalDate); never converted
+dto:TravelExpenseLtrPayoutDto.triggeredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TravelExpenseLtrPayoutDto.reversedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TravelExpenseLtrPreviewDto.referenceDate	D	calendar date (LocalDate); never converted
+col:TravelExpenseLtrPayoutTable.referenceDate	D	calendar date (LocalDate); never converted
+col:TravelExpenseLtrPayoutTable.effectiveDate	D	calendar date (LocalDate); never converted
+col:TravelExpenseLtrPayoutTable.triggeredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TravelExpenseLtrPayoutTable.reversedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

@@ -355,6 +355,18 @@ class TravelExpensePostingBridgeTest :
             }
         }
 
+        fun setLtr(
+            enabled: Boolean,
+            payableAccountId: Uuid?,
+        ) {
+            transaction {
+                OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                    it[travelLtrPayoutEnabled] = enabled
+                    it[travelLtrPayableAccountId] = payableAccountId
+                }
+            }
+        }
+
         suspend fun HttpClient.submittedReportWith(
             subjectId: Uuid,
             advanceCents: Long,
@@ -525,6 +537,58 @@ class TravelExpensePostingBridgeTest :
                 decided[2] shouldBe TravelExpenseReportStatus.EXECUTED.name
                 creditsOf(decided[13]) shouldBe mapOf(advanceAccount to BigDecimal("10.00"), waiverAccount to BigDecimal("20.00"))
                 setExtraMapping(null, null)
+            }
+        }
+
+        test(
+            "V1.9.325 LTR: the payable amount is credited to the liability account, never to the bank; no payable account / a wrong type degrade",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
+                    routing { registerTravelExpenseTestRoutes() }
+                }
+                val expenseAccount = newLedgerAccount(LedgerAccountType.EXPENSE)
+                val bankAccount = newLedgerAccount(LedgerAccountType.ASSET)
+                val advanceAccount = newLedgerAccount(LedgerAccountType.ASSET)
+                setMapping(expenseAccount, bankAccount)
+                setExtraMapping(advanceAccount, null)
+                setLtr(enabled = true, payableAccountId = null)
+                val subject = newMember()
+                val reportId = client.submittedReportWith(subject, advanceCents = 1000, payout = "LTR")
+                val first = client.decide(reportId)
+                first[2] shouldBe TravelExpenseReportStatus.APPROVED.name
+                first[14] shouldBe "travel_ltr_payable_account_not_configured"
+
+                setLtr(enabled = true, payableAccountId = newLedgerAccount(LedgerAccountType.EXPENSE))
+                val second =
+                    client.post("/test/travelexpense/retry?id=$reportId") { header("X-Member-Id", ADMIN_ID) }.bodyAsText().split("|")
+                second[14] shouldBe "travel_ltr_payable_account_not_liability_type"
+
+                val liability = newLedgerAccount(LedgerAccountType.LIABILITY)
+                setLtr(enabled = true, payableAccountId = liability)
+                val third =
+                    client.post("/test/travelexpense/retry?id=$reportId") { header("X-Member-Id", ADMIN_ID) }.bodyAsText().split("|")
+                third[2] shouldBe TravelExpenseReportStatus.EXECUTED.name
+                creditsOf(third[13]) shouldBe mapOf(advanceAccount to BigDecimal("10.00"), liability to BigDecimal("20.00"))
+                setLtr(enabled = false, payableAccountId = null)
+                setExtraMapping(null, null)
+            }
+        }
+
+        test("V1.9.325 LTR cannot be chosen while the switch is off") {
+            testApplication {
+                application {
+                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
+                    routing { registerTravelExpenseTestRoutes() }
+                }
+                setLtr(enabled = false, payableAccountId = null)
+                val subject = newMember()
+                val response =
+                    client.post(
+                        "/test/travelexpense/create?subjectMemberId=$subject&purpose=Reise&from=2026-01-05&to=2026-01-05&advance=0&payout=LTR",
+                    ) { header("X-Member-Id", subject.toString()) }
+                response.status shouldBe io.ktor.http.HttpStatusCode.Conflict
             }
         }
     })

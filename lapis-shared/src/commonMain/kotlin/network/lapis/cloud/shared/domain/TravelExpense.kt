@@ -42,9 +42,73 @@ enum class TravelExpenseLineKind {
         get() = this == RECEIPTED || this == PUBLIC_TRANSPORT || this == ACCOMMODATION || this == HOSPITALITY || this == OTHER
 }
 
-/** V1.9.122 -- how the member wants the reimbursement settled. Literal order load-bearing (append only). */
+/**
+ * V1.9.122 -- how the member wants the reimbursement settled. Literal order load-bearing (append only).
+ * V1.9.325: [LTR] -- the payable amount is credited as LTR at the gold price of the day the trip ended (an issuance by the organisation, no bank
+ * transfer). Only offered while the organisation has switched it on.
+ */
 @Serializable
-enum class TravelExpensePayoutChoice { PAYOUT, DONATION_WAIVER }
+enum class TravelExpensePayoutChoice { PAYOUT, DONATION_WAIVER, LTR }
+
+/** V1.9.325 -- why a travel expense report cannot (yet) be credited in LTR. Literal order append only. */
+@Serializable
+enum class TravelExpenseLtrBlocker {
+    NOT_BOOKED,
+    NOT_LTR,
+    NOTHING_PAYABLE,
+    DISABLED,
+    OWN_REPORT,
+    REFERENCE_DATE_NOT_PAST,
+    ORACLE_NOT_READY,
+    ORACLE_NOT_EUR,
+    ACCOUNTS_MISSING,
+    ALREADY_PAID,
+    RATE_MISSING,
+    AMOUNT_TOO_SMALL,
+    RECIPIENT_NOT_ELIGIBLE,
+    SELF_CONFIRMED_RATE,
+}
+
+/**
+ * V1.9.325 -- one LTR credit of a report (one row per attempt). Reasons are not shown to the member. [sources] are the raw values behind a
+ * snapshot rate; empty for a manual rate.
+ */
+@Serializable
+data class TravelExpenseLtrPayoutDto(
+    val id: String,
+    val attemptNo: Int,
+    val eurCents: Long,
+    val ltrAmount: Decimal,
+    val referenceDate: LocalDate,
+    val effectiveDate: LocalDate,
+    val fallbackReason: ReferenceDateFallback,
+    val rateBasis: ReferenceRateBasis,
+    val price: Decimal,
+    val anchorAsset: AnchorAsset,
+    val currency: String,
+    val anchorUnitsPerLtr: Decimal,
+    val sources: List<ReferenceRateSourceDto> = emptyList(),
+    val triggeredAt: LocalDateTime,
+    val triggeredByDisplayName: String,
+    val rateConfirmedByDisplayName: String? = null,
+    val ledgerEntryId: String,
+    val reversedAt: LocalDateTime? = null,
+    val reversedByDisplayName: String? = null,
+)
+
+/** V1.9.325 -- what a credit would do right now. [fingerprint] binds the execution to exactly this rate and amount. */
+@Serializable
+data class TravelExpenseLtrPreviewDto(
+    val reportId: String,
+    val eurCents: Long,
+    val referenceDate: LocalDate,
+    val resolution: ReferenceRateResolutionDto,
+    val ltrAmount: Decimal? = null,
+    val fingerprint: String? = null,
+    val blocker: TravelExpenseLtrBlocker? = null,
+    /** `true` once an earlier credit was reversed: a new credit needs a reason. */
+    val requiresRepeatReason: Boolean = false,
+)
 
 @Serializable
 data class TravelExpenseReceiptDto(
@@ -165,6 +229,11 @@ data class TravelExpenseReportDto(
     val sepaReference: String? = null,
     /** V1.9.198: report-level attachments; additive with a default (wire compatible). */
     val attachments: List<TravelExpenseAttachmentDto> = emptyList(),
+    /** V1.9.325: the newest LTR credit row (active or reversed); `null` while there is none. */
+    val ltrPayout: TravelExpenseLtrPayoutDto? = null,
+    val ltrReversedCount: Int = 0,
+    /** Filled for TREASURER/BOARD/ADMIN callers only; `null` == the report may be credited in LTR (or is not an LTR report). */
+    val ltrBlocker: TravelExpenseLtrBlocker? = null,
 )
 
 /**
@@ -301,6 +370,10 @@ data class TravelExpenseRatesDto(
     val documents: List<TravelExpenseDocumentDto> = emptyList(),
     /** BOARD or ADMIN: may upload, rename and delete [documents]. */
     val canManageDocuments: Boolean = false,
+    // ── V1.9.325: refund in LTR. The two account ids are filled for ADMIN only. ──
+    val ltrPayoutEnabled: Boolean = false,
+    val ltrPayableAccountId: String? = null,
+    val ltrSettlementAccountId: String? = null,
 )
 
 /**
@@ -321,6 +394,9 @@ data class TravelExpenseSettingsInput(
     val contact: TravelExpenseContactDto = TravelExpenseContactDto(),
     val advanceAccountId: String? = null,
     val donationWaiverAccountId: String? = null,
+    /** V1.9.325: liability account booked when an LTR report is approved, and the account the liability is settled against. */
+    val ltrPayableAccountId: String? = null,
+    val ltrSettlementAccountId: String? = null,
 )
 
 /**

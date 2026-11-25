@@ -113,6 +113,16 @@ enum class LtrLedgerEntryType {
      * LTR only, never EUR. Never reversed here (a correction is a manual booking). 14 chars.
      */
     MEETING_REWARD,
+
+    /**
+     * V1.9.325 -- a travel expense refund credited in LTR (an ISSUANCE by the organisation, like [MEETING_REWARD]: ONE credit row, no debit, no
+     * organisation account, **not** a [MINT] and no merit of any kind). Written only by `TravelExpenseLtrPayout`; `referenceId` is the report id
+     * ([LtrLedgerReferenceType.TRAVEL_EXPENSE]).
+     */
+    TRAVEL_REFUND,
+
+    /** V1.9.325 -- the reversal of a [TRAVEL_REFUND] (a debit of the same amount); refused when the member no longer holds that much free LTR. */
+    TRAVEL_REFUND_REVERSE,
 }
 
 /**
@@ -125,7 +135,17 @@ enum class LtrLedgerEntryType {
  * `auction.id`, never at `auction_bid`); [NOTICE] (V1.9.297) for [LtrLedgerEntryType.NOTICE_BOOST]; [TENDER] (V1.9.308) for [LtrLedgerEntryType.TENDER_PAYOUT]; [MEETING] (V1.9.316) for [LtrLedgerEntryType.MEETING_REWARD]; additively extended by later waves.
  */
 @Serializable
-enum class LtrLedgerReferenceType { CROWDFUNDING_PROJECT, VOTE, PEER_TRANSFER, AUCTION, SOCIAL_POST, NOTICE, TENDER, MEETING }
+enum class LtrLedgerReferenceType {
+    CROWDFUNDING_PROJECT,
+    VOTE,
+    PEER_TRANSFER,
+    AUCTION,
+    SOCIAL_POST,
+    NOTICE,
+    TENDER,
+    MEETING,
+    TRAVEL_EXPENSE,
+}
 
 /**
  * One row of the append-only LTR ledger. [amountLtr] is signed: positive for a credit (e.g.

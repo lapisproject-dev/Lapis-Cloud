@@ -28,6 +28,7 @@ class JournalEntryInsertSitesTest :
                     "EventFeePostingBridge.kt" to 1,
                     "OpenItemPostingBridge.kt" to 2,
                     "TravelExpensePostingBridge.kt" to 1,
+                    "TravelExpenseLtrPostingBridge.kt" to 1,
                     "VolunteerAllowancePostingBridge.kt" to 1,
                 )
         }

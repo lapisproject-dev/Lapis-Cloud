@@ -934,6 +934,8 @@ fun ltrLedgerEntryTypeLabel(type: LtrLedgerEntryType): String =
         LtrLedgerEntryType.NOTICE_BOOST -> gettext("Aushang-Boost")
         LtrLedgerEntryType.TENDER_PAYOUT -> gettext("Auszahlung (Ausschreibung)")
         LtrLedgerEntryType.MEETING_REWARD -> gettext("Anerkennung (Sitzung)")
+        LtrLedgerEntryType.TRAVEL_REFUND -> gettext("Reisekostenerstattung")
+        LtrLedgerEntryType.TRAVEL_REFUND_REVERSE -> gettext("Reisekostenerstattung storniert")
     }
 
 fun ltrLedgerEntryTypeColor(type: LtrLedgerEntryType): String =
@@ -954,6 +956,8 @@ fun ltrLedgerEntryTypeColor(type: LtrLedgerEntryType): String =
         LtrLedgerEntryType.NOTICE_BOOST -> "warning"
         LtrLedgerEntryType.TENDER_PAYOUT -> "success"
         LtrLedgerEntryType.MEETING_REWARD -> "success"
+        LtrLedgerEntryType.TRAVEL_REFUND -> "success"
+        LtrLedgerEntryType.TRAVEL_REFUND_REVERSE -> "danger"
     }
 
 fun ltrLedgerReferenceTypeLabel(type: LtrLedgerReferenceType): String =
@@ -966,6 +970,7 @@ fun ltrLedgerReferenceTypeLabel(type: LtrLedgerReferenceType): String =
         LtrLedgerReferenceType.NOTICE -> gettext("Aushang (Schwarzes Brett)")
         LtrLedgerReferenceType.TENDER -> gettext("Ausschreibung")
         LtrLedgerReferenceType.MEETING -> gettext("Sitzung")
+        LtrLedgerReferenceType.TRAVEL_EXPENSE -> gettext("Reisekostenabrechnung")
     }
 
 fun peerTransferCharacterizationLabel(characterization: PeerTransferCharacterization): String =

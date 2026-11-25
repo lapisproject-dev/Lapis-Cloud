@@ -84,7 +84,15 @@ internal data class PublicTransparencyStats(
  */
 internal object PublicTransparencyReader {
     /** The entry types that issue new LTR. Every other type moves or binds LTR that already exists. */
-    private val ISSUANCE_TYPES = listOf(LtrLedgerEntryType.MINT, LtrLedgerEntryType.TENDER_PAYOUT, LtrLedgerEntryType.MEETING_REWARD)
+    private val ISSUANCE_TYPES =
+        listOf(
+            LtrLedgerEntryType.MINT,
+            LtrLedgerEntryType.TENDER_PAYOUT,
+            LtrLedgerEntryType.MEETING_REWARD,
+            // V1.9.325: a travel expense refund in LTR is an issuance too; its reversal (a debit of the same amount) nets it out again.
+            LtrLedgerEntryType.TRAVEL_REFUND,
+            LtrLedgerEntryType.TRAVEL_REFUND_REVERSE,
+        )
 
     /**
      * *Insgesamt ausgegebene LTR* sums ONLY the ISSUANCE rows -- [LtrLedgerEntryType.MINT] and, since V1.9.308, [LtrLedgerEntryType.TENDER_PAYOUT]

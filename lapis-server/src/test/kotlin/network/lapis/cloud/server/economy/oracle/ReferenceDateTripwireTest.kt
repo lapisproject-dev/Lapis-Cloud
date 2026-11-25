@@ -48,14 +48,15 @@ class ReferenceDateTripwireTest :
             Regex("""PriceOracleSnapshotSourceTable\s*\.\s*(update|deleteWhere|deleteAll|upsert)\b""").containsMatchIn(code) shouldBe false
         }
 
-        test("only the resolver reads a day of snapshots, and only the service, the resolver and the store use the resolver") {
+        test("only the resolver reads a day of snapshots, and only the service, the facade and the resolver use the resolver") {
             filesNaming(
                 Regex("""\bloadDay\s*\("""),
                 setOf("PriceOracleSnapshotStore.kt", "PriceOracleReferenceRateResolver.kt"),
             ).shouldBeEmpty()
             filesNaming(
                 Regex("""\bPriceOracleReferenceRateResolver\b"""),
-                setOf("PriceOracleReferenceRateResolver.kt", "PriceOracleService.kt"),
+                // V1.9.325: the facade is the second legitimate caller (travel expense refund in LTR shares the logic through it).
+                setOf("PriceOracleReferenceRateResolver.kt", "PriceOracleService.kt", "ReferenceRateConversion.kt"),
             ).shouldBeEmpty()
         }
 

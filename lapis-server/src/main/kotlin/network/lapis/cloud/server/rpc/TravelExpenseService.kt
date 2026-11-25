@@ -49,6 +49,7 @@ import network.lapis.cloud.shared.domain.TravelExpenseDocumentDto
 import network.lapis.cloud.shared.domain.TravelExpenseLineDto
 import network.lapis.cloud.shared.domain.TravelExpenseLineInput
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
+import network.lapis.cloud.shared.domain.TravelExpenseLtrPreviewDto
 import network.lapis.cloud.shared.domain.TravelExpensePayoutChoice
 import network.lapis.cloud.shared.domain.TravelExpenseRateSet
 import network.lapis.cloud.shared.domain.TravelExpenseRatesDto
@@ -186,14 +187,26 @@ class TravelExpenseService(
         }
         val advanceAccountId = valid.advanceAccountId?.toTravelExpenseUuid("advanceAccountId")
         val waiverAccountId = valid.donationWaiverAccountId?.toTravelExpenseUuid("donationWaiverAccountId")
+        val ltrPayableAccountId = valid.ltrPayableAccountId?.toTravelExpenseUuid("ltrPayableAccountId")
+        val ltrSettlementAccountId = valid.ltrSettlementAccountId?.toTravelExpenseUuid("ltrSettlementAccountId")
         return transaction {
-            listOfNotNull(advanceAccountId, waiverAccountId).forEach { accountId ->
+            listOfNotNull(advanceAccountId, waiverAccountId, ltrPayableAccountId, ltrSettlementAccountId).forEach { accountId ->
                 val account = LedgerAccountTable.selectAll().where { LedgerAccountTable.id eq accountId }.singleOrNull()
                 if (account == null || !account[LedgerAccountTable.active]) {
                     throw BadRequestException("ledger account $accountId does not exist or is inactive")
                 }
             }
+            TravelExpenseLtrPayout.lockSettingsRow()
             val before = TravelExpenseSettingsStore.load()
+            // V1.9.325: while the refund in LTR is on, its two accounts must not be cleared by an unrelated settings save,
+            // and they must satisfy the same rules as when the switch was turned on.
+            if (before.ltrPayoutEnabled) {
+                if (ltrPayableAccountId == null || ltrSettlementAccountId == null) throw ConflictException("LTR_ACCOUNTS_REQUIRED")
+                TravelExpenseLtrPayout.requireValidAccounts(
+                    payableIdOrNull = ltrPayableAccountId,
+                    settlementIdOrNull = ltrSettlementAccountId,
+                )
+            }
             OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
                 it[travelTier1Hours] = valid.tierHours[0]
                 it[travelTier2Hours] = valid.tierHours[1]
@@ -214,6 +227,8 @@ class TravelExpenseService(
                 it[travelContactHintFormat] = valid.contact.hintFormat.name
                 it[travelAdvanceAccountId] = advanceAccountId
                 it[travelDonationWaiverAccountId] = waiverAccountId
+                it[travelLtrPayableAccountId] = ltrPayableAccountId
+                it[travelLtrSettlementAccountId] = ltrSettlementAccountId
             }
             val after = TravelExpenseSettingsStore.load()
             recordSettingsChange(current = current, before = before, after = after)
@@ -301,6 +316,9 @@ class TravelExpenseService(
             canEditSettings = isAdmin,
             advanceAccountId = if (isAdmin) advanceAccountId?.toString() else null,
             donationWaiverAccountId = if (isAdmin) donationWaiverAccountId?.toString() else null,
+            ltrPayoutEnabled = ltrPayoutEnabled,
+            ltrPayableAccountId = if (isAdmin) ltrPayableAccountId?.toString() else null,
+            ltrSettlementAccountId = if (isAdmin) ltrSettlementAccountId?.toString() else null,
             // Organisation documents are for ACTIVE members and BOARD/ADMIN only (GUEST/FRIEND/APPLICATION/WITHDRAWN get an empty list).
             documents =
                 if (canManage ||
@@ -385,6 +403,7 @@ class TravelExpenseService(
                 )
             }
 
+            requireLtrChoiceAllowed(input.payoutChoice)
             val id = Uuid.random()
             TravelExpenseReportTable.insert {
                 it[TravelExpenseReportTable.id] = id
@@ -441,6 +460,7 @@ class TravelExpenseService(
         requireValidReportHeader(input = input, now = now)
         return transaction {
             requireEditableRow(id = id, current = current)
+            requireLtrChoiceAllowed(input.payoutChoice)
             // Accommodation lines carry their own dates: refuse a period change that would orphan one.
             TravelExpenseLineTable
                 .selectAll()
@@ -628,6 +648,7 @@ class TravelExpenseService(
             val lineRows = TravelExpenseLineTable.selectAll().where { TravelExpenseLineTable.reportId eq id }.toList()
             if (lineRows.isEmpty()) throw BadRequestException("At least one line is required to submit a report")
             if (report[TravelExpenseReportTable.payoutChoice] == null) throw BadRequestException("payout_choice_required")
+            requireLtrChoiceAllowed(report[TravelExpenseReportTable.payoutChoice])
 
             val settings = TravelExpenseSettingsStore.load()
             val rates = settings.rateSet
@@ -1406,6 +1427,12 @@ class TravelExpenseService(
         val names = namesOverride ?: displayNamesOf(listOfNotNull(subjectId, requestedById, decidedById, exportedById))
         val lines = linesOverride?.get(id) ?: linesOf(listOf(id))[id].orEmpty()
         val attachments = attachmentsOverride?.get(id) ?: attachmentsOf(listOf(id))[id].orEmpty()
+        val ltr =
+            if (this[TravelExpenseReportTable.payoutChoice] == TravelExpensePayoutChoice.LTR) {
+                TravelExpenseLtrPayout.latestFor(id)
+            } else {
+                null to 0
+            }
         val advance = this[TravelExpenseReportTable.advanceAmount]
         val totals =
             TravelExpenseCalculator.totals(
@@ -1461,7 +1488,87 @@ class TravelExpenseService(
             sepaReexportCount = this[TravelExpenseReportTable.sepaReexportCount],
             sepaReference = TravelExpenseSepaReference.of(id.toString()),
             attachments = attachments,
+            ltrPayout = ltr.first,
+            ltrReversedCount = ltr.second,
         )
+    }
+
+    /** V1.9.325: the choice LTR can only be made while the organisation offers it. Must run inside a transaction. */
+    private fun requireLtrChoiceAllowed(choice: TravelExpensePayoutChoice?) {
+        if (choice == TravelExpensePayoutChoice.LTR && !TravelExpenseSettingsStore.load().ltrPayoutEnabled) {
+            throw ConflictException(LTR_PAYOUT_DISABLED)
+        }
+    }
+
+    // ── V1.9.325 refund in LTR ─────────────────────────────────────────────────────────────
+
+    override suspend fun getLtrPayoutCandidates(): List<TravelExpenseReportDto> {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*TravelExpenseLtrPayout.ROLES)
+        val found = TravelExpenseLtrPayout.candidates(current)
+        return transaction {
+            val blockers = found.associate { it.first[TravelExpenseReportTable.id] to it.second }
+            found.map { it.first }.toDtos().map { dto -> dto.copy(ltrBlocker = blockers[Uuid.parse(dto.id)]) }
+        }
+    }
+
+    override suspend fun previewLtrPayout(reportId: String): TravelExpenseLtrPreviewDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*TravelExpenseLtrPayout.ROLES)
+        return TravelExpenseLtrPayout.preview(reportId = reportId.toTravelExpenseUuid("reportId"), actor = current)
+    }
+
+    override suspend fun confirmLtrPayoutRate(
+        reportId: String,
+        price: BigDecimal,
+        evidenceText: String,
+        acknowledgeDeviation: Boolean,
+    ): TravelExpenseLtrPreviewDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*TravelExpenseLtrPayout.ROLES)
+        return TravelExpenseLtrPayout.confirmRate(
+            reportId = reportId.toTravelExpenseUuid("reportId"),
+            price = price,
+            evidenceText = evidenceText,
+            acknowledgeDeviation = acknowledgeDeviation,
+            actor = current,
+        )
+    }
+
+    override suspend fun executeLtrPayout(
+        reportId: String,
+        fingerprint: String,
+        repeatReason: String?,
+    ): TravelExpenseReportDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*TravelExpenseLtrPayout.ROLES)
+        val id = reportId.toTravelExpenseUuid("reportId")
+        TravelExpenseLtrPayout.execute(reportId = id, fingerprint = fingerprint, repeatReason = repeatReason, actor = current)
+        return transaction { loadDto(id) }
+    }
+
+    override suspend fun reverseLtrPayout(
+        reportId: String,
+        payoutId: String,
+        reason: String,
+    ): TravelExpenseReportDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*TravelExpenseLtrPayout.ROLES)
+        val id = reportId.toTravelExpenseUuid("reportId")
+        TravelExpenseLtrPayout.reverse(
+            reportId = id,
+            payoutId = payoutId.toTravelExpenseUuid("payoutId"),
+            reason = reason,
+            actor = current,
+        )
+        return transaction { loadDto(id) }
+    }
+
+    override suspend fun setLtrPayoutEnabled(enabled: Boolean): TravelExpenseRatesDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        TravelExpenseLtrPayout.setEnabled(enabled = enabled, actor = current)
+        return transaction { TravelExpenseSettingsStore.load().toDto(role = AccountRole.ADMIN, status = MemberStatus.ACTIVE) }
     }
 
     private fun memberNumberOf(memberId: Uuid): String? =

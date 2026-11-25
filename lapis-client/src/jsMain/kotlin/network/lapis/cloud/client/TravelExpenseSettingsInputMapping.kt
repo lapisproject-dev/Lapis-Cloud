@@ -38,6 +38,9 @@ internal data class TravelExpenseSettingsFormValues(
     val donationWaiverAccountId: String,
     /** V1.9.199: the format the hint is sent with (the editor decides, see `TravelContactHintEditor.formatToSend`). */
     val contactHintFormat: TravelContactHintFormat = TravelContactHintFormat.PLAIN,
+    /** V1.9.325: the liability booked for an LTR refund and the account it is settled against (blank = none). */
+    val ltrPayableAccountId: String = "",
+    val ltrSettlementAccountId: String = "",
 )
 
 /** The form values for what the server currently holds. */
@@ -63,6 +66,8 @@ internal fun travelExpenseSettingsFormValues(rates: TravelExpenseRatesDto): Trav
         advanceAccountId = rates.advanceAccountId.orEmpty(),
         donationWaiverAccountId = rates.donationWaiverAccountId.orEmpty(),
         contactHintFormat = rates.contact.hintFormat,
+        ltrPayableAccountId = rates.ltrPayableAccountId.orEmpty(),
+        ltrSettlementAccountId = rates.ltrSettlementAccountId.orEmpty(),
     )
 }
 
@@ -117,5 +122,7 @@ internal fun travelExpenseSettingsInput(values: TravelExpenseSettingsFormValues)
             ),
         advanceAccountId = values.advanceAccountId.ifBlank { null },
         donationWaiverAccountId = values.donationWaiverAccountId.ifBlank { null },
+        ltrPayableAccountId = values.ltrPayableAccountId.ifBlank { null },
+        ltrSettlementAccountId = values.ltrSettlementAccountId.ifBlank { null },
     )
 }

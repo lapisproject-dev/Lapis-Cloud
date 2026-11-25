@@ -6,6 +6,20 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.325 refund of a travel expense report in LTR
+
+Schema **V172**. **Implemented, switched off by default (`organization_settings.travel_ltr_payout_enabled = false`), not reviewed by a tax adviser, not released.** The accounting treatment (offsetting account, area of the non-profit status, PartG presentation) is an open question for the tax adviser; the offsetting account is a configurable assumption, see `docs/features/travel-expenses.adoc`.
+
+- **Choice:** `TravelExpensePayoutChoice.LTR`, offered only while the switch is on. The payable amount (`total - advance`) is credited as LTR at the gold price of the day the trip ended (`travelTo`, moved back to the last London trading day), `amount / (anchorUnitsPerLtr * price)` rounded `HALF_UP` to 0.01 LTR. Possible from the day after the trip end.
+- **Booking:** on approval the expense is booked against a **liability** account (`travel_ltr_payable_account_id`), never the bank; crediting the LTR settles it against `travel_ltr_settlement_account_id` (`TravelExpenseLtrPostingBridge`). No exchange difference arises in euros.
+- **Credit:** `TravelExpenseLtrPayout` is the only writer of the new table `travel_expense_ltr_payout` (the receipt: rate, day, fallback reason, snapshot or manual rate id, peg, who, when) and the only place that names the new ledger types `TRAVEL_REFUND` / `TRAVEL_REFUND_REVERSE`: an **issuance by the organisation** (one credit row, no organisation account), never a `MINT`. Roles `TREASURER`/`BOARD`/`ADMIN`; the subject and the requester of a report never credit or reverse it. One transaction under the report row lock, fingerprint of the previewed rate and amount re-checked, no network call. Double credit is excluded in three layers (row lock, `active_report_id` UNIQUE without a partial index, UNIQUE ledger and journal ids).
+- **Reversal and repeat:** a reversal books the exact counter entries and needs enough free LTR (`LTR_BALANCE_INSUFFICIENT` otherwise); a new credit after a reversal needs a reason of 10 to 500 characters.
+- **Rates:** the donation conversion and this refund share the reference-date rate through `ReferenceRateConversion`; donation behaviour is unchanged (`PriceOracleServiceTest`, `PriceOracleReferenceDateScenariosTest` pass unchanged). A manual rate confirmed from the travel screen is global for (anchor, currency, day) like every V171 rate.
+- **RPC:** six methods appended to `ITravelExpenseService`; DTO fields with defaults; new enum literals appended (`LtrLedgerEntryType`, `LtrLedgerReferenceType`, `AuditEntityType.TRAVEL_EXPENSE_LTR_PAYOUT`, `TravelExpensePayoutChoice.LTR`).
+- **Public figure:** the two new ledger types count in *Insgesamt ausgegebene LTR* (the reversal nets out); to be confirmed.
+- **GDPR / backup:** payout rows are exported with the report and retained on erasure (receipt); **a backup taken after V172 cannot be restored onto a server that is still before V172.**
+- **Not done in this wave:** the manual-rate dialog of the travel screen is a small own dialog (not the shared `ReferenceRateBox` of the donation form); no PostgreSQL run of the new scenarios was made on the authoring machine.
+
 ### V1.9.324 gold price at a reference date (donation conversion)
 
 Schema **V171**. **Off by default (`conversion_rate_basis = CURRENT`, behaviour unchanged), not reviewed by a tax adviser, not released.**

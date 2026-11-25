@@ -338,3 +338,28 @@ voucher (§147 AO); unlike the contribution-relief wave's Art. 9 free text, ther
 redaction sweep here, because there is no Art. 9 free text to redact and §147 AO already demands
 10 years' retention regardless. Inline receipt preview was deliberately not built (attachment-only
 download, `nosniff`, no `image/svg+xml` in the allowlist).
+
+== Refund in LTR (V1.9.325)
+
+[WARNING]
+====
+Implemented, **switched off by default**, not reviewed by a tax adviser and not released. The accounting treatment below is an assumption, not advice.
+====
+
+A member can choose to have the payable amount (`total - advance`) credited as LTR instead of being paid out. The choice is offered only while an administrator has switched the feature on (it checks that the price oracle is set to gold in euros and that a liability account and a settlement account are saved).
+
+* *Rate day:* the day the trip ended (`travelTo`); on a weekend or a London bank holiday the last trading day before it. The credit is possible from the day after the trip end.
+* *Amount:* `payable euros / (anchorUnitsPerLtr * gold price)`, rounded to 0.01 LTR (half up). An amount below 0.01 LTR is refused. The peg is the value configured when the credit is triggered and is stored in the receipt.
+* *Who:* treasurer, board or administrator. The person the report belongs to and the person who filed it can never credit or reverse it. A rate confirmed by hand cannot be used for the person who confirmed it.
+* *Preview and fingerprint:* the dialog shows the rate (with the raw source values), the day and the exact LTR amount; the credit only goes through if the rate and the amount are still the previewed ones.
+* *No rate:* if the price history has no usable rate for the day, a rate with an evidence text can be confirmed by hand. It is global for that day, like every manual rate.
+* *Reversal:* possible as long as the member still holds the LTR. A new credit after a reversal needs a reason (10 to 500 characters). There is no switching of an already booked report to another payout choice.
+
+=== Open questions (tax adviser, product)
+
+. Offsetting account of the settlement (`SETTLEMENT_ACCOUNT_TYPES`: liability, equity or income); not guessed.
+. Area of the non-profit status (booked in the ideal sphere like the original refund) and the PartG presentation.
+. The LTR is booked as an issuance by the organisation; whether it belongs in the public figure of issued LTR is to be confirmed.
+. Rounding direction (half up) and the dust limit (0.01 LTR).
+. The peg has no history; the value at the time of the credit applies.
+. Whether LTR counts as a "merit" when it is spent on voting stakes; the credit itself feeds no merit or weighting.

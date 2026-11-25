@@ -78,6 +78,10 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     public val travelContactHintFormat: Column<String> = varchar("travel_contact_hint_format", 16)
     public val travelAdvanceAccountId: Column<Uuid?> = optReference("travel_advance_account_id", LedgerAccountTable.id)
     public val travelDonationWaiverAccountId: Column<Uuid?> = optReference("travel_donation_waiver_account_id", LedgerAccountTable.id)
+    public val travelLtrPayoutEnabled: Column<Boolean> = bool("travel_ltr_payout_enabled")
+    // TODO default = "FALSE"
+    public val travelLtrPayableAccountId: Column<Uuid?> = optReference("travel_ltr_payable_account_id", LedgerAccountTable.id)
+    public val travelLtrSettlementAccountId: Column<Uuid?> = optReference("travel_ltr_settlement_account_id", LedgerAccountTable.id)
     // Welle V1.4.12 -- hand-edited, see 11-organization-settings.kuml.kts file header addendum.
     public val volunteerAllowanceAccountId: Column<Uuid?> = optReference("volunteer_allowance_account_id", LedgerAccountTable.id)
     // Welle V1.4.13 -- hand-edited, see 11-organization-settings.kuml.kts file header addendum.

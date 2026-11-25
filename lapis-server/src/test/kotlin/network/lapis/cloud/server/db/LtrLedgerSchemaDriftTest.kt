@@ -126,6 +126,8 @@ class LtrLedgerSchemaDriftTest :
                             "NOTICE_BOOST",
                             "TENDER_PAYOUT",
                             "MEETING_REWARD",
+                            "TRAVEL_REFUND",
+                            "TRAVEL_REFUND_REVERSE",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.LtrLedgerEntryType",
                 )
@@ -142,6 +144,7 @@ class LtrLedgerSchemaDriftTest :
                             "NOTICE",
                             "TENDER",
                             "MEETING",
+                            "TRAVEL_EXPENSE",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.LtrLedgerReferenceType",
                 )

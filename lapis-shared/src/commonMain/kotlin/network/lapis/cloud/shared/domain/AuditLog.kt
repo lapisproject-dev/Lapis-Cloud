@@ -736,6 +736,9 @@ enum class AuditEntityType {
 
     /** V1.9.324 -- a donation conversion made at a reference-date rate (basis, dates, snapshot or rate id; never an amount or a price). 23 chars. Appended LAST. */
     PRICE_ORACLE_CONVERSION,
+
+    /** V1.9.325 -- an LTR credit (or its reversal) for a travel expense report: ids, dates, basis; never an amount, a rate or a reason text. 25 chars. Appended LAST. */
+    TRAVEL_EXPENSE_LTR_PAYOUT,
 }
 
 /** V1.9.322 -- after-snapshot of an [AuditEntityType.AUCTION_FEDERATION_FEED] entry: numbers only, never a title, price or id. */

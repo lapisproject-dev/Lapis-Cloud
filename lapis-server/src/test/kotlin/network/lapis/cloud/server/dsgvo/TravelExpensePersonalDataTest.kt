@@ -131,6 +131,7 @@ class TravelExpensePersonalDataTest :
                     "travel_expense_document",
                     "travel_expense_sepa_batch",
                     "travel_expense_sepa_batch_item",
+                    "travel_expense_ltr_payout",
                 )
         }
 

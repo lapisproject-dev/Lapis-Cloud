@@ -14,7 +14,6 @@ import kotlinx.serialization.json.put
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
-import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PriceOracleConfigTable
 import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
 import network.lapis.cloud.server.db.truncatedToDbPrecision
@@ -23,9 +22,7 @@ import network.lapis.cloud.server.economy.oracle.PriceOracleReferenceRateResolve
 import network.lapis.cloud.server.economy.oracle.PriceOracleReferenceRateStore
 import network.lapis.cloud.server.economy.oracle.PriceOracleSnapshotStore
 import network.lapis.cloud.server.economy.oracle.QuoteOutcome
-import network.lapis.cloud.server.economy.oracle.ReferenceRateResolution
-import network.lapis.cloud.server.economy.oracle.ReferenceRateRow
-import network.lapis.cloud.server.economy.oracle.plausibilityBand
+import network.lapis.cloud.server.economy.oracle.ReferenceRateConversion
 import network.lapis.cloud.server.economy.oracle.plausiblePegBand
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
@@ -46,12 +43,9 @@ import network.lapis.cloud.shared.domain.PriceOracleConfigInput
 import network.lapis.cloud.shared.domain.PriceOracleConversionDto
 import network.lapis.cloud.shared.domain.PriceSnapshotDto
 import network.lapis.cloud.shared.domain.PriceStatus
-import network.lapis.cloud.shared.domain.ReferenceRateBasis
 import network.lapis.cloud.shared.domain.ReferenceRateConfirmationInput
 import network.lapis.cloud.shared.domain.ReferenceRateOutcome
 import network.lapis.cloud.shared.domain.ReferenceRateResolutionDto
-import network.lapis.cloud.shared.domain.ReferenceRateRules
-import network.lapis.cloud.shared.domain.ReferenceRateSourceDto
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IPriceOracleService
@@ -77,13 +71,8 @@ private val SUPPORTED_DONATION_CURRENCIES = setOf("EUR", "USD")
 /** "Aktuelle Annahme, vor Produktiveinsatz zu verifizieren" -- same disclaimer class as [LtrLedgerService]'s own `MIN_MINT_LTR`. Pure dust/spam floor: a computed `ltrMinted` this small is more likely a fat-fingered donation amount or a badly mis-set peg than a real intent. */
 private val MIN_LTR_MINTED = BigDecimal("0.01")
 
-private const val LTR_MINTED_SCALE = 2
-
 /** Welle "Price-Oracle-Preishistorie". Server-side hard cap for [PriceOracleService.getPriceHistory] -- see that function's KDoc. */
 private const val MAX_PRICE_HISTORY_LIMIT = 5_000
-
-/** Scale of `price_oracle_reference_rate.price` (DECIMAL(38,18)). */
-private const val RATE_PRICE_SCALE = 18
 
 /** `sources_used` of a conversion that used a manually confirmed rate. */
 private const val MANUAL_SOURCES_USED = "manual"
@@ -299,7 +288,7 @@ class PriceOracleService(
         return transaction {
             val config = loadConfig()
             requireReferenceDateMode(config)
-            toResolutionDto(
+            ReferenceRateConversion.toResolutionDto(
                 resolution = PriceOracleReferenceRateResolver.resolve(config = config, referenceDate = referenceDate),
                 recipient = recipient,
             )
@@ -310,88 +299,22 @@ class PriceOracleService(
     override suspend fun confirmReferenceRate(input: ReferenceRateConfirmationInput): ReferenceRateResolutionDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*PRICE_ORACLE_TREASURY_ROLES)
-        val evidence = ReferenceRateRules.normalizeEvidence(input.evidenceText)
-        if (evidence.length < ReferenceRateRules.EVIDENCE_MIN || evidence.length > ReferenceRateRules.EVIDENCE_MAX) {
-            throw ConflictException(
-                "The evidence text must have between ${ReferenceRateRules.EVIDENCE_MIN} and ${ReferenceRateRules.EVIDENCE_MAX} characters",
-            )
-        }
-        val price = input.price
-        if (price <= BigDecimal.ZERO) throw ConflictException("price must be positive")
-        if (price.stripTrailingZeros().scale() >
-            RATE_PRICE_SCALE
-        ) {
-            throw ConflictException("price must have at most $RATE_PRICE_SCALE decimal places")
-        }
         val now = nowLocalDateTime()
         try {
             return transaction {
                 val config = loadConfig()
                 requireReferenceDateMode(config)
-                if (price !in plausibilityBand(config.anchorAsset)) {
-                    throw ConflictException(
-                        "price ${price.toPlainString()} is implausible for ${config.anchorAsset} -- check the unit (price of one unit in ${config.donationCurrency})",
+                val resolution =
+                    ReferenceRateConversion.confirmManualRate(
+                        config = config,
+                        referenceDate = input.referenceDate,
+                        price = input.price,
+                        evidenceText = input.evidenceText,
+                        acknowledgeDeviation = input.acknowledgeDeviation,
+                        actor = current,
+                        now = now,
                     )
-                }
-                val resolution = PriceOracleReferenceRateResolver.resolve(config = config, referenceDate = input.referenceDate)
-                if (resolution.basis == ReferenceRateBasis.MANUAL) {
-                    throw ConflictException("A rate for ${resolution.effectiveDate} was already confirmed and cannot be changed")
-                }
-                if (resolution.outcome == ReferenceRateOutcome.RESOLVED) {
-                    throw ConflictException(
-                        "The price history already holds a rate for ${resolution.effectiveDate} -- no manual confirmation needed",
-                    )
-                }
-                val comparison = resolution.comparisonMedian
-                if (comparison != null &&
-                    deviationBps(price = price, reference = comparison) > config.maxSpreadBps &&
-                    !input.acknowledgeDeviation
-                ) {
-                    throw ConflictException(
-                        "The rate deviates from the stored price of that day by more than ${config.maxSpreadBps} bps -- acknowledge the deviation to confirm it",
-                    )
-                }
-                val rateId = Uuid.random()
-                PriceOracleReferenceRateStore.insert(
-                    ReferenceRateRow(
-                        id = rateId,
-                        anchorAsset = config.anchorAsset,
-                        donationCurrency = config.donationCurrency,
-                        effectiveDate = resolution.effectiveDate,
-                        price = price,
-                        evidenceText = evidence,
-                        confirmedBy = current.memberId,
-                        confirmedAt = now,
-                        referenceSnapshotMedian = comparison,
-                        deviationAcknowledged =
-                            comparison != null &&
-                                input.acknowledgeDeviation &&
-                                deviationBps(price = price, reference = comparison) > config.maxSpreadBps,
-                    ),
-                )
-                // Audit: what and when, never the price, an amount or the evidence text (only its length).
-                AuditLogRecorder.record(
-                    actorMemberId = current.memberId,
-                    actorRole = current.role,
-                    entityType = AuditEntityType.PRICE_ORACLE_REFERENCE_RATE,
-                    entityId = rateId,
-                    action = AuditAction.CREATE,
-                    after =
-                        buildJsonObject {
-                            put("anchor", config.anchorAsset.name)
-                            put("currency", config.donationCurrency)
-                            put("referenceDate", input.referenceDate.toString())
-                            put("effectiveDate", resolution.effectiveDate.toString())
-                            put("referenceRateId", rateId.toString())
-                            put("evidenceLength", evidence.length)
-                            put("deviationAcknowledged", input.acknowledgeDeviation)
-                        }.toString(),
-                    occurredAt = now,
-                )
-                toResolutionDto(
-                    resolution = PriceOracleReferenceRateResolver.resolve(config = config, referenceDate = input.referenceDate),
-                    recipient = current.memberId,
-                )
+                ReferenceRateConversion.toResolutionDto(resolution = resolution, recipient = current.memberId)
             }
         } catch (e: ExposedSQLException) {
             if (e.message?.contains(PriceOracleReferenceRateStore.UNIQUE_CONSTRAINT_NAME, ignoreCase = true) == true) {
@@ -506,70 +429,6 @@ class PriceOracleService(
         }
     }
 
-    private fun toResolutionDto(
-        resolution: ReferenceRateResolution,
-        recipient: Uuid?,
-    ): ReferenceRateResolutionDto {
-        val manual = resolution.manualRate
-        val snapshot = resolution.snapshot
-        val confirmerName =
-            manual?.let { m ->
-                MemberTable
-                    .selectAll()
-                    .where { MemberTable.id eq m.confirmedBy }
-                    .singleOrNull()
-                    ?.get(MemberTable.displayName)
-            }
-        val comparison = resolution.comparisonMedian
-        return ReferenceRateResolutionDto(
-            referenceDate = resolution.referenceDate,
-            effectiveDate = resolution.effectiveDate,
-            fallbackReason = resolution.fallbackReason,
-            outcome = resolution.outcome,
-            basis = resolution.basis,
-            price = resolution.price,
-            snapshotId = snapshot?.id?.toString(),
-            referenceRateId = manual?.id?.toString(),
-            sources =
-                snapshot?.sources.orEmpty().map {
-                    ReferenceRateSourceDto(
-                        sourceId = it.sourceId,
-                        rawPrice = it.rawPrice,
-                        observedAt = it.observedAt,
-                        included = it.included,
-                    )
-                },
-            quorumRequired = resolution.quorumRequired,
-            legacyMedianHint = resolution.legacyMedianHint,
-            confirmedByDisplayName = confirmerName,
-            confirmedAt = manual?.confirmedAt,
-            evidenceText = manual?.evidenceText,
-            selfConfirmationBlocked = manual != null && recipient != null && manual.confirmedBy == recipient,
-            deviationBpsFromSnapshot =
-                if (manual != null &&
-                    comparison != null
-                ) {
-                    deviationBps(price = manual.price, reference = comparison)
-                } else {
-                    null
-                },
-            comparisonMedian = comparison,
-        )
-    }
-
-    /** Deviation of [price] from [reference] in basis points, rounded down; 0 when [reference] is zero. */
-    private fun deviationBps(
-        price: BigDecimal,
-        reference: BigDecimal,
-    ): Int {
-        if (reference.signum() == 0) return 0
-        return (price - reference)
-            .abs()
-            .multiply(BigDecimal(10_000))
-            .divide(reference, 0, RoundingMode.DOWN)
-            .toInt()
-    }
-
     /**
      * V0.6.6: the old hardcoded `anchorAsset != BITCOIN_BTC` rejection is replaced by a generic,
      * anchor-aware set of checks -- see [AnchorPolicy] KDoc and [IPriceOracleService] KDoc "Anchor
@@ -645,9 +504,8 @@ class PriceOracleService(
         anchorPrice: BigDecimal,
     ): BigDecimal {
         // ltrMinted = donationAmount / (anchorUnitsPerLtr * anchorPrice)
-        val ltrPriceInDonationCurrency = anchorUnitsPerLtr.multiply(anchorPrice)
-        val ltrMinted = donationAmount.divide(ltrPriceInDonationCurrency, LTR_MINTED_SCALE, RoundingMode.HALF_UP)
-        if (ltrMinted < MIN_LTR_MINTED) {
+        val ltrMinted = ReferenceRateConversion.ltrFor(amount = donationAmount, anchorUnitsPerLtr = anchorUnitsPerLtr, price = anchorPrice)
+        if (ReferenceRateConversion.isBelowMinimum(ltrMinted)) {
             throw ConflictException(
                 "Computed ltrMinted $ltrMinted is below the minimum mintable amount $MIN_LTR_MINTED (dust) -- " +
                     "donationAmount too small at the current price",
@@ -761,6 +619,14 @@ private fun envHint(anchor: AnchorAsset): String =
         AnchorAsset.FIAT ->
             "The ECB reference-rate source needs no configuration -- this indicates a wiring bug in Application.module."
     }
+
+/** V1.9.325: the single oracle configuration row, or `null` when it is missing; inside an open transaction. Shared with the travel expense refund in LTR. */
+internal fun loadPriceOracleConfigOrNull(): PriceOracleConfigDto? =
+    PriceOracleConfigTable
+        .selectAll()
+        .where { PriceOracleConfigTable.id eq PRICE_ORACLE_CONFIG_ID }
+        .singleOrNull()
+        ?.toPriceOracleConfigDto()
 
 private fun ResultRow.toPriceOracleConfigDto(): PriceOracleConfigDto =
     PriceOracleConfigDto(

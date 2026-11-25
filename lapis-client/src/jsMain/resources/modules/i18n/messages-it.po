@@ -34450,3 +34450,215 @@ msgstr "Prezzo della data di riferimento confermato"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
 msgid "Spendenumrechnung zum Stichtag"
 msgstr "Conversione di donazione alla data di riferimento"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Reisekostenerstattung in LTR"
+msgstr "Rimborso spese di viaggio in LTR"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:1
+msgid "Reisekostenerstattung"
+msgstr "Rimborso spese di viaggio"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:1
+msgid "Reisekostenerstattung storniert"
+msgstr "Rimborso spese di viaggio stornato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:1
+msgid "Reisekostenabrechnung"
+msgstr "Nota spese di viaggio"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "In LTR gutschreiben"
+msgstr "Accreditare in LTR"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Das Verbindlichkeitskonto für LTR-Erstattungen ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr "Il conto debiti per i rimborsi in LTR non è ancora assegnato -- informare un ADMIN."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Das Verbindlichkeitskonto für LTR-Erstattungen hat den falschen Kontentyp -- bitte einen ADMIN informieren."
+msgstr "Il conto debiti per i rimborsi in LTR ha il tipo di conto sbagliato -- informare un ADMIN."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Die Abrechnung ist noch nicht gebucht."
+msgstr "La nota spese non è ancora stata contabilizzata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Für diese Abrechnung wurde keine Erstattung in LTR gewählt."
+msgstr "Per questa nota spese non è stato scelto il rimborso in LTR."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Es ist nichts auszuzahlen."
+msgstr "Non c'è nulla da pagare."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Die Erstattung in LTR ist derzeit ausgeschaltet."
+msgstr "Il rimborso in LTR è attualmente disattivato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Die eigene Abrechnung kann nicht selbst gutgeschrieben werden."
+msgstr "Non è possibile accreditare da soli la propria nota spese."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Der Kurstag ist noch nicht vorüber. Frühestens am Tag nach dem Reiseende möglich."
+msgstr "Il giorno di quotazione non è ancora terminato. Possibile al più presto il giorno dopo la fine del viaggio."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Das Preis-Orakel ist nicht auf Gold eingestellt."
+msgstr "L'oracolo dei prezzi non è impostato sull'oro."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Das Preis-Orakel rechnet nicht in Euro."
+msgstr "L'oracolo dei prezzi non calcola in euro."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Die Konten für die LTR-Erstattung sind nicht vollständig eingerichtet."
+msgstr "I conti per il rimborso in LTR non sono configurati completamente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Die Gutschrift wurde bereits ausgelöst."
+msgstr "L'accredito è già stato eseguito."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Für den Kurstag liegt kein Kurs vor. Bitte einen Kurs bestätigen."
+msgstr "Non c'è nessuna quotazione per il giorno. Confermare una quotazione."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Der Betrag ergibt weniger als 0,01 LTR."
+msgstr "L'importo corrisponde a meno di 0,01 LTR."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Die Person kann derzeit kein LTR empfangen."
+msgstr "La persona al momento non può ricevere LTR."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Der Kurs wurde von der empfangenden Person selbst bestätigt."
+msgstr "La quotazione è stata confermata dalla stessa persona destinataria."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Die Erstattung in LTR wird derzeit nicht angeboten."
+msgstr "Il rimborso in LTR al momento non è offerto."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Kurs oder Betrag haben sich seit der Vorschau geändert. Bitte die Vorschau erneut prüfen."
+msgstr "La quotazione o l'importo sono cambiati dopo l'anteprima. Controllare di nuovo l'anteprima."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Die Person hat das LTR schon ausgegeben. Der Storno ist deshalb nicht möglich."
+msgstr "La persona ha già speso il LTR. Lo storno non è quindi possibile."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:1
+msgid "Die Aktion ist fehlgeschlagen."
+msgstr "L'azione non è riuscita."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "Per LTR-Gutschrift"
+msgstr "Tramite accredito in LTR"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "Abrechnungen, bei denen die Erstattung in LTR gewählt wurde. Der Kurs ist der Goldpreis am Tag des Reiseendes."
+msgstr "Note spese per le quali è stato scelto il rimborso in LTR. La quotazione è il prezzo dell'oro nel giorno di fine viaggio."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "Begründung für die erneute Gutschrift"
+msgstr "Motivo del nuovo accredito"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "10 bis 500 Zeichen."
+msgstr "Da 10 a 500 caratteri."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "Bitte 10 bis 500 Zeichen angeben."
+msgstr "Inserire da 10 a 500 caratteri."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "Kurstag: %1 (Reiseende %2)"
+msgstr "Giorno di quotazione: %1 (fine viaggio %2)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "Kurs: %1 EUR je Unze Gold"
+msgstr "Quotazione: %1 EUR per oncia d'oro"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "%1: %2 (%3)"
+msgstr "%1: %2 (%3)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "Für diesen Kurstag liegt kein Kurs vor. Bitte einen Kurs mit Beleg bestätigen."
+msgstr "Non c'è nessuna quotazione per questo giorno. Confermare una quotazione con giustificativo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "Gutschrift: %1 LTR (gerundet auf 0,01 LTR)"
+msgstr "Accredito: %1 LTR (arrotondato a 0,01 LTR)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "%1 LTR gutschreiben"
+msgstr "Accreditare %1 LTR"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "LTR gutgeschrieben."
+msgstr "LTR accreditati."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "Reiseende: %1"
+msgstr "Fine viaggio: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "Gutschrift vorbereiten …"
+msgstr "Preparare l'accredito …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "Keine Abrechnungen zur Gutschrift in LTR."
+msgstr "Nessuna nota spese in attesa di accredito in LTR."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "Goldpreis in EUR je Unze für den Kurstag %1. Der Kurs kann danach nicht mehr geändert werden."
+msgstr "Prezzo dell'oro in EUR per oncia per il giorno di quotazione %1. La quotazione non potrà più essere modificata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "Bitte einen positiven Kurs angeben."
+msgstr "Inserire una quotazione positiva."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLtrPanel.kt:1
+msgid "Bitte einen Beleg mit %1 bis %2 Zeichen angeben."
+msgstr "Inserire un giustificativo da %1 a %2 caratteri."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt:1
+msgid "Der Betrag wird in LTR gutgeschrieben, umgerechnet zum Goldpreis des Reiseendes (%1). Die Gutschrift löst der Vorstand oder die Kasse aus."
+msgstr "L'importo viene accreditato in LTR, convertito al prezzo dell'oro alla fine del viaggio (%1). L'accredito viene avviato dal consiglio direttivo o dalla tesoreria."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt:1
+msgid "Bitte wählen Sie, wie abgerechnet werden soll (Auszahlung, Spendenquittung oder LTR)."
+msgstr "Scegliere come liquidare (pagamento, ricevuta di donazione o LTR)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSettingsScreen.kt:1
+msgid "Verbindlichkeitskonto für Erstattungen in LTR"
+msgstr "Conto debiti per i rimborsi in LTR"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSettingsScreen.kt:1
+msgid "Konto vom Typ Verbindlichkeit: Hier wird die Erstattung bei der Genehmigung gebucht, statt gegen die Bank."
+msgstr "Conto di tipo debiti: qui viene contabilizzato il rimborso all'approvazione, invece che sulla banca."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSettingsScreen.kt:1
+msgid "Gegenkonto bei der Gutschrift in LTR"
+msgstr "Controconto per l'accredito in LTR"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSettingsScreen.kt:1
+msgid "Mit der Gutschrift wird die Verbindlichkeit gegen dieses Konto ausgebucht. Bitte mit der Steuerberatung abstimmen."
+msgstr "Con l'accredito il debito viene chiuso contro questo conto. Concordarlo con il consulente fiscale."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSettingsScreen.kt:1
+msgid "Die Erstattung in LTR wird angeboten."
+msgstr "Il rimborso in LTR è offerto."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSettingsScreen.kt:1
+msgid "Die Erstattung in LTR ist ausgeschaltet."
+msgstr "Il rimborso in LTR è disattivato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSettingsScreen.kt:1
+msgid "Einstellung gespeichert."
+msgstr "Impostazione salvata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSettingsScreen.kt:1
+msgid "Zum Einschalten müssen das Preis-Orakel auf Gold in Euro stehen und beide Konten gespeichert sein (erst Konten wählen, speichern, dann einschalten)."
+msgstr "Per attivarlo, l'oracolo dei prezzi deve essere impostato sull'oro in euro ed entrambi i conti devono essere salvati (prima scegliere i conti, salvare, poi attivare)."

@@ -46,3 +46,7 @@ The conversion runs in one transaction without any network call. It carries the 
 == Not in this wave
 
 Bitcoin and fiat anchors; the LBMA PM fixing; a PDF receipt; voiding a manual rate; a four-eyes rule; pre-filling the reference date from a bank booking date; rate limiting of the two new methods beyond the existing role check (no network call, one cheap indexed read each).
+
+== Second user: refund of a travel expense report (V1.9.325)
+
+`ReferenceRateConversion` is a thin facade in front of `PriceOracleReferenceRateResolver`: it resolves a reference date, does the LTR arithmetic (`amount / (peg * price)`, scale 2, half up), records a manual rate and maps a resolution to its DTO. It adds no rate logic and does not check the donation conversion mode (that check stays in the donation RPCs, in front of the call). `PriceOracleService` and `TravelExpenseLtrPayout` are its two callers; the allow list of `ReferenceDateTripwireTest` names the facade, the service and the resolver, and nothing else may name the resolver. The donation behaviour is unchanged.

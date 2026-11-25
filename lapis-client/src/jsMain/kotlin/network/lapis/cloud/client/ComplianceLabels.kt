@@ -247,6 +247,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // V1.9.324 -- a manually confirmed gold rate for a reference date, and a donation conversion at such a rate.
         AuditEntityType.PRICE_ORACLE_REFERENCE_RATE -> gettext("Stichtagskurs bestätigt")
         AuditEntityType.PRICE_ORACLE_CONVERSION -> gettext("Spendenumrechnung zum Stichtag")
+        // V1.9.325 -- a travel expense refund credited in LTR (or its reversal).
+        AuditEntityType.TRAVEL_EXPENSE_LTR_PAYOUT -> gettext("Reisekostenerstattung in LTR")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -416,6 +418,7 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.AUCTION_FEDERATION_FEED -> "secondary"
         AuditEntityType.PRICE_ORACLE_REFERENCE_RATE -> "warning"
         AuditEntityType.PRICE_ORACLE_CONVERSION -> "warning"
+        AuditEntityType.TRAVEL_EXPENSE_LTR_PAYOUT -> "warning"
     }
 
 // ------------------------------------------------------------------------------------------------

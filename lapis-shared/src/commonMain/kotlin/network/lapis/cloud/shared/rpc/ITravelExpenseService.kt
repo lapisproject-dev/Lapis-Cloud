@@ -6,6 +6,7 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.RefundAccountPrefillDto
 import network.lapis.cloud.shared.domain.TravelExpenseDayInput
 import network.lapis.cloud.shared.domain.TravelExpenseLineInput
+import network.lapis.cloud.shared.domain.TravelExpenseLtrPreviewDto
 import network.lapis.cloud.shared.domain.TravelExpenseRatesDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportInput
@@ -200,4 +201,38 @@ interface ITravelExpenseService {
 
     /** Role: BOARD/ADMIN. Debtor account choices, the default execution date and what is still missing in the setup. */
     suspend fun getSepaExportContext(): TravelExpenseSepaContextDto
+
+    // ── V1.9.325 "Reisekostenerstattung in LTR" -- appended, existing signatures untouched. Role: TREASURER/BOARD/ADMIN; the subject and the
+    //    requester of a report may never trigger or reverse its credit. ──
+
+    /** EXECUTED reports with payout choice LTR that have no active credit, oldest first, capped at 200, each with its `ltrBlocker`. */
+    suspend fun getLtrPayoutCandidates(): List<TravelExpenseReportDto>
+
+    /** Read only, no network: which rate applies at the end of the trip, what LTR amount results and why it may be blocked. */
+    suspend fun previewLtrPayout(reportId: String): TravelExpenseLtrPreviewDto
+
+    /** Confirms a manual rate for the day when the price history has no usable one. Never overrides an automatic rate. */
+    suspend fun confirmLtrPayoutRate(
+        reportId: String,
+        price: Decimal,
+        evidenceText: String,
+        acknowledgeDeviation: Boolean,
+    ): TravelExpenseLtrPreviewDto
+
+    /** Credits the LTR. [fingerprint] must be the one of the preview just shown; [repeatReason] is required for a second credit after a reversal. */
+    suspend fun executeLtrPayout(
+        reportId: String,
+        fingerprint: String,
+        repeatReason: String?,
+    ): TravelExpenseReportDto
+
+    /** Reverses an active credit (needs enough free LTR on the member's side). Reason 10..500 characters. */
+    suspend fun reverseLtrPayout(
+        reportId: String,
+        payoutId: String,
+        reason: String,
+    ): TravelExpenseReportDto
+
+    /** ADMIN only. Switching it on checks the oracle and the two accounts; switching it off always works. */
+    suspend fun setLtrPayoutEnabled(enabled: Boolean): TravelExpenseRatesDto
 }

@@ -8,6 +8,7 @@ import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.TravelExpenseAttachmentTable
 import network.lapis.cloud.server.db.generated.TravelExpenseDocumentTable
 import network.lapis.cloud.server.db.generated.TravelExpenseLineTable
+import network.lapis.cloud.server.db.generated.TravelExpenseLtrPayoutTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReceiptTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
 import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchItemTable
@@ -40,6 +41,38 @@ class TravelExpenseSchemaDriftTest :
                     "bank_account",
                     "travel_expense_sepa_batch",
                     "travel_expense_sepa_batch_item",
+                    // V1.9.325: the LTR payout receipt and the id-only stubs of the tables it points at.
+                    "travel_expense_ltr_payout",
+                    "ltr_ledger_entry",
+                    "price_oracle_snapshot",
+                    "price_oracle_reference_rate",
+                )
+        }
+
+        test("V1.9.325: travel_expense_ltr_payout matches the real migrated schema, FKs and unique columns included") {
+            val entity = model.entities.single { it.name == "travel_expense_ltr_payout" }
+            val real = transaction { introspectTeTable("travel_expense_ltr_payout") }
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.forEach { attr ->
+                withClue(clue = "column '${attr.name}'") { real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable }
+            }
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder TravelExpenseLtrPayoutTable.columns.map { it.name }
+            real.foreignKeys["report_id"] shouldBe "travel_expense_report"
+            real.foreignKeys["member_id"] shouldBe "member"
+            real.foreignKeys["snapshot_id"] shouldBe "price_oracle_snapshot"
+            real.foreignKeys["reference_rate_id"] shouldBe "price_oracle_reference_rate"
+            real.foreignKeys["ltr_ledger_entry_id"] shouldBe "ltr_ledger_entry"
+            real.foreignKeys["journal_entry_id"] shouldBe "journal_entry"
+            real.foreignKeys["reversal_ledger_entry_id"] shouldBe "ltr_ledger_entry"
+            real.foreignKeys["reversal_journal_entry_id"] shouldBe "journal_entry"
+            // The introspection lists a column once per unique index/constraint H2 creates for it; the SET is what is pinned.
+            real.uniqueSingleColumns.toSet() shouldBe
+                setOf(
+                    "active_report_id",
+                    "ltr_ledger_entry_id",
+                    "journal_entry_id",
+                    "reversal_ledger_entry_id",
+                    "reversal_journal_entry_id",
                 )
         }
 
@@ -207,7 +240,7 @@ class TravelExpenseSchemaDriftTest :
             entity.attributeByName("payout_choice")?.type shouldBe
                 ErmDataType.Enum(
                     name = "TravelExpensePayoutChoice",
-                    values = listOf("PAYOUT", "DONATION_WAIVER"),
+                    values = listOf("PAYOUT", "DONATION_WAIVER", "LTR"),
                     externalFqName = "network.lapis.cloud.shared.domain.TravelExpensePayoutChoice",
                 )
             entity.attributeByName("payout_choice")?.nullable shouldBe true

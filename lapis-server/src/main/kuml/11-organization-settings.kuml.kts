@@ -470,6 +470,19 @@ classDiagram(name = "OrganizationSettings") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "travel_donation_waiver_account_id"; "fkEntity" to "LedgerAccount" }
         }
+        // V1.9.325 (V172): refund in LTR -- the switch (default off), the liability booked at approval and the account the liability is settled against.
+        attribute(name = "travelLtrPayoutEnabled", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "travel_ltr_payout_enabled" }
+        }
+        attribute(name = "travelLtrPayableAccountId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "travel_ltr_payable_account_id"; "fkEntity" to "LedgerAccount" }
+        }
+        attribute(name = "travelLtrSettlementAccountId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "travel_ltr_settlement_account_id"; "fkEntity" to "LedgerAccount" }
+        }
         // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale". Nullable FK -> ledger_account --
         // where an approved allowance payment's EXPENSE-side debit is booked. Part of the GENERIC
         // updateOrganizationSettings write-set, same treatment as travelExpenseAccountId above. See

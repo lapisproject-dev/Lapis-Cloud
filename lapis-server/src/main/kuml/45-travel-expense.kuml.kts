@@ -98,6 +98,7 @@ classDiagram(name = "TravelExpense") {
     val travelExpensePayoutChoice = enumOf(name = "TravelExpensePayoutChoice") {
         literal(name = "PAYOUT")
         literal(name = "DONATION_WAIVER")
+        literal(name = "LTR") // V1.9.325 (migration V172)
     }
 
     val travelExpenseReport = classOf(name = "TravelExpenseReport") {
@@ -538,6 +539,177 @@ classDiagram(name = "TravelExpense") {
         // EndToEndId = "TE" + 28 hex of the report id, plus "-R<n>" for a re-export; globally unique.
         attribute(name = "endToEndId", type = "String") {
             stereotype("Column") { "columnName" to "end_to_end_id"; "sqlType" to "VARCHAR(35)" }
+        }
+    }
+
+    // ── V1.9.325 (V172__travel_expense_ltr_payout.sql): refund in LTR. Id-only stubs of the tables the payout row points at. ──
+    val ltrLedgerEntryStub = classOf(name = "LtrLedgerEntry") {
+        stereotype("Entity") { "tableName" to "ltr_ledger_entry"; "kotlinObjectName" to "LtrLedgerEntryTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
+    val priceOracleSnapshotStub = classOf(name = "PriceOracleSnapshot") {
+        stereotype("Entity") { "tableName" to "price_oracle_snapshot"; "kotlinObjectName" to "PriceOracleSnapshotTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
+    val priceOracleReferenceRateStub = classOf(name = "PriceOracleReferenceRate") {
+        stereotype("Entity") { "tableName" to "price_oracle_reference_rate"; "kotlinObjectName" to "PriceOracleReferenceRateTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
+    // Same literals and order as the owning declarations in 19-price-oracle.kuml.kts (enums are never deduplicated by the merger, and need not be).
+    val anchorAssetEnum = enumOf(name = "AnchorAsset") {
+        literal(name = "BITCOIN_BTC")
+        literal(name = "GOLD_XAU")
+        literal(name = "FIAT")
+    }
+    val referenceRateBasisEnum = enumOf(name = "ReferenceRateBasis") {
+        literal(name = "CURRENT")
+        literal(name = "SNAPSHOT")
+        literal(name = "MANUAL")
+    }
+    val referenceDateFallbackEnum = enumOf(name = "ReferenceDateFallback") {
+        literal(name = "NONE")
+        literal(name = "WEEKEND")
+        literal(name = "HOLIDAY")
+    }
+
+    // One row per credit attempt of a report that is refunded in LTR. The receipt of the rate (snapshot or manual rate), the peg and the two
+    // ledger / journal entries stay readable even after the credit was reversed; the only change ever made to a row is the one reversal.
+    val travelExpenseLtrPayout = classOf(name = "TravelExpenseLtrPayout") {
+        stereotype("Entity") { "tableName" to "travel_expense_ltr_payout"; "kotlinObjectName" to "TravelExpenseLtrPayoutTable" }
+        stereotype("Index") { "columns" to listOf("report_id", "attempt_no"); "unique" to true; "name" to "uq_telp_report_attempt" }
+        stereotype("Index") { "columns" to listOf("active_report_id"); "unique" to true; "name" to "uq_telp_active_report" }
+        stereotype("Index") { "columns" to listOf("ltr_ledger_entry_id"); "unique" to true; "name" to "uq_telp_ledger_entry" }
+        stereotype("Index") { "columns" to listOf("journal_entry_id"); "unique" to true; "name" to "uq_telp_journal_entry" }
+        stereotype("Index") { "columns" to listOf("reversal_ledger_entry_id"); "unique" to true; "name" to "uq_telp_reversal_ledger_entry" }
+        stereotype("Index") { "columns" to listOf("reversal_journal_entry_id"); "unique" to true; "name" to "uq_telp_reversal_journal_entry" }
+        stereotype("Index") { "columns" to listOf("member_id"); "name" to "idx_telp_member" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "reportId", type = "UUID") {
+            stereotype("Column") { "columnName" to "report_id"; "fkEntity" to "TravelExpenseReport" }
+        }
+        attribute(name = "attemptNo", type = "Int") {
+            stereotype("Column") { "columnName" to "attempt_no" }
+        }
+        attribute(name = "memberId", type = "UUID") {
+            stereotype("Column") { "columnName" to "member_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "eurAmount", type = "BigDecimal") {
+            stereotype("Column") { "columnName" to "eur_amount"; "sqlType" to "DECIMAL(12,2)" }
+        }
+        attribute(name = "ltrAmount", type = "BigDecimal") {
+            stereotype("Column") { "columnName" to "ltr_amount"; "sqlType" to "DECIMAL(18,2)" }
+        }
+        attribute(name = "anchorAsset", type = anchorAssetEnum) {
+            stereotype("Column") {
+                "columnName" to "anchor_asset"
+                "enumType" to "network.lapis.cloud.shared.domain.AnchorAsset"
+            }
+        }
+        attribute(name = "currency", type = "String") {
+            stereotype("Column") { "columnName" to "currency"; "sqlType" to "VARCHAR(3)" }
+        }
+        attribute(name = "anchorPrice", type = "BigDecimal") {
+            stereotype("Column") { "columnName" to "anchor_price"; "sqlType" to "DECIMAL(38,18)" }
+        }
+        attribute(name = "anchorUnitsPerLtr", type = "BigDecimal") {
+            stereotype("Column") { "columnName" to "anchor_units_per_ltr"; "sqlType" to "DECIMAL(38,18)" }
+        }
+        attribute(name = "rateBasis", type = referenceRateBasisEnum) {
+            stereotype("Column") {
+                "columnName" to "rate_basis"
+                "enumType" to "network.lapis.cloud.shared.domain.ReferenceRateBasis"
+            }
+        }
+        attribute(name = "referenceDate", type = "LocalDate") {
+            stereotype("Column") { "columnName" to "reference_date" }
+        }
+        attribute(name = "effectiveDate", type = "LocalDate") {
+            stereotype("Column") { "columnName" to "effective_date" }
+        }
+        attribute(name = "fallbackReason", type = referenceDateFallbackEnum) {
+            stereotype("Column") {
+                "columnName" to "fallback_reason"
+                "enumType" to "network.lapis.cloud.shared.domain.ReferenceDateFallback"
+            }
+        }
+        attribute(name = "snapshotId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "snapshot_id"; "fkEntity" to "PriceOracleSnapshot" }
+        }
+        attribute(name = "referenceRateId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reference_rate_id"; "fkEntity" to "PriceOracleReferenceRate" }
+        }
+        attribute(name = "quorumRequired", type = "Int") {
+            stereotype("Column") { "columnName" to "quorum_required" }
+        }
+        attribute(name = "sourceCount", type = "Int") {
+            stereotype("Column") { "columnName" to "source_count" }
+        }
+        attribute(name = "sourcesUsed", type = "String") {
+            stereotype("Column") { "columnName" to "sources_used"; "sqlType" to "VARCHAR(500)" }
+        }
+        attribute(name = "rateConfirmedBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "rate_confirmed_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "ltrLedgerEntryId", type = "UUID") {
+            stereotype("Column") { "columnName" to "ltr_ledger_entry_id"; "fkEntity" to "LtrLedgerEntry" }
+        }
+        attribute(name = "journalEntryId", type = "UUID") {
+            stereotype("Column") { "columnName" to "journal_entry_id"; "fkEntity" to "JournalEntry" }
+        }
+        attribute(name = "triggeredBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "triggered_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "triggeredAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "triggered_at" }
+        }
+        // Mandatory (10..500 characters) from the second attempt on (chk_telp_repeat_reason).
+        attribute(name = "repeatReason", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "repeat_reason"; "sqlType" to "VARCHAR(500)" }
+        }
+        attribute(name = "reversedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reversed_at" }
+        }
+        attribute(name = "reversedBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reversed_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "reversalReason", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reversal_reason"; "sqlType" to "VARCHAR(500)" }
+        }
+        attribute(name = "reversalLedgerEntryId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reversal_ledger_entry_id"; "fkEntity" to "LtrLedgerEntry" }
+        }
+        attribute(name = "reversalJournalEntryId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reversal_journal_entry_id"; "fkEntity" to "JournalEntry" }
+        }
+        // Double-credit guard WITHOUT a partial index: equals report_id while the credit is active, NULL once reversed (many NULLs are allowed under a plain UNIQUE).
+        attribute(name = "activeReportId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "active_report_id" }
         }
     }
 }

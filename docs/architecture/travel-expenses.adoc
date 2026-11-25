@@ -484,3 +484,39 @@ unchanged. The "Ende before Beginn" check on a single day keeps its message.
 The day amount is shown in two lines in the right-hand cell, never cut: "Tagesbetrag: ..." and, only when the day has a result, "(Abzüge: ...)" below it. The numbers come from the
 shared calculator as before.
 
+
+== Refund in LTR (V1.9.325, schema V172)
+
+*Data.* `travel_expense_ltr_payout` holds one row per credit attempt: report, member, euro and LTR amount, anchor, currency, price, peg, rate basis (`SNAPSHOT` or `MANUAL`), reference and effective day, fallback reason, the snapshot or manual-rate id (exactly one, a CHECK), quorum and sources, who confirmed a manual rate, the ledger and journal entry of the credit, who and when, the repeat reason, and the five reversal columns (all set or all null). The rate itself stays in `price_oracle_snapshot` (+ `_source`) or `price_oracle_reference_rate`. A row is inserted once and changed only by its single reversal (`UPDATE ... WHERE reversed_at IS NULL`, pinned by `TravelExpenseLtrLedgerTripwireTest`). It is not `price_oracle_conversion`: that table has donation columns a PartG or data-protection reader would misread.
+
+[kuml, travel-expense-ltr-payout, svg]
+----
+classDiagram(name = "TravelExpenseLtrPayout") {
+    val report = classOf(name = "TravelExpenseReport") {}
+    val payout = classOf(name = "TravelExpenseLtrPayout") {
+        attribute(name = "attemptNo", type = "Int")
+        attribute(name = "ltrAmount", type = "BigDecimal")
+        attribute(name = "rateBasis", type = "String")
+        attribute(name = "activeReportId", type = "UUID")
+    }
+    val ledger = classOf(name = "LtrLedgerEntry") {}
+    val journal = classOf(name = "JournalEntry") {}
+    val snapshot = classOf(name = "PriceOracleSnapshot") {}
+    val rate = classOf(name = "PriceOracleReferenceRate") {}
+    association(report, payout)
+    association(payout, ledger)
+    association(payout, journal)
+    association(payout, snapshot)
+    association(payout, rate)
+}
+----
+
+*Lock order.* Report row `FOR UPDATE` first (the same lock as the SEPA export), then, for a reversal only, the member row (`lockForDebit`). Never the other way round.
+
+*Booking.* Approval: debit expense, credit the liability account (never the bank). Credit: debit the liability, credit the settlement account, both for `total - advance` in the ideal sphere. Reversal: the exact counter entry. Cash-register accounts are refused.
+
+*Double credit.* Row lock; `active_report_id` (equal to `report_id` while active, null after the reversal) under a plain UNIQUE index, which both H2 and PostgreSQL allow to hold many nulls; UNIQUE ledger and journal ids. Only a unique violation under a savepoint is translated.
+
+*Fingerprint.* SHA-256 over report id, euro cents, snapshot or rate id, price, peg, LTR amount and the next attempt number; recomputed under the lock and compared.
+
+*Audit.* ids, dates, basis, who; never an amount, a price or a reason text (only lengths).

@@ -48,6 +48,10 @@ internal data class TravelExpenseSettings(
     val bankAccountId: Uuid?,
     val advanceAccountId: Uuid?,
     val donationWaiverAccountId: Uuid?,
+    /** V1.9.325: the switch for the refund in LTR (default off) and the two accounts it needs. */
+    val ltrPayoutEnabled: Boolean = false,
+    val ltrPayableAccountId: Uuid? = null,
+    val ltrSettlementAccountId: Uuid? = null,
 )
 
 internal object TravelExpenseSettingsStore {
@@ -114,6 +118,9 @@ internal object TravelExpenseSettingsStore {
             bankAccountId = row[OrganizationSettingsTable.paymentBankAccountId],
             advanceAccountId = row[OrganizationSettingsTable.travelAdvanceAccountId],
             donationWaiverAccountId = row[OrganizationSettingsTable.travelDonationWaiverAccountId],
+            ltrPayoutEnabled = row[OrganizationSettingsTable.travelLtrPayoutEnabled],
+            ltrPayableAccountId = row[OrganizationSettingsTable.travelLtrPayableAccountId],
+            ltrSettlementAccountId = row[OrganizationSettingsTable.travelLtrSettlementAccountId],
         )
     }
 }

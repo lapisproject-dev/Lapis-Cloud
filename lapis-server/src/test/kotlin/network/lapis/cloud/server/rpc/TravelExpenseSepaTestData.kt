@@ -189,6 +189,7 @@ internal class TravelExpenseSepaTestData(
         bookedBankCreditCents: Long? = null,
         travelTo: LocalDate = LocalDate(2026, 9, 20),
         advanceCreditAccount: Uuid? = null,
+        ltrPayableCreditAccount: Uuid? = null,
         paidOutsideLapis: Boolean = false,
     ): Uuid {
         val reportId = Uuid.random()
@@ -225,7 +226,7 @@ internal class TravelExpenseSepaTestData(
                 val expense = ledgerAccount(LedgerAccountType.EXPENSE)
                 posting(expense, PostingSide.DEBIT, totalCents)
                 val credit = bookedBankCreditCents ?: payable
-                if (credit > 0) posting(bankLedgerAccountId, PostingSide.CREDIT, credit)
+                if (credit > 0) posting(ltrPayableCreditAccount ?: bankLedgerAccountId, PostingSide.CREDIT, credit)
                 if (advanceCreditAccount != null && advanceCents > 0) posting(advanceCreditAccount, PostingSide.CREDIT, advanceCents)
             }
             TravelExpenseReportTable.insert {

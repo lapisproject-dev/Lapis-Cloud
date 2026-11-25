@@ -239,8 +239,8 @@ class ReportScreensDomTest {
     @Test
     fun approvalQueues_travelFirstPageIsAnErrorStateWithRetry(): Promise<Unit> =
         test {
-            // Two independent loads fail on this screen: the queue and (V1.9.123) the "Zur Auszahlung bereit" section.
-            assertFailedLoadIsAnErrorState("report-screens-travel", "Filtern", expectedBoxes = 2, otherLoadingTexts = true) {
+            // Three independent loads fail on this screen: the queue, (V1.9.123) the "Zur Auszahlung bereit" section and (V1.9.325) the LTR list.
+            assertFailedLoadIsAnErrorState("report-screens-travel", "Filtern", expectedBoxes = 3, otherLoadingTexts = true) {
                 renderTravelExpenseApprovalsScreen(it)
             }
         }

@@ -299,7 +299,14 @@ private fun renderDraftEditor(
         )
     val payoutRadio =
         settlementForm.panel.radioGroup(
-            options = TravelExpensePayoutChoice.entries.map { it.name to travelExpensePayoutChoiceLabel(it) },
+            // V1.9.325: the LTR choice is offered only while the organisation switched it on (or an existing draft already carries it).
+            options =
+                TravelExpensePayoutChoice.entries
+                    .filter {
+                        it != TravelExpensePayoutChoice.LTR ||
+                            rates.ltrPayoutEnabled ||
+                            draft.payoutChoice == TravelExpensePayoutChoice.LTR
+                    }.map { it.name to travelExpensePayoutChoiceLabel(it) },
             // Deliberately NO preselection: the member decides consciously whether to be paid or to waive.
             value = draft.payoutChoice?.name,
             label = tr("Wie soll abgerechnet werden?"),
@@ -311,6 +318,14 @@ private fun renderDraftEditor(
         requiredMessage = tr("Bitte wählen Sie, ob ausgezahlt oder auf die Erstattung verzichtet werden soll."),
     )
     settlementForm.panel.div(tr("Die Zuwendungsbestätigung wird außerhalb von Lapis ausgestellt."), className = "text-muted small")
+    // V1.9.325: what "In LTR gutschreiben" means -- shown only while it is chosen.
+    val ltrHint =
+        settlementForm.panel.div(
+            gettext(
+                "Der Betrag wird in LTR gutgeschrieben, umgerechnet zum Goldpreis des Reiseendes (%1). Die Gutschrift löst der Vorstand oder die Kasse aus.",
+                formatDate(draft.travelTo),
+            ),
+        ) { addCssClasses("text-muted small") }
     // V1.9.123: the account the refund is transferred to. The full IBAN is stored encrypted and never shown again -- only the masked
     // end ("IBAN •••• 2051") -- so changing it means typing it anew. Visible only while "Auszahlung" is chosen. Only the person the
     // money goes to may name the account: for a draft filed on someone's behalf the subject does it after submission.
@@ -336,6 +351,7 @@ private fun renderDraftEditor(
 
     fun updateRefundFieldVisibility(choice: String?) {
         val payout = choice == TravelExpensePayoutChoice.PAYOUT.name
+        ltrHint.visible = choice == TravelExpensePayoutChoice.LTR.name
         ibanField.setVisible(payout && isSubject)
         holderField.setVisible(payout && isSubject)
         requesterNote.visible = payout && !isSubject
@@ -636,7 +652,7 @@ internal fun travelExpenseSubmitBlockReason(
 ): String? {
     if (report.lines.isEmpty()) return tr("Mindestens eine Zeile ist erforderlich.")
     if (daysDirty) return tr("Bitte speichern Sie zuerst die Reisetage.")
-    if (report.payoutChoice == null) return tr("Bitte wählen Sie, wie abgerechnet werden soll (Auszahlung oder Spendenquittung).")
+    if (report.payoutChoice == null) return tr("Bitte wählen Sie, wie abgerechnet werden soll (Auszahlung, Spendenquittung oder LTR).")
     if (report.advanceCents > report.lines.sumOf { it.amountCents }) {
         return tr("Der Vorschuss ist höher als die Abrechnung -- bitte wenden Sie sich an den Ansprechpartner.")
     }

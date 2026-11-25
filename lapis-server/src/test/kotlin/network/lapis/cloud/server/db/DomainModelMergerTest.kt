@@ -621,7 +621,9 @@ class DomainModelMergerTest :
             // 21-auction.kuml.kts (V1.9.323, Fiat wave b2) adds ONE real table (auction_offer_buyer_restriction), 292 -> 293.
             // 19-price-oracle.kuml.kts (V1.9.324, gold price at a reference date) adds TWO real tables (price_oracle_snapshot_source,
             // price_oracle_reference_rate), 293 -> 295.
-            val distinctTableNames = 295
+            // 45-travel-expense.kuml.kts (V1.9.325, refund in LTR) adds ONE real table (travel_expense_ltr_payout); its LtrLedgerEntry, PriceOracleSnapshot and
+            // PriceOracleReferenceRate stubs dedup into the real entities, 295 -> 296.
+            val distinctTableNames = 296
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -717,6 +719,7 @@ class DomainModelMergerTest :
                     "PriceOracleSnapshotTable.kt",
                     "PriceOracleSnapshotSourceTable.kt",
                     "PriceOracleReferenceRateTable.kt",
+                    "TravelExpenseLtrPayoutTable.kt",
                     "PoliticianProfileTable.kt",
                     "PoliticianReactionTable.kt",
                     "PoliticianWeightSnapshotTable.kt",

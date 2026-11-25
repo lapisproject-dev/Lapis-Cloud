@@ -56,6 +56,8 @@ private val logger = KotlinLogging.logger {}
  * Haben <paymentBankAccountId>        <total - advance>   payoutChoice == PAYOUT
  * Haben <travelDonationWaiverAccount> <total - advance>   payoutChoice == DONATION_WAIVER (no money flows)
  * Haben <travelAdvanceAccount>        <advance>           when an advance was paid out earlier
+ * Haben <travelLtrPayableAccount>     <total - advance>   payoutChoice == LTR (V1.9.325: a liability, settled when the LTR is credited, see
+ *                                                         [TravelExpenseLtrPostingBridge]; never the bank)
  * ```
  * A member who waives the reimbursement (Aufwandsverzicht) receives no money -- booking it against
  * the bank would be factually wrong (GoBD), hence the separate income account "Aufwandsspenden".
@@ -114,6 +116,7 @@ internal object TravelExpensePostingBridge {
         val payoutAmount = totalAmount.subtract(advanceAmount)
         val creditsBank = payoutChoice == TravelExpensePayoutChoice.PAYOUT && payoutAmount.signum() > 0
         val creditsWaiver = payoutChoice == TravelExpensePayoutChoice.DONATION_WAIVER && payoutAmount.signum() > 0
+        val creditsLtrPayable = payoutChoice == TravelExpensePayoutChoice.LTR && payoutAmount.signum() > 0
         val creditsAdvance = advanceAmount.signum() > 0
 
         val settingsRow =
@@ -125,6 +128,7 @@ internal object TravelExpensePostingBridge {
         val bankAccountId = settingsRow?.get(OrganizationSettingsTable.paymentBankAccountId)
         val advanceAccountId = settingsRow?.get(OrganizationSettingsTable.travelAdvanceAccountId)
         val waiverAccountId = settingsRow?.get(OrganizationSettingsTable.travelDonationWaiverAccountId)
+        val ltrPayableAccountId = settingsRow?.get(OrganizationSettingsTable.travelLtrPayableAccountId)
 
         fun degrade(
             reason: String,
@@ -152,12 +156,17 @@ internal object TravelExpensePostingBridge {
             )
         }
 
+        if (creditsLtrPayable && ltrPayableAccountId == null) {
+            return degrade("travel_ltr_payable_account_not_configured", "OrganizationSettings.travelLtrPayableAccountId is not configured")
+        }
+
         val referencedAccountIds =
             listOfNotNull(
                 expenseAccountId,
                 bankAccountId.takeIf { creditsBank },
                 advanceAccountId.takeIf { creditsAdvance },
                 waiverAccountId.takeIf { creditsWaiver },
+                ltrPayableAccountId.takeIf { creditsLtrPayable },
             ).distinct()
         val accountRows =
             referencedAccountIds.associateWith { accountId ->
@@ -191,6 +200,16 @@ internal object TravelExpensePostingBridge {
             }
         }
 
+        if (creditsLtrPayable) {
+            val payableType = accountRows.getValue(requireNotNull(ltrPayableAccountId))?.get(LedgerAccountTable.type)
+            if (payableType != LedgerAccountType.LIABILITY) {
+                return degrade(
+                    "travel_ltr_payable_account_not_liability_type",
+                    "travelLtrPayableAccountId $ltrPayableAccountId is of type $payableType, not LIABILITY",
+                )
+            }
+        }
+
         // V1.4.13: no `vatRate` set below on purpose -- this automated bridge makes no tax
         // classification, so postings stay VatRate.UNCLASSIFIED (the PostingInput default).
         fun credit(
@@ -208,6 +227,7 @@ internal object TravelExpensePostingBridge {
                 if (creditsBank) add(credit(requireNotNull(bankAccountId), payoutAmount))
                 if (creditsWaiver) add(credit(requireNotNull(waiverAccountId), payoutAmount))
                 if (creditsAdvance) add(credit(requireNotNull(advanceAccountId), advanceAmount))
+                if (creditsLtrPayable) add(credit(requireNotNull(ltrPayableAccountId), payoutAmount))
             }
         val postingInputs =
             lines.map { line ->
@@ -306,6 +326,9 @@ internal object TravelExpensePostingBridge {
                 side = PostingSide.CREDIT,
                 amount = payoutAmount,
             )
+        }
+        if (creditsLtrPayable) {
+            insertPosting(ledgerAccountId = requireNotNull(ltrPayableAccountId), side = PostingSide.CREDIT, amount = payoutAmount)
         }
         if (creditsAdvance) {
             insertPosting(

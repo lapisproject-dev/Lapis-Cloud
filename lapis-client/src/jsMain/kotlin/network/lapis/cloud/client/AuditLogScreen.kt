@@ -618,6 +618,8 @@ fun decodeAuditSnapshot(
             // V1.9.324 -- reference-date rate confirmation / conversion (dates and ids, never a price or an amount), raw-text display.
             AuditEntityType.PRICE_ORACLE_REFERENCE_RATE -> null
             AuditEntityType.PRICE_ORACLE_CONVERSION -> null
+            // V1.9.325 -- LTR credit of a travel expense report (ids, dates, basis; never an amount, a rate or a reason), raw-text display.
+            AuditEntityType.TRAVEL_EXPENSE_LTR_PAYOUT -> null
             // V1.9.225 -- PartgValueAuditSnapshot / PartgImportAuditSnapshot / PartgPositionHintSnapshot (year, unit key, position code, cents;
             // never a file name beyond the shortened import entry), raw-text display like the other backend-written snapshots.
             AuditEntityType.PARTG_REPORT_SHEET -> null

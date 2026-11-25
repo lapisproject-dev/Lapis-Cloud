@@ -199,6 +199,8 @@ internal fun Route.registerTravelExpenseTestRoutes() {
                         ),
                     advanceAccountId = q["advanceAccount"],
                     donationWaiverAccountId = q["waiverAccount"],
+                    ltrPayableAccountId = q["ltrPayable"],
+                    ltrSettlementAccountId = q["ltrSettlement"],
                 ),
             )
         call.respondText("${dto.canEditSettings}|${dto.rateSet?.tierCents}|${dto.contact.name ?: "-"}")
@@ -247,6 +249,7 @@ internal fun Route.registerTravelExpenseTestRoutes() {
                 purpose = q["purpose"] ?: "Testreise",
                 travelFrom = LocalDate.parse(q["from"]!!),
                 travelTo = LocalDate.parse(q["to"]!!),
+                payoutChoice = q["payout"]?.let { TravelExpensePayoutChoice.valueOf(it) },
             )
         val dto = service.updateDraft(reportId = q["id"]!!, input = input)
         call.respondText(dto.toPipeString())

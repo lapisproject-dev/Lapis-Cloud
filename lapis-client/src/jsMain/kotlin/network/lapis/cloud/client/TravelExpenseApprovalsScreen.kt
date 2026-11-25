@@ -54,6 +54,8 @@ fun renderTravelExpenseApprovalsScreen(container: SimplePanel) {
 
     // V1.9.123: booked reports -> SEPA credit-transfer file (BOARD/ADMIN, like the rest of this screen).
     renderTravelExpenseSepaSection(root)
+    // V1.9.325: booked reports whose member chose the refund in LTR.
+    renderTravelExpenseLtrSection(root)
 
     val filterRow = root.lapisToolbar()
     val statusOptions =

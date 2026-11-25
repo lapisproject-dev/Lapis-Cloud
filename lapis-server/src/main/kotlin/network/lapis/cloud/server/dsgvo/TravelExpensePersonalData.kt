@@ -8,6 +8,7 @@ import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.db.generated.TravelExpenseAttachmentTable
 import network.lapis.cloud.server.db.generated.TravelExpenseDocumentTable
 import network.lapis.cloud.server.db.generated.TravelExpenseLineTable
+import network.lapis.cloud.server.db.generated.TravelExpenseLtrPayoutTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReceiptTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
 import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchItemTable
@@ -109,6 +110,7 @@ object TravelExpensePersonalData : MemberPersonalDataContributor {
             TravelExpenseDocumentTable,
             TravelExpenseSepaBatchTable,
             TravelExpenseSepaBatchItemTable,
+            TravelExpenseLtrPayoutTable,
         )
 
     override fun exportMember(memberId: Uuid) =
@@ -160,6 +162,29 @@ object TravelExpensePersonalData : MemberPersonalDataContributor {
                                 put("refundAccountHolder", row[TravelExpenseReportTable.refundAccountHolder])
                                 put("sepaExportedAt", row[TravelExpenseReportTable.sepaExportedAt]?.toString())
                                 put("sepaReexportCount", row[TravelExpenseReportTable.sepaReexportCount])
+                                // V1.9.325: LTR credits of this report -- the receipt (rate, day, amounts, who and when), reasons included (part of the file).
+                                putJsonArray("ltrPayouts") {
+                                    TravelExpenseLtrPayoutTable
+                                        .selectAll()
+                                        .where { TravelExpenseLtrPayoutTable.reportId eq reportId }
+                                        .forEach { payout ->
+                                            add(
+                                                buildJsonObject {
+                                                    put("attemptNo", payout[TravelExpenseLtrPayoutTable.attemptNo])
+                                                    put("eurAmount", payout[TravelExpenseLtrPayoutTable.eurAmount].toPlainString())
+                                                    put("ltrAmount", payout[TravelExpenseLtrPayoutTable.ltrAmount].toPlainString())
+                                                    put("anchorPrice", payout[TravelExpenseLtrPayoutTable.anchorPrice].toPlainString())
+                                                    put("rateBasis", payout[TravelExpenseLtrPayoutTable.rateBasis].name)
+                                                    put("referenceDate", payout[TravelExpenseLtrPayoutTable.referenceDate].toString())
+                                                    put("effectiveDate", payout[TravelExpenseLtrPayoutTable.effectiveDate].toString())
+                                                    put("triggeredAt", payout[TravelExpenseLtrPayoutTable.triggeredAt].toString())
+                                                    put("repeatReason", payout[TravelExpenseLtrPayoutTable.repeatReason])
+                                                    put("reversedAt", payout[TravelExpenseLtrPayoutTable.reversedAt]?.toString())
+                                                    put("reversalReason", payout[TravelExpenseLtrPayoutTable.reversalReason])
+                                                },
+                                            )
+                                        }
+                                }
                                 putJsonArray("lines") {
                                     lines.forEach { line ->
                                         add(
@@ -357,6 +382,23 @@ object TravelExpensePersonalData : MemberPersonalDataContributor {
                 retentionReason =
                     "Art. 5(2) DSGVO Rechenschaftspflicht + §147 AO -- wer wann welche SEPA-Überweisungsdatei erzeugt hat, " +
                         "bleibt nachvollziehbar; die Charge enthält weder IBAN noch Namen.",
+            ),
+            // V1.9.325: the credit receipt of a refund in LTR is a Buchungsbeleg (rate, day, amounts); it stays, the member links stay with it.
+            TableErasureOutcome(
+                table = "travel_expense_ltr_payout",
+                rowsRetained =
+                    TravelExpenseLtrPayoutTable
+                        .selectAll()
+                        .where {
+                            (TravelExpenseLtrPayoutTable.memberId eq memberId) or
+                                (TravelExpenseLtrPayoutTable.triggeredBy eq memberId) or
+                                (TravelExpenseLtrPayoutTable.reversedBy eq memberId) or
+                                (TravelExpenseLtrPayoutTable.rateConfirmedBy eq memberId)
+                        }.count()
+                        .toInt(),
+                retentionReason =
+                    "Art. 5(2) DSGVO Rechenschaftspflicht + §147 AO -- Kurs, Kurstag, Beträge und die Buchung der Gutschrift in LTR " +
+                        "belegen die Begleichung der Reisekostenverbindlichkeit; sie enthalten keinen Namen und keine Kontonummer.",
             ),
             TableErasureOutcome(
                 table = "travel_expense_sepa_batch_item",

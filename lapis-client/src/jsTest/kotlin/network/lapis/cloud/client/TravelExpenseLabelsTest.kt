@@ -165,7 +165,7 @@ class TravelExpenseLabelsTest {
     fun payoutChoiceLabels_areNonBlankAndDifferent() {
         val labels = TravelExpensePayoutChoice.entries.map { travelExpensePayoutChoiceLabel(it) }
         assertTrue(labels.all { it.isNotBlank() })
-        assertEquals(2, labels.toSet().size)
+        assertEquals(3, labels.toSet().size)
     }
 
     @Test

@@ -218,6 +218,20 @@ object PriceOracleSnapshotStore {
         }
     }
 
+    /** V1.9.325: the stored raw source values of one snapshot (empty for a snapshot from before V171), ordered by source id. Inside an open transaction. */
+    internal fun sourcesOf(snapshotId: Uuid): List<StoredSourceValue> =
+        PriceOracleSnapshotSourceTable
+            .selectAll()
+            .where { PriceOracleSnapshotSourceTable.snapshotId eq snapshotId }
+            .map {
+                StoredSourceValue(
+                    sourceId = it[PriceOracleSnapshotSourceTable.sourceId],
+                    rawPrice = it[PriceOracleSnapshotSourceTable.rawPrice],
+                    observedAt = it[PriceOracleSnapshotSourceTable.observedAt],
+                    included = it[PriceOracleSnapshotSourceTable.included],
+                )
+            }.sortedBy { it.sourceId }
+
     /**
      * Reads up to [limit] rows for (anchor, currency), optionally bounded below by [since]
      * (`priceTimestamp >= since`), sorted ASCENDING by `priceTimestamp` (chart-ready). When more

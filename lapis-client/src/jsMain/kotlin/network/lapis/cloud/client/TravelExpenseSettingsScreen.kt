@@ -8,6 +8,7 @@ import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
+import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
@@ -238,6 +239,52 @@ fun renderTravelExpenseSettingsScreen(container: SimplePanel) {
                     value = current.donationWaiverAccountId,
                     hint = tr("Nötig, sobald ein Mitglied auf die Erstattung verzichtet."),
                 )
+            // V1.9.325: refund in LTR. The switch is its own action (it validates the whole setup on the server); the two accounts are saved with the form.
+            val ltrPayableAccount =
+                form.selectField(
+                    label = tr("Verbindlichkeitskonto für Erstattungen in LTR"),
+                    options = accountOptions,
+                    value = current.ltrPayableAccountId,
+                    hint = tr("Konto vom Typ Verbindlichkeit: Hier wird die Erstattung bei der Genehmigung gebucht, statt gegen die Bank."),
+                )
+            val ltrSettlementAccount =
+                form.selectField(
+                    label = tr("Gegenkonto bei der Gutschrift in LTR"),
+                    options = accountOptions,
+                    value = current.ltrSettlementAccountId,
+                    hint =
+                        tr(
+                            "Mit der Gutschrift wird die Verbindlichkeit gegen dieses Konto ausgebucht. Bitte mit der Steuerberatung abstimmen.",
+                        ),
+                )
+            val ltrSwitchRow = form.panel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+            ltrSwitchRow.div(
+                if (rates.ltrPayoutEnabled) {
+                    tr("Die Erstattung in LTR wird angeboten.")
+                } else {
+                    tr("Die Erstattung in LTR ist ausgeschaltet.")
+                },
+            ) { addCssClass("fw-bold") }
+            val ltrSwitchButton =
+                ltrSwitchRow.actionButton(
+                    ActionIcon.SAVE,
+                    if (rates.ltrPayoutEnabled) tr("Ausschalten") else tr("Einschalten"),
+                    style = ButtonStyle.OUTLINEPRIMARY,
+                )
+            ltrSwitchButton.onClick {
+                AppScope.launch {
+                    val result = guarded { rpcService<ITravelExpenseService>().setLtrPayoutEnabled(!rates.ltrPayoutEnabled) }
+                    if (result != null) {
+                        notifySuccess(tr("Einstellung gespeichert."))
+                        load()
+                    }
+                }
+            }
+            form.panel.div(
+                tr(
+                    "Zum Einschalten müssen das Preis-Orakel auf Gold in Euro stehen und beide Konten gespeichert sein (erst Konten wählen, speichern, dann einschalten).",
+                ),
+            ) { addCssClasses("text-muted small") }
 
             val allFields =
                 listOf(
@@ -296,6 +343,8 @@ fun renderTravelExpenseSettingsScreen(container: SimplePanel) {
                                 contactHintFormat = contactHint.formatToSend(),
                                 advanceAccountId = advanceAccount.value,
                                 donationWaiverAccountId = waiverAccount.value,
+                                ltrPayableAccountId = ltrPayableAccount.value,
+                                ltrSettlementAccountId = ltrSettlementAccount.value,
                             ),
                         )
                     if (input == null) {
