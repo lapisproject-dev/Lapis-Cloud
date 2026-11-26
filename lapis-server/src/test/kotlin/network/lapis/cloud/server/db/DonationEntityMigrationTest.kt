@@ -164,7 +164,7 @@ abstract class DonationEntityMigrationScenarios(
             h.exec(conversion(convManualPaid, "SNAPSHOT", ", reference_date_source, payment_transaction_id") + ", 'MANUAL', '$goodManual')")
             h.exec(conversion(convManualFree, "SNAPSHOT", ", reference_date_source") + ", 'MANUAL')")
             h.exec(conversion(convCurrent, "CURRENT") + ")")
-            h.flyway(null).migrate()
+            h.flyway("174").migrate()
         }
         afterSpec { h.close() }
 
@@ -325,7 +325,7 @@ abstract class DonationEntityMigrationScenarios(
                     conversion(UUID.randomUUID(), "SNAPSHOT", ", reference_date_source, payment_transaction_id") +
                         ", 'BANK_BOOKING', '$pay')",
                 )
-                val failure = runCatching { harness.flyway(null).migrate() }.exceptionOrNull()
+                val failure = runCatching { harness.flyway("174").migrate() }.exceptionOrNull()
                 (failure != null) shouldBe true
                 generateSequence(failure) { it.cause }.joinToString(" | ") { it.message.orEmpty() }.lowercase() shouldContain
                     "chk_poc_donation_payment"
@@ -345,7 +345,7 @@ abstract class DonationEntityMigrationScenarios(
                     conversion(UUID.randomUUID(), "SNAPSHOT", ", reference_date_source, payment_transaction_id", amount = "11.00") +
                         ", 'BANK_BOOKING', '$pay')",
                 )
-                val failure = runCatching { harness.flyway(null).migrate() }.exceptionOrNull()
+                val failure = runCatching { harness.flyway("174").migrate() }.exceptionOrNull()
                 (failure != null) shouldBe true
                 generateSequence(failure) { it.cause }.joinToString(" | ") { it.message.orEmpty() }.lowercase() shouldContain
                     "fk_poc_donation_link"

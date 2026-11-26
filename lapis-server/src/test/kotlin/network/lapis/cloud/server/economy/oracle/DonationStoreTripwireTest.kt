@@ -42,11 +42,35 @@ class DonationStoreTripwireTest :
             Regex("""fun\s+(update|delete|remove|edit|change)""", RegexOption.IGNORE_CASE).containsMatchIn(code) shouldBe false
         }
 
-        test("only the price oracle service, the payment link and the contributor use the donation store") {
+        test("only the price oracle service, the payment link and the two payment entry points use the donation store") {
             filesNaming(
                 Regex("""\bDonationStore\b"""),
-                setOf("DonationStore.kt", "PriceOracleService.kt", "DonationPaymentLink.kt"),
+                setOf(
+                    "DonationStore.kt",
+                    "PriceOracleService.kt",
+                    "DonationPaymentLink.kt",
+                    "BankStatementStore.kt",
+                    "PspWebhookIngestion.kt",
+                ),
             ).shouldBeEmpty()
+        }
+
+        test(
+            "V1.9.329: every place that inserts a payment_transaction is known, and each one that can write a donation creates its donation",
+        ) {
+            val inserting =
+                files
+                    .filter { "/db/generated/" !in it.path }
+                    .filter { Regex("""\bPaymentTransactionTable\s*\.\s*insert\b""").containsMatchIn(SourceScan.blank(it.readText())) }
+                    .map { it.name }
+                    .toSet()
+            // A new file that inserts a payment must be classified here (and, if it can write intent DONATION, call DonationStore.ensureForPayment).
+            inserting shouldBe setOf("BankStatementStore.kt", "BankStatementImportService.kt", "PspWebhookIngestion.kt")
+            listOf("BankStatementStore.kt", "PspWebhookIngestion.kt").forEach {
+                Regex("""\bDonationStore\s*\.\s*ensureForPayment\b""").containsMatchIn(codeOf(it)) shouldBe true
+            }
+            // The statement import writes contribution payments only.
+            codeOf("BankStatementImportService.kt").contains("PaymentIntent.DONATION") shouldBe false
         }
 
         test("the ledger note and the log lines of the reference-date conversion never carry the reason text") {

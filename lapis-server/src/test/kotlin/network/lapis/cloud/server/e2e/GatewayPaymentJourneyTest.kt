@@ -27,6 +27,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.DonationTable
 import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
@@ -158,6 +159,7 @@ class GatewayPaymentJourneyTest :
                                 .where { PaymentTransactionTable.id inList transactionIds }
                                 .mapNotNull { it[PaymentTransactionTable.journalEntryId] }
                         PspWebhookEventTable.deleteWhere { PspWebhookEventTable.paymentTransactionId inList transactionIds }
+                        DonationTable.deleteWhere { DonationTable.paymentTransactionId inList transactionIds }
                         PaymentTransactionTable.deleteWhere { PaymentTransactionTable.id inList transactionIds }
                         if (journalEntryIds.isNotEmpty()) {
                             PostingTable.deleteWhere { PostingTable.journalEntryId inList journalEntryIds }

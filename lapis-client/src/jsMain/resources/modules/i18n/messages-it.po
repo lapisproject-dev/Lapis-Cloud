@@ -34722,3 +34722,31 @@ msgstr "Selezionare una donazione."
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
 msgid "Die Begründung muss zwischen %1 und %2 Zeichen lang sein."
 msgstr "Il motivo deve essere lungo tra %1 e %2 caratteri."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Sonstige Zahlung"
+msgstr "Altro pagamento"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "kein Buchungstag"
+msgstr "nessun giorno di contabilizzazione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Begründung für den Stichtag"
+msgstr "Motivazione della data di riferimento"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Diese Spende hat keine Bankbuchung (Eingang am %1 über %2). Der Stichtag gilt deshalb immer als manuell gewählt und braucht eine Begründung."
+msgstr "Questa donazione non ha una contabilizzazione bancaria (ricevuta il %1 tramite %2). La data di riferimento viene quindi sempre scelta manualmente e richiede una motivazione."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Diese Spende hat keine Bankbuchung. Der Stichtag gilt deshalb immer als manuell gewählt und braucht eine Begründung."
+msgstr "Questa donazione non ha una contabilizzazione bancaria. La data di riferimento viene quindi sempre scelta manualmente e richiede una motivazione."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Spende ohne Bankbuchung, Stichtag: %1."
+msgstr "Donazione senza contabilizzazione bancaria, data di riferimento: %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Altbestand: ohne Spende erfasst"
+msgstr "Voce precedente: registrata senza donazione"

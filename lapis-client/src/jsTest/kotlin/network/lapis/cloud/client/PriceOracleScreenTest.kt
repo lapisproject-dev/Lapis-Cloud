@@ -2,8 +2,11 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
+import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.AnchorPolicy
+import network.lapis.cloud.shared.domain.DonationChannel
+import network.lapis.cloud.shared.domain.DonationPaymentCandidateDto
 import network.lapis.cloud.shared.domain.PriceStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -25,6 +28,49 @@ class PriceOracleScreenTest {
         val amount = 1042.5.toDecimal()
         assertEquals("1.042,50${NBSP}USD", formatDonationAmount(amount, "USD"))
         assertEquals("1.042,50${NBSP}EUR", formatDonationAmount(amount, "EUR"))
+    }
+
+    @Test
+    fun formatCandidateLabel_bankDonationShowsTheBookingDayAndTheBank() {
+        val label =
+            formatCandidateLabel(
+                DonationPaymentCandidateDto(
+                    id = "p",
+                    amount = 25.0.toDecimal(),
+                    currency = "EUR",
+                    bookingDate = LocalDate(2026, 11, 20),
+                    channel = DonationChannel.BANK,
+                    receivedDate = LocalDate(2026, 11, 21),
+                ),
+            )
+        assertTrue(label.contains(formatDate(LocalDate(2026, 11, 20))), label)
+        assertTrue(label.contains("25,00"), label)
+        assertTrue(label.contains("Bank"), label)
+        assertTrue(!label.contains("kein Buchungstag"), label)
+    }
+
+    @Test
+    fun formatCandidateLabel_donationWithoutBookingShowsTheArrivalDayTheChannelAndNoBookingDay() {
+        val label =
+            formatCandidateLabel(
+                DonationPaymentCandidateDto(
+                    id = "p",
+                    amount = 25.0.toDecimal(),
+                    currency = "EUR",
+                    bookingDate = null,
+                    channel = DonationChannel.PAYPAL,
+                    receivedDate = LocalDate(2026, 11, 21),
+                ),
+            )
+        assertTrue(label.startsWith(formatDate(LocalDate(2026, 11, 21))), label)
+        assertTrue(label.contains("PayPal"), label)
+        assertTrue(label.endsWith("kein Buchungstag"), label)
+        // without the arrival day the date and its separator are left out
+        val short =
+            formatCandidateLabel(
+                DonationPaymentCandidateDto(id = "p", amount = 25.0.toDecimal(), currency = "EUR", channel = DonationChannel.STRIPE),
+            )
+        assertTrue(short.startsWith("25,00"), short)
     }
 
     @Test

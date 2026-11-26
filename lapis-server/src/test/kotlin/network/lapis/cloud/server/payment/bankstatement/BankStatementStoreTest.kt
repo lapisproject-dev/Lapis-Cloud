@@ -14,6 +14,7 @@ import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.BankStatementImportTable
 import network.lapis.cloud.server.db.generated.BankStatementLineTable
 import network.lapis.cloud.server.db.generated.ContributionTable
+import network.lapis.cloud.server.db.generated.DonationTable
 import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -185,6 +186,15 @@ class BankStatementStoreTest :
                     // assignLineToDonation) -- reached only via memberId (the donor)/reconciledBy
                     // (the actor), both FKing to member, so this must run before member deletion
                     // below or that FK blocks it.
+                    val donationPayments =
+                        PaymentTransactionTable
+                            .selectAll()
+                            .where {
+                                (PaymentTransactionTable.memberId inList createdMemberIds) or
+                                    (PaymentTransactionTable.reconciledBy inList createdMemberIds)
+                            }.map { it[PaymentTransactionTable.id] }
+                    // V1.9.329: a donation payment has its donation row (anonymous ones without a member): remove it before the payment.
+                    DonationTable.deleteWhere { DonationTable.paymentTransactionId inList donationPayments }
                     PaymentTransactionTable.deleteWhere {
                         (PaymentTransactionTable.memberId inList createdMemberIds) or
                             (PaymentTransactionTable.reconciledBy inList createdMemberIds)
@@ -580,6 +590,22 @@ class BankStatementStoreTest :
             dto.status shouldBe BankStatementLineStatus.POSTED
             dto.paymentTransactionId shouldNotBe null
             assertBankBooking(dto.paymentTransactionId!!, LocalDate(2026, 3, 15), expectContributionPaidAt = null)
+            // V1.9.329: the donation row exists right away, with the booking day of the (now POSTED) line and the actor
+            val donation =
+                transaction {
+                    DonationTable
+                        .selectAll()
+                        .where {
+                            DonationTable.paymentTransactionId eq
+                                Uuid.parse(
+                                    dto.paymentTransactionId!!,
+                                )
+                        }.single()
+                }
+            donation[DonationTable.memberId] shouldBe donorMemberId
+            donation[DonationTable.bookingDate] shouldBe LocalDate(2026, 3, 15)
+            donation[DonationTable.createdBy] shouldBe actor
+            donation[DonationTable.amount].compareTo(java.math.BigDecimal("20.00")) shouldBe 0
         }
 
         test(

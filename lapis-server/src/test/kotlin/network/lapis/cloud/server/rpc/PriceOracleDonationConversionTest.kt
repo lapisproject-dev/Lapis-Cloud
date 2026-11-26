@@ -26,11 +26,13 @@ import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.DonationTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.db.generated.PriceOracleConfigTable
 import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
 import network.lapis.cloud.server.db.generated.PriceOracleReferenceRateTable
 import network.lapis.cloud.server.db.generated.PriceOracleSnapshotSourceTable
 import network.lapis.cloud.server.db.generated.PriceOracleSnapshotTable
+import network.lapis.cloud.server.economy.oracle.DonationStore
 import network.lapis.cloud.server.economy.oracle.NO_LEGACY_CUTOFF
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
 import network.lapis.cloud.server.economy.oracle.RawValuesCutoff
@@ -45,6 +47,9 @@ import network.lapis.cloud.shared.domain.ConversionRateBasis
 import network.lapis.cloud.shared.domain.DonationConversionInput
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.PaymentIntent
+import network.lapis.cloud.shared.domain.PaymentProvider
+import network.lapis.cloud.shared.domain.PaymentTransactionStatus
 import network.lapis.cloud.shared.domain.PriceStatus
 import network.lapis.cloud.shared.domain.ReferenceDateSource
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -192,6 +197,8 @@ class PriceOracleDonationConversionTest :
             booking: LocalDate = LocalDate(2026, 11, 20),
         ): Uuid {
             transaction {
+                // The fixture already created the donation the way the entry points do; replace it by the backfill-shaped one (id = payment id).
+                DonationTable.deleteWhere { DonationTable.paymentTransactionId eq payment }
                 DonationTable.insert {
                     it[id] = payment
                     it[paymentTransactionId] = payment
@@ -253,7 +260,8 @@ class PriceOracleDonationConversionTest :
             app {
                 snapshot("2026-11-20T15:00:00")
                 val member = createMember("dc-happy@example.org")
-                val pay = DonationFixtures.bankedDonation(member = member, bookingDate = LocalDate(2026, 11, 20))
+                // The lazy path: no donation row yet (a payment from before V175 that nothing backfilled); the conversion creates it for the actor.
+                val pay = DonationFixtures.bankedDonation(member = member, bookingDate = LocalDate(2026, 11, 20), withDonation = false)
                 val r = client.convert(member, "2026-11-20", payment = pay.toString())
                 r.status shouldBe HttpStatusCode.OK
                 val donation = transaction { DonationTable.selectAll().where { DonationTable.memberId eq member }.single() }
@@ -344,7 +352,9 @@ class PriceOracleDonationConversionTest :
                 iban.bodyAsText() shouldBe "The reason must not contain an IBAN"
                 client.convert(member, "2026-11-20", payment = p, reason = REASON).status shouldBe HttpStatusCode.Conflict
                 mints(member) shouldBe 0L
-                donationCount(member) shouldBe 0L
+                // the donation row exists since the payment came into being (V1.9.329); a refused conversion changes nothing
+                donationCount(member) shouldBe 1L
+                conversionCount(member) shouldBe 0L
                 client.convert(member, "2026-11-19", payment = p, reason = "Kontonr DE00 1203 0000 0000 2020 51 falsch").status shouldBe
                     HttpStatusCode.OK
             }
@@ -416,6 +426,34 @@ class PriceOracleDonationConversionTest :
             }
         }
 
+        test("the candidate list leaves out a donation whose stored booking day no longer matches exactly one POSTED bank line") {
+            app {
+                snapshot("2026-11-20T15:00:00")
+                val member = createMember("dc-stale-candidate@example.org")
+                val pay = DonationFixtures.bankedDonation(member = member)
+                backfilledDonation(pay, member)
+                DonationFixtures.addLine(payment = pay, booking = LocalDate(2026, 11, 21))
+                client.post("/test/candidates?memberId=$member") { header("X-Member-Id", TREASURER) }.bodyAsText() shouldBe ""
+            }
+        }
+
+        test("a conversion by payment id of an unposted payment with a reconciliation note is refused and leaves no donation row") {
+            app {
+                snapshot("2026-11-20T15:00:00")
+                val member = createMember("dc-mismatch@example.org")
+                val pay = DonationFixtures.bankedDonation(member = member, bookingDate = null, withDonation = false)
+                transaction {
+                    PaymentTransactionTable.update({ PaymentTransactionTable.id eq pay }) {
+                        it[reconciliationNote] = "Amount mismatch: session 25.00, received 2.50"
+                    }
+                }
+                client.convert(member, "2026-11-19", payment = pay.toString(), reason = REASON).status shouldBe HttpStatusCode.Conflict
+                donationCount(member) shouldBe 0L
+                conversionCount(member) shouldBe 0L
+                mints(member) shouldBe 0L
+            }
+        }
+
         // ---- tampering and roles ----
 
         test("a donation of another member and an unknown donation give the same neutral refusal; a plain member is forbidden") {
@@ -460,13 +498,15 @@ class PriceOracleDonationConversionTest :
                 }
                 client.convert(member, "2026-11-19", payment = pay.toString()).status shouldBe HttpStatusCode.Forbidden
                 mints(member) shouldBe 0L
-                donationCount(member) shouldBe 0L
+                conversionCount(member) shouldBe 0L
             }
         }
 
         // ---- once only ----
 
-        test("a donation is converted once, whichever id the second try uses; a failed conversion leaves no donation row behind") {
+        test(
+            "a donation is converted once, whichever id the second try uses; a failed conversion leaves no lazily created donation row behind",
+        ) {
             app {
                 snapshot("2026-11-20T15:00:00")
                 val member = createMember("dc-twice@example.org")
@@ -485,7 +525,7 @@ class PriceOracleDonationConversionTest :
 
                 // no rate for the day -> the whole transaction, including a donation row it would have created, is rolled back
                 val fresh = createMember("dc-norate@example.org")
-                val freshPay = DonationFixtures.bankedDonation(member = fresh, bookingDate = LocalDate(2026, 11, 3))
+                val freshPay = DonationFixtures.bankedDonation(member = fresh, bookingDate = LocalDate(2026, 11, 3), withDonation = false)
                 client.convert(fresh, "2026-11-03", payment = freshPay.toString()).status shouldBe HttpStatusCode.Conflict
                 donationCount(fresh) shouldBe 0L
             }
@@ -589,6 +629,167 @@ class PriceOracleDonationConversionTest :
             insertConversion().isSuccess shouldBe true
             insertConversion().isFailure shouldBe true
             conversionCount(member) shouldBe 1L
+        }
+
+        // ---- V1.9.329: a donation for every captured DONATION payment ----
+
+        test("a PayPal donation without a bank booking converts with a manual date and a reason; the source is MANUAL") {
+            app {
+                snapshot("2026-11-19T15:00:00")
+                val member = createMember("dc-paypal@example.org")
+                val pay = DonationFixtures.bankedDonation(member = member, bookingDate = null, provider = PaymentProvider.PAYPAL)
+                val donation = transaction { DonationTable.selectAll().where { DonationTable.paymentTransactionId eq pay }.single() }
+                donation[DonationTable.bookingDate] shouldBe null
+                client.post("/test/candidates?memberId=$member") { header("X-Member-Id", TREASURER) }.bodyAsText() shouldBe
+                    "$pay,${donation[DonationTable.id]}"
+                client.convert(member, "2026-11-19", payment = pay.toString(), reason = REASON).status shouldBe HttpStatusCode.OK
+                val conv = conversionRow(member)
+                conv[PriceOracleConversionTable.referenceDateSource] shouldBe ReferenceDateSource.MANUAL
+                conv[PriceOracleConversionTable.referenceDateOverrideReason] shouldBe REASON
+                conv[PriceOracleConversionTable.donationId] shouldBe donation[DonationTable.id]
+                mints(member) shouldBe 1L
+                // once only, by payment id and by donation id
+                client.convert(member, "2026-11-19", payment = pay.toString(), reason = REASON).status shouldBe HttpStatusCode.Conflict
+                client.convert(member, "2026-11-19", donation = donation[DonationTable.id].toString(), reason = REASON).status shouldBe
+                    HttpStatusCode.Conflict
+                mints(member) shouldBe 1L
+            }
+        }
+
+        test("without a booking day the reason is always required: missing, short, long and with an IBAN write nothing") {
+            app {
+                snapshot("2026-11-19T15:00:00")
+                val member = createMember("dc-paypal-reason@example.org")
+                val pay = DonationFixtures.bankedDonation(member = member, bookingDate = null, provider = PaymentProvider.STRIPE)
+                val bad = listOf(null, "kurz", "x".repeat(501), "   ", "Siehe DE89 3704 0044 0532 0130 00 bitte")
+                bad.forEach {
+                    client.convert(member, "2026-11-19", payment = pay.toString(), reason = it).status shouldBe HttpStatusCode.Conflict
+                }
+                conversionCount(member) shouldBe 0L
+                mints(member) shouldBe 0L
+            }
+        }
+
+        test(
+            "the source is never taken from the client: with no booking day every date is MANUAL, with one only the booking day is BANK_BOOKING",
+        ) {
+            app {
+                snapshot("2026-11-20T15:00:00")
+                val a = createMember("dc-src-a@example.org")
+                val b = createMember("dc-src-b@example.org")
+                val noBooking = DonationFixtures.bankedDonation(member = a, bookingDate = null, provider = PaymentProvider.PAYPAL)
+                client.convert(a, "2026-11-20", payment = noBooking.toString()).status shouldBe HttpStatusCode.Conflict
+                client.convert(a, "2026-11-20", payment = noBooking.toString(), reason = REASON).status shouldBe HttpStatusCode.OK
+                conversionRow(a)[PriceOracleConversionTable.referenceDateSource] shouldBe ReferenceDateSource.MANUAL
+                val banked = DonationFixtures.bankedDonation(member = b, bookingDate = LocalDate(2026, 11, 20))
+                client.convert(b, "2026-11-20", payment = banked.toString(), reason = REASON).status shouldBe HttpStatusCode.Conflict
+                client.convert(b, "2026-11-20", payment = banked.toString()).status shouldBe HttpStatusCode.OK
+                conversionRow(b)[PriceOracleConversionTable.referenceDateSource] shouldBe ReferenceDateSource.BANK_BOOKING
+            }
+        }
+
+        test("an anonymous donation, another member's donation, a refunded one and a wrong currency are refused alike") {
+            app {
+                snapshot("2026-11-19T15:00:00")
+                val member = createMember("dc-tamper@example.org")
+                val other = createMember("dc-tamper-other@example.org")
+                val anonymous =
+                    DonationFixtures.bankedDonation(
+                        member = member,
+                        bookingDate = null,
+                        provider = PaymentProvider.STRIPE,
+                        memberOrNull = true,
+                    )
+                val foreign = DonationFixtures.bankedDonation(member = other, bookingDate = null, provider = PaymentProvider.PAYPAL)
+                val refunded =
+                    DonationFixtures.bankedDonation(member = member, bookingDate = null, status = PaymentTransactionStatus.REFUNDED)
+                val usd = DonationFixtures.bankedDonation(member = member, bookingDate = null, currency = "USD")
+                val messages =
+                    listOf(anonymous, foreign, refunded, usd).map {
+                        val r = client.convert(member, "2026-11-19", payment = it.toString(), reason = REASON)
+                        r.status shouldBe HttpStatusCode.Conflict
+                        r.bodyAsText()
+                    }
+                messages.toSet().size shouldBe 1
+                // the anonymous donation exists, but belongs to nobody
+                transaction {
+                    DonationTable.selectAll().where { DonationTable.paymentTransactionId eq anonymous }.single()[DonationTable.memberId]
+                } shouldBe
+                    null
+                // a non-treasurer is refused
+                client.convert(member, "2026-11-19", payment = foreign.toString(), reason = REASON, caller = PLAIN_MEMBER).status shouldBe
+                    HttpStatusCode.Forbidden
+                mints(member) shouldBe 0L
+                conversionCount(member) shouldBe 0L
+            }
+        }
+
+        test("the database refuses a conversion that points at an anonymous donation") {
+            app {
+                snapshot("2026-11-19T15:00:00")
+                val member = createMember("dc-anon-sql@example.org")
+                val anonymous =
+                    DonationFixtures.bankedDonation(
+                        member = member,
+                        bookingDate = null,
+                        provider = PaymentProvider.STRIPE,
+                        memberOrNull = true,
+                    )
+                val donationId =
+                    transaction {
+                        DonationTable.selectAll().where { DonationTable.paymentTransactionId eq anonymous }.single()[DonationTable.id]
+                    }
+                val snapshotId = transaction { PriceOracleSnapshotTable.selectAll().first()[PriceOracleSnapshotTable.id] }
+                val result =
+                    runCatching {
+                        transaction {
+                            PriceOracleConversionTable.insert {
+                                it[id] = Uuid.random()
+                                it[PriceOracleConversionTable.memberId] = member
+                                it[donationAmount] = BigDecimal("25.00")
+                                it[donationCurrency] = "EUR"
+                                it[anchorAsset] = AnchorAsset.GOLD_XAU
+                                it[anchorPrice] = PRICE
+                                it[anchorUnitsPerLtr] = BigDecimal("0.0001")
+                                it[ltrMinted] = BigDecimal("1.00")
+                                it[priceStatus] = PriceStatus.LIVE
+                                it[sourceCount] = 2
+                                it[sourcesUsed] = "a,b"
+                                it[priceTimestamp] = LocalDateTime(2026, 11, 19, 15, 0)
+                                it[ltrLedgerEntryId] = Uuid.random()
+                                it[createdAt] = LocalDateTime(2026, 11, 26, 10, 0)
+                                it[rateBasis] = network.lapis.cloud.shared.domain.ReferenceRateBasis.SNAPSHOT
+                                it[referenceDate] = LocalDate(2026, 11, 19)
+                                it[effectiveDate] = LocalDate(2026, 11, 19)
+                                it[fallbackReason] = network.lapis.cloud.shared.domain.ReferenceDateFallback.NONE
+                                it[PriceOracleConversionTable.snapshotId] = snapshotId
+                                it[quorumRequired] = 2
+                                it[referenceDateSource] = ReferenceDateSource.MANUAL
+                                it[paymentTransactionId] = anonymous
+                                it[PriceOracleConversionTable.donationId] = donationId
+                                it[referenceDateOverrideReason] = REASON
+                            }
+                        }
+                    }
+                result.isFailure shouldBe true
+            }
+        }
+
+        test("ensureForPayment is idempotent and writes nothing for a payment that is no captured positive donation") {
+            val member = createMember("dc-ensure@example.org")
+            val pay = DonationFixtures.bankedDonation(member = member, bookingDate = null, withDonation = false)
+            val pending = DonationFixtures.bankedDonation(member = member, status = PaymentTransactionStatus.PENDING, withDonation = false)
+            val contribution = DonationFixtures.bankedDonation(member = member, intent = PaymentIntent.CONTRIBUTION, withDonation = false)
+            val now = LocalDateTime(2026, 11, 26, 10, 0)
+            val first = transaction { DonationStore.ensureForPayment(paymentId = pay, createdBy = null, now = now) }
+            val second = transaction { DonationStore.ensureForPayment(paymentId = pay, createdBy = null, now = now) }
+            first!!.second shouldBe true
+            second!!.second shouldBe false
+            second.first.id shouldBe first.first.id
+            transaction { DonationStore.ensureForPayment(paymentId = pending, createdBy = null, now = now) } shouldBe null
+            transaction { DonationStore.ensureForPayment(paymentId = contribution, createdBy = null, now = now) } shouldBe null
+            transaction { DonationStore.ensureForPayment(paymentId = Uuid.random(), createdBy = null, now = now) } shouldBe null
+            donationCount(member) shouldBe 1L
         }
 
         // ---- mode CURRENT ----

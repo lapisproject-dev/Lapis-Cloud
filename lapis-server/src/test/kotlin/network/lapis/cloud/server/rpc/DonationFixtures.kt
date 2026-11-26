@@ -6,6 +6,7 @@ import network.lapis.cloud.server.db.generated.BankStatementImportTable
 import network.lapis.cloud.server.db.generated.BankStatementLineTable
 import network.lapis.cloud.server.db.generated.DonationTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
+import network.lapis.cloud.server.economy.oracle.DonationStore
 import network.lapis.cloud.shared.domain.BankStatementFormat
 import network.lapis.cloud.shared.domain.BankStatementLineStatus
 import network.lapis.cloud.shared.domain.PaymentIntent
@@ -103,12 +104,15 @@ object DonationFixtures {
         intent: PaymentIntent = PaymentIntent.DONATION,
         currency: String = "EUR",
         receivedAt: LocalDateTime = LocalDateTime(2026, 11, 20, 0, 0),
+        provider: PaymentProvider = PaymentProvider.MANUAL,
+        withDonation: Boolean = true,
+        memberOrNull: Boolean = false,
     ): Uuid {
         val id = Uuid.random()
         transaction {
             PaymentTransactionTable.insert {
                 it[PaymentTransactionTable.id] = id
-                it[provider] = PaymentProvider.MANUAL
+                it[PaymentTransactionTable.provider] = provider
                 it[providerEventId] = "evt-$id"
                 it[providerPaymentId] = "pay-$id"
                 it[PaymentTransactionTable.status] = status
@@ -117,7 +121,7 @@ object DonationFixtures {
                 it[feeAmount] = null
                 it[PaymentTransactionTable.intent] = intent
                 it[contributionId] = null
-                it[memberId] = member
+                it[memberId] = if (memberOrNull) null else member
                 it[payerReference] = "payer-secret-$id"
                 it[PaymentTransactionTable.receivedAt] = receivedAt
                 it[rawPayloadDigest] = "0".repeat(64)
@@ -125,7 +129,14 @@ object DonationFixtures {
         }
         payments += id
         if (bookingDate != null) addLine(payment = id, booking = bookingDate, uploader = member)
+        // V1.9.329: the application creates the donation where the payment comes into being; the fixture mirrors that (after the bank line).
+        if (withDonation) ensureDonation(id)
         return id
+    }
+
+    /** The donation row of [payment], created the way the entry points of the application do it (after the bank line, if any). */
+    fun ensureDonation(payment: Uuid) {
+        transaction { DonationStore.ensureForPayment(paymentId = payment, createdBy = null, now = LocalDateTime(2026, 11, 20, 0, 0)) }
     }
 
     /** The payments created so far (for assertions and for the legacy cleanup of a test). */

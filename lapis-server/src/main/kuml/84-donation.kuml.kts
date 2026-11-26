@@ -12,6 +12,10 @@
 //     chk_donation_amount (amount > 0) and chk_donation_currency (currency = UPPER(currency)). The index "idx_donation_member" and the unique
 //     "uq_donation_payment_transaction" are declared below but, like every index, "not emitted" into the Exposed object.
 //
+// V1.9.329 (V175): a donation exists for EVERY captured DONATION payment (bank, PayPal, Stripe, anonymous). member_id is NULL for an anonymous donation
+// (never convertible: price_oracle_conversion.member_id is NOT NULL and the composite FK checks it); booking_date is NULL without exactly one POSTED
+// bank line (the reference date of a conversion is then always MANUAL and needs a justification).
+//
 // DSGVO -- member_id and created_by are personal data; network.lapis.cloud.server.dsgvo.PriceOraclePersonalData exports them and retains the row (GoBD).
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.dsl.applyProfile
@@ -53,6 +57,7 @@ classDiagram(name = "Donation") {
                 stereotype("Column") { "columnName" to "payment_transaction_id"; "fkEntity" to "PaymentTransaction" }
             }
             attribute(name = "memberId", type = "UUID") {
+                multiplicity = Multiplicity(0, 1)
                 stereotype("Column") { "columnName" to "member_id"; "fkEntity" to "Member" }
             }
             attribute(name = "amount", type = "BigDecimal") {
@@ -62,6 +67,7 @@ classDiagram(name = "Donation") {
                 stereotype("Column") { "columnName" to "currency"; "sqlType" to "VARCHAR(3)" }
             }
             attribute(name = "bookingDate", type = "LocalDate") {
+                multiplicity = Multiplicity(0, 1)
                 stereotype("Column") { "columnName" to "booking_date" }
             }
             attribute(name = "createdAt", type = "LocalDateTime") {

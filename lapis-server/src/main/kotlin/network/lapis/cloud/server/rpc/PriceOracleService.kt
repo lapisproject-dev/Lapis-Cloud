@@ -19,6 +19,7 @@ import network.lapis.cloud.server.db.generated.PriceOracleConfigTable
 import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.truncatedToDbPrecision
+import network.lapis.cloud.server.economy.oracle.DonationChannelRules
 import network.lapis.cloud.server.economy.oracle.DonationPaymentLink
 import network.lapis.cloud.server.economy.oracle.DonationRow
 import network.lapis.cloud.server.economy.oracle.DonationStore
@@ -33,6 +34,7 @@ import network.lapis.cloud.server.payment.sepa.IbanText
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnchorAsset
@@ -329,13 +331,15 @@ class PriceOracleService(
         return transaction {
             val config = loadConfig()
             requireReferenceDateMode(config)
-            DonationPaymentLink.candidatesOf(memberId = targetId, currency = config.donationCurrency).map {
+            DonationStore.candidatesOf(memberId = targetId, currency = config.donationCurrency).map {
                 DonationPaymentCandidateDto(
-                    id = it.id.toString(),
+                    id = it.paymentId.toString(),
                     amount = it.amount,
                     currency = it.currency,
                     bookingDate = it.bookingDate,
-                    donationId = it.donationId?.toString(),
+                    donationId = it.donationId.toString(),
+                    channel = DonationChannelRules.channelOf(bookingDate = it.bookingDate, provider = it.provider),
+                    receivedDate = OrganizationTimeZone.dateOf(it.receivedAt),
                 )
             }
         }
@@ -444,7 +448,14 @@ class PriceOracleService(
                 )
 
             // The origin of the date is derived HERE, never taken from the client. A date other than the booking day needs a justification.
-            val dateSource = if (referenceDate == donation.bookingDate) ReferenceDateSource.BANK_BOOKING else ReferenceDateSource.MANUAL
+            val dateSource =
+                if (donation.bookingDate != null &&
+                    referenceDate == donation.bookingDate
+                ) {
+                    ReferenceDateSource.BANK_BOOKING
+                } else {
+                    ReferenceDateSource.MANUAL
+                }
             val overrideReason = requireOverrideReason(dateSource = dateSource, raw = input.referenceDateOverrideReason)
             val dateSourceNote = if (dateSource == ReferenceDateSource.BANK_BOOKING) "aus Bankbuchung" else "manuell (begründet)"
 
@@ -528,7 +539,7 @@ class PriceOracleService(
                         buildJsonObject {
                             put("donationId", donation.id.toString())
                             put("paymentTransactionId", donation.paymentTransactionId.toString())
-                            put("bookingDate", donation.bookingDate.toString())
+                            put("bookingDate", donation.bookingDate?.toString() ?: "none")
                         }.toString(),
                     occurredAt = now,
                 )
@@ -592,22 +603,15 @@ class PriceOracleService(
         if (row[PaymentTransactionTable.amount].compareTo(donationAmount) != 0) {
             throw ConflictException("donationAmount must equal the amount of the selected donation")
         }
-        val bookingDate = DonationPaymentLink.bookingDateOf(paymentId) ?: throw ConflictException(DONATION_NOT_AVAILABLE)
         val (donation, created) =
-            DonationStore.findOrCreateLocked(
-                paymentId = paymentId,
-                memberId = targetId,
-                amount = row[PaymentTransactionTable.amount],
-                currency = row[PaymentTransactionTable.currency],
-                bookingDate = bookingDate,
-                actor = actor,
-                now = now,
-            )
-        // A stored donation keeps the booking day it was created with; if the bank line changed since, it is not convertible any more.
-        if (donation.bookingDate != bookingDate ||
-            donation.memberId != targetId ||
+            DonationStore.ensureForPayment(paymentId = paymentId, createdBy = actor.memberId, now = now)
+                ?: throw ConflictException(DONATION_NOT_AVAILABLE)
+        // An anonymous donation (no member) is never convertible; a stored donation keeps the booking day it was created with. Without one (no bank line
+        // when it was created) it stays without: nothing is checked against a bank line that appeared later (the donation row is insert only).
+        if (donation.memberId != targetId ||
             donation.amount.compareTo(donationAmount) != 0 ||
-            !donation.currency.equals(config.donationCurrency, ignoreCase = true)
+            !donation.currency.equals(config.donationCurrency, ignoreCase = true) ||
+            (donation.bookingDate != null && donation.bookingDate != DonationPaymentLink.bookingDateOf(paymentId))
         ) {
             throw ConflictException(DONATION_NOT_AVAILABLE)
         }

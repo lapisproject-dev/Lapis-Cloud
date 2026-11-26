@@ -19,6 +19,7 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.PaymentProvider
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -122,7 +123,13 @@ class PriceOracleReferenceRatePersonalDataTest :
                 }
             createMember(member)
             createMember(actor)
-            val payment = DonationFixtures.bankedDonation(member = member, amount = "42.00", bookingDate = LocalDate(2026, 11, 20))
+            val payment =
+                DonationFixtures.bankedDonation(
+                    member = member,
+                    amount = "42.00",
+                    bookingDate = LocalDate(2026, 11, 20),
+                    withDonation = false,
+                )
             val donationId = Uuid.random()
             transaction {
                 DonationTable.insert {
@@ -169,6 +176,36 @@ class PriceOracleReferenceRatePersonalDataTest :
                     AccountTable.deleteWhere { AccountTable.memberId inList listOf(member, actor) }
                     MemberTable.deleteWhere { MemberTable.id inList listOf(member, actor) }
                 }
+            }
+        }
+
+        test("V1.9.329: the export lists a PayPal donation without a booking day as null and never an anonymous donation") {
+            val member = Uuid.random()
+            transaction {
+                MemberTable.insert {
+                    it[MemberTable.id] = member
+                    it[displayName] = "Spenden Export Null"
+                    it[email] = "donation-pd-null-${Uuid.random()}@example.org"
+                    it[status] = MemberStatus.ACTIVE
+                    it[joinedAt] = LocalDate(2026, 1, 1)
+                    it[membershipTierId] = null
+                }
+            }
+            try {
+                val own = DonationFixtures.bankedDonation(member = member, bookingDate = null, provider = PaymentProvider.PAYPAL)
+                DonationFixtures.bankedDonation(member = member, bookingDate = null, provider = PaymentProvider.STRIPE, memberOrNull = true)
+                val export = transaction { PriceOraclePersonalData.exportMember(member) }
+                val donation =
+                    export
+                        .getValue("donations")
+                        .jsonArray
+                        .single()
+                        .jsonObject
+                donation.getValue("paymentTransactionId").jsonPrimitive.content shouldBe own.toString()
+                donation.getValue("bookingDate") shouldBe kotlinx.serialization.json.JsonNull
+            } finally {
+                DonationFixtures.cleanup()
+                transaction { MemberTable.deleteWhere { MemberTable.id eq member } }
             }
         }
     })

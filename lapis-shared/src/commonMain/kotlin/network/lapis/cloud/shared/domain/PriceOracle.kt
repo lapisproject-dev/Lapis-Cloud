@@ -337,16 +337,24 @@ data class ReferenceRateResolutionDto(
     val rawValuesStored: Boolean = true,
 )
 
-/** V1.9.327: a captured bank donation of one member that is not converted yet -- the choices of the reference-date form. */
+/** V1.9.329: where a donation came from -- decides only the label in the reference-date form, no rule hangs on it. */
+@Serializable
+enum class DonationChannel { BANK, PAYPAL, STRIPE, OTHER }
+
+/** V1.9.327/V1.9.329: an open donation of one member (bank, PayPal, Stripe, ...) -- the choices of the reference-date form. */
 @Serializable
 data class DonationPaymentCandidateDto(
     val id: String,
     val amount: Decimal,
     val currency: String,
-    /** The day the bank booked the money (calendar day as on the statement). */
-    val bookingDate: LocalDate,
-    /** V1.9.328: the donation row, if one exists already (the id is NOT the payment id in general; null when the donation is created on conversion). */
+    /** The day the bank booked the money (calendar day as on the statement); `null` when no bank line backs the donation (then the reference date is always manual). */
+    val bookingDate: LocalDate? = null,
+    /** V1.9.328: the donation row. Since V175 every candidate has one (the id is NOT the payment id in general). */
     val donationId: String? = null,
+    /** V1.9.329: the channel of the payment. */
+    val channel: DonationChannel = DonationChannel.BANK,
+    /** V1.9.329: the day the payment arrived, in the organization's time zone -- information only. */
+    val receivedDate: LocalDate? = null,
 )
 
 /** V1.9.324: a manual reference rate. Anchor and currency always come from the server's configuration, never from the client. */

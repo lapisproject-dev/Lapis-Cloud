@@ -12,6 +12,7 @@ import network.lapis.cloud.server.db.generated.ExternalDonorTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.db.isUniqueViolation
+import network.lapis.cloud.server.economy.oracle.DonationStore
 import network.lapis.cloud.server.events.EventCapacityGuard
 import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.events.EventTicketIssuer
@@ -277,6 +278,12 @@ object PspWebhookIngestion {
                 return@transaction CheckoutCompletedIngestionResult(
                     outcome = CheckoutCompletedIngestionOutcome.Unposted(paymentTransactionId = paymentTransactionId, note = note),
                 )
+            }
+
+            // V1.9.329 -- every captured donation payment WHOSE MONEY ARRIVED AS ANNOUNCED has a donation row. Deliberately only here, after the amount/currency
+            // and payment_status checks: an Unposted payment (mismatch, delayed method) must not become a convertible donation with the SESSION amount.
+            if (sessionIntent == PaymentIntent.DONATION) {
+                DonationStore.ensureForPayment(paymentId = paymentTransactionId, createdBy = null, now = now)
             }
 
             // Step 4.

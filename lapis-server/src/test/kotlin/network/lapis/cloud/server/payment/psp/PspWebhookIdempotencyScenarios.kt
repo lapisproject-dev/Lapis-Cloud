@@ -22,6 +22,8 @@ import network.lapis.cloud.server.db.dbFailureKind
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.ContributionTable
+import network.lapis.cloud.server.db.generated.DonationTable
+import network.lapis.cloud.server.db.generated.ExternalDonorTable
 import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -43,18 +45,22 @@ import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.ContributionStatus
+import network.lapis.cloud.shared.domain.DonorCategory
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PaymentCheckoutSessionStatus
 import network.lapis.cloud.shared.domain.PaymentIntent
 import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.domain.PaymentTransactionStatus
+import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -84,6 +90,7 @@ abstract class PspWebhookIdempotencyScenarios(
         val createdTierIds = mutableListOf<Uuid>()
         val createdContributionIds = mutableListOf<Uuid>()
         val createdCheckoutSessionIds = mutableListOf<Uuid>()
+        val createdExternalDonorIds = mutableListOf<Uuid>()
         val createdEventIds = mutableListOf<String>()
 
         beforeSpec { db.activate() }
@@ -113,6 +120,7 @@ abstract class PspWebhookIdempotencyScenarios(
                             .where { PaymentTransactionTable.id inList transactionIds }
                             .mapNotNull { it[PaymentTransactionTable.journalEntryId] }
                     PspWebhookEventTable.deleteWhere { PspWebhookEventTable.paymentTransactionId inList transactionIds }
+                    DonationTable.deleteWhere { DonationTable.paymentTransactionId inList transactionIds }
                     PaymentTransactionTable.deleteWhere { PaymentTransactionTable.id inList transactionIds }
                     if (journalEntryIds.isNotEmpty()) {
                         PostingTable.deleteWhere { PostingTable.journalEntryId inList journalEntryIds }
@@ -122,6 +130,9 @@ abstract class PspWebhookIdempotencyScenarios(
                 }
                 if (createdCheckoutSessionIds.isNotEmpty()) {
                     PaymentCheckoutSessionTable.deleteWhere { PaymentCheckoutSessionTable.id inList createdCheckoutSessionIds }
+                }
+                if (createdExternalDonorIds.isNotEmpty()) {
+                    ExternalDonorTable.deleteWhere { ExternalDonorTable.id inList createdExternalDonorIds }
                 }
                 if (createdContributionIds.isNotEmpty()) {
                     ContributionTable.deleteWhere {
@@ -289,6 +300,95 @@ abstract class PspWebhookIdempotencyScenarios(
             val eventId = "evt_idem_${Uuid.random()}"
             createdEventIds += eventId
             return Fixture(member, contributionId, sessionId, providerSessionId, eventId, provider)
+        }
+
+        /** A DONATION checkout session without contribution; [member] null makes it an anonymous (embed widget) donation. */
+        fun createDonationFixture(
+            provider: PaymentProvider,
+            member: Uuid?,
+        ): Fixture {
+            val sessionId = Uuid.random()
+            val providerSessionId = "cs_idem_don_${Uuid.random()}"
+            val externalDonor = if (member == null) Uuid.random() else null
+            transaction {
+                if (externalDonor != null) {
+                    ExternalDonorTable.insert {
+                        it[ExternalDonorTable.id] = externalDonor
+                        it[displayName] = "Anonym Testspender"
+                        it[donorCategory] = DonorCategory.GERMAN_NATURAL_PERSON
+                        it[active] = true
+                    }
+                    createdExternalDonorIds += externalDonor
+                }
+                PaymentCheckoutSessionTable.insert {
+                    it[PaymentCheckoutSessionTable.id] = sessionId
+                    it[PaymentCheckoutSessionTable.provider] = provider
+                    it[PaymentCheckoutSessionTable.providerSessionId] = providerSessionId
+                    it[status] = PaymentCheckoutSessionStatus.CREATED
+                    it[intent] = PaymentIntent.DONATION
+                    it[contributionId] = null
+                    it[externalDonorId] = externalDonor
+                    it[memberId] = member
+                    it[amount] = BigDecimal("50.00")
+                    it[currency] = "EUR"
+                    it[donorCategory] = null
+                    it[purpose] = null
+                    it[createdAt] = LocalDateTime(2026, 4, 1, 10, 0)
+                    it[expiresAt] = LocalDateTime(2026, 4, 1, 11, 0)
+                    it[completedAt] = null
+                    it[providerIdempotencyKey] = "idem-${sessionId.toString().take(8)}"
+                    it[redirectUrl] = "https://example.invalid/pay/$providerSessionId"
+                }
+            }
+            createdCheckoutSessionIds += sessionId
+            val eventId = "evt_idem_don_${Uuid.random()}"
+            createdEventIds += eventId
+            return Fixture(member ?: Uuid.random(), Uuid.random(), sessionId, providerSessionId, eventId, provider)
+        }
+
+        fun donationCountFor(f: Fixture): Long =
+            transaction {
+                DonationTable
+                    .selectAll()
+                    .where {
+                        DonationTable.paymentTransactionId inSubQuery
+                            PaymentTransactionTable.select(PaymentTransactionTable.id).where {
+                                PaymentTransactionTable.checkoutSessionId eq f.checkoutSessionId
+                            }
+                    }.count()
+            }
+
+        test(
+            "V1.9.329: a captured PayPal or Stripe donation gets exactly one donation row, also when the event is redelivered; an anonymous one has no member",
+        ) {
+            enableGateway(PaymentProvider.PAYPAL)
+            enableGateway(PaymentProvider.STRIPE)
+            val paypal = createDonationFixture(PaymentProvider.PAYPAL, member = createMember())
+            val anonymous = createDonationFixture(PaymentProvider.STRIPE, member = null)
+            listOf(paypal, anonymous).forEach { f ->
+                PspWebhookIngestion.ingestCheckoutCompleted(event = f.event(), bodyBytes = "body".toByteArray())
+                PspWebhookIngestion.ingestCheckoutCompleted(event = f.event(), bodyBytes = "body".toByteArray()).outcome shouldBe
+                    CheckoutCompletedIngestionOutcome.Duplicate
+                donationCountFor(f) shouldBe 1L
+            }
+            val row =
+                transaction {
+                    DonationTable
+                        .join(PaymentTransactionTable, JoinType.INNER, DonationTable.paymentTransactionId, PaymentTransactionTable.id)
+                        .selectAll()
+                        .where { PaymentTransactionTable.checkoutSessionId eq anonymous.checkoutSessionId }
+                        .single()
+                }
+            row[DonationTable.memberId] shouldBe null
+            row[DonationTable.bookingDate] shouldBe null
+            row[DonationTable.createdBy] shouldBe null
+        }
+
+        test("V1.9.329: a contribution payment gets no donation row") {
+            enableGateway(PaymentProvider.STRIPE)
+            val f = createFixture()
+            PspWebhookIngestion.ingestCheckoutCompleted(event = f.event(), bodyBytes = "body".toByteArray())
+            donationCountFor(f) shouldBe 0L
         }
 
         fun transactionCount(providerEventId: String): Int =

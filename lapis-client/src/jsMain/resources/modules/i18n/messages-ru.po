@@ -34693,3 +34693,31 @@ msgstr "Выберите пожертвование."
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
 msgid "Die Begründung muss zwischen %1 und %2 Zeichen lang sein."
 msgstr "Обоснование должно содержать от %1 до %2 символов."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Sonstige Zahlung"
+msgstr "Прочий платёж"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "kein Buchungstag"
+msgstr "нет дня проведения"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Begründung für den Stichtag"
+msgstr "Обоснование опорной даты"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Diese Spende hat keine Bankbuchung (Eingang am %1 über %2). Der Stichtag gilt deshalb immer als manuell gewählt und braucht eine Begründung."
+msgstr "У этого пожертвования нет банковской проводки (поступило %1 через %2). Поэтому опорная дата всегда выбирается вручную и требует обоснования."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Diese Spende hat keine Bankbuchung. Der Stichtag gilt deshalb immer als manuell gewählt und braucht eine Begründung."
+msgstr "У этого пожертвования нет банковской проводки. Поэтому опорная дата всегда выбирается вручную и требует обоснования."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleReferenceDateForm.kt:1
+msgid "Spende ohne Bankbuchung, Stichtag: %1."
+msgstr "Пожертвование без банковской проводки, опорная дата: %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Altbestand: ohne Spende erfasst"
+msgstr "Прежняя запись: внесена без пожертвования"

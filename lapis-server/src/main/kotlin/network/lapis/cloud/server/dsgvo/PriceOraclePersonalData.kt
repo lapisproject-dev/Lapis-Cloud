@@ -62,7 +62,7 @@ object PriceOraclePersonalData : MemberPersonalDataContributor {
                                 put("paymentTransactionId", row[DonationTable.paymentTransactionId].toString())
                                 put("amount", row[DonationTable.amount].toPlainString())
                                 put("currency", row[DonationTable.currency])
-                                put("bookingDate", row[DonationTable.bookingDate].toString())
+                                put("bookingDate", row[DonationTable.bookingDate]?.toString())
                                 put("createdAt", row[DonationTable.createdAt].toString())
                             },
                         )

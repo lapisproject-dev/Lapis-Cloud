@@ -10,23 +10,34 @@ NOTE: Off by default. Not reviewed by a tax adviser. Architecture: link:../archi
 
 == Converting a donation (treasurer, board, administrator)
 
-. Open the price oracle, section "Convert donation to LTR". Choose the member, then the *donation* (date and amount). The amount is the donation's and cannot be changed; the reference date is pre-filled with the day the bank booked the donation (yesterday at the earliest). A member without an open donation cannot be converted for.
+. Open the price oracle, section "Convert donation to LTR". Choose the member, then the *donation* (date and amount). The amount is the donation's and cannot be changed; the reference date is pre-filled with the day the bank booked the donation (yesterday at the earliest). A member without an open donation cannot be converted for. Since V175 every captured donation is offered: bank donations, PayPal and Stripe donations. Anonymous donations (no member) are never offered and can never be converted.
 . Press "Check the rate for the reference date". The page shows the reference date, the day whose rate is used (a weekend or a London bank holiday moves it to the day before), the basis, the sources with their raw values and the rate.
 . Press "Convert to LTR" and confirm. The booking uses exactly the rate you saw; if it changed in the meantime, nothing is booked and you check again.
+
+== Donations without a bank booking (PayPal, Stripe)
+
+A donation that is not backed by exactly one posted bank line has no booking day. The list shows it with the day it arrived and the channel ("kein Buchungstag"). The reference date is then *always* chosen by hand: the date field starts empty, the reason field is shown at once and is required (10 to 500 characters, no IBAN or account number), and the receipt says "chosen manually". The server derives the origin itself and never takes it from the form.
 
 == A different reference date
 
 If you change the reference date to another day than the booking day, a text field "Reason for the different reporting date" appears (10 to 500 characters, no IBAN or account number). It is required; "Reset to booking day" removes it again. The receipt shows the origin of the date and the reason. A donation can be converted once only; trying again (also through another entry) is refused.
 
-== Open questions (V1.9.328)
+== Existing data (V175)
+
+The V175 migration creates the missing donations and links earlier "free" conversions (made before the donation entity, without a payment) to their donation, but only when the match is unambiguous in both directions (one free donation of that member, amount and currency, and one such conversion). The date stays "manual" and gets the text "Altbestand vor V175: nachträglich mit Spende verknüpft, Stichtag ohne Begründung erfasst". All others stay as they were and are shown as "Altbestand: ohne Spende erfasst". The migration header carries the diagnosis queries (counts only). **A backup taken after V175 cannot be restored onto a server that is still before V175.**
+
+== Open questions (V1.9.328, V1.9.329)
 
 * F1: cash donations and donations without a bank booking cannot be converted in this mode any more.
-* F2/F3: donations are created by the V174 backfill and by the first conversion, not yet at payment intake; PSP donations without a bank line are not offered.
+* F2/F3: closed in V1.9.329: a donation row exists for every captured `DONATION` payment (bank, PayPal, Stripe, anonymous), created where the payment comes into being and by the V175 backfill.
 * F4: the reason is visible to the treasury roles and in the member's own data export, not in the member's financial overview.
 * F5: no partial conversions and no splits.
 * F6: legacy manual conversions with a payment carry the text "Altbestand vor V174: Stichtag ohne Begründung erfasst".
 * F7: the currency is part of the composite key that ties a conversion to its donation.
-* F8: a stored donation keeps its booking day; if the bank line changes afterwards, it is not convertible and there is no correction path yet.
+* F8: a stored donation keeps its booking day; if the bank line changes afterwards, it is not convertible and there is no correction path yet. A donation without a booking day stays without one, also when a bank line appears later.
+* F9: a PSP payment whose webhook amount deviates from the checkout session is stored as captured with the session amount (and not posted); it also gets a donation and can be converted. Decide whether only posted payments should count.
+* F10: the receipt label "Bankzahlung: %1" is wrong for a PayPal or Stripe donation (not changed).
+* F11: no separate overview of donations (also not of anonymous ones); a donation that is refunded after its conversion is not reversed.
 
 == When there is no rate
 

@@ -22,6 +22,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.ContributionTable
+import network.lapis.cloud.server.db.generated.DonationTable
 import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -125,6 +126,7 @@ class PaypalWebhookRoutesTest :
                                 .where { PaymentTransactionTable.id inList transactionIds }
                                 .mapNotNull { it[PaymentTransactionTable.journalEntryId] }
                         PspWebhookEventTable.deleteWhere { PspWebhookEventTable.paymentTransactionId inList transactionIds }
+                        DonationTable.deleteWhere { DonationTable.paymentTransactionId inList transactionIds }
                         PaymentTransactionTable.deleteWhere { PaymentTransactionTable.id inList transactionIds }
                         if (journalEntryIds.isNotEmpty()) {
                             PostingTable.deleteWhere { PostingTable.journalEntryId inList journalEntryIds }

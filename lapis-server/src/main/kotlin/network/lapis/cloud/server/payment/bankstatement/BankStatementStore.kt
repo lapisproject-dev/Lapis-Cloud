@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.db.isUniqueViolation
+import network.lapis.cloud.server.economy.oracle.DonationStore
 import network.lapis.cloud.server.payment.PaymentJournalLink
 import network.lapis.cloud.server.rpc.ContributionPaymentEvents
 import network.lapis.cloud.server.rpc.ContributionPostingBridge
@@ -399,6 +400,9 @@ internal object BankStatementStore {
                 it[resolvedAt] = now
                 it[resolutionNote] = input.note?.take(500)
             }
+
+            // V1.9.329: every captured donation payment has a donation row. After the POSTED update, so that the booking day is found.
+            DonationStore.ensureForPayment(paymentId = paymentTransactionId, createdBy = actorMemberId, now = now)
 
             requireLineDto(lineId)
         }

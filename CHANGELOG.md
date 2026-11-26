@@ -6,6 +6,18 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.329 a donation for every donation payment
+
+Schema **V175**. No switch to change: the behaviour only exists in the reference-date mode (off by default). **A backup taken after V175 cannot be restored onto a server that is still before V175.** V174 is on `master`, so V175 is a new migration instead of an edit of V174.
+
+- **Behaviour change:** PayPal and Stripe donations (and every other captured donation without a bank line) can now be converted in mode REFERENCE_DATE. Their reference date is always `MANUAL` and needs a reason of 10 to 500 characters (no IBAN). Anonymous donations (no member) stay non-convertible, guaranteed by the database.
+- **Donation row for every captured `DONATION` payment:** `DonationStore.ensureForPayment` is called where the payment is written (`BankStatementStore` manual donation, `PspWebhookIngestion`) and as a fallback in the conversion. `donation.member_id` and `donation.booking_date` are nullable.
+- **Migration V175:** backfills the missing donations (bank, PayPal, Stripe, anonymous; amount > 0); links earlier unlinked reference-date conversions to a donation only when unambiguous in both directions (text "Altbestand vor V175: ..."); re-creates `fk_poc_donation_link`. Counts-only diagnosis queries are in the header.
+- **Client:** the donation list shows date, amount and channel; without a booking day the date field starts empty, the reason is shown at once and an explanation says why. History/receipt: "Altbestand: ohne Spende erfasst" for conversions made before the donation entity. New texts in all seven catalogs.
+- **RPC:** `DonationPaymentCandidateDto.bookingDate` is nullable; new fields `channel` (`DonationChannel`) and `receivedDate` with defaults.
+- **Tests:** `DonationForAllPaymentsMigrationTest` (H2 and PostgreSQL), extended `PriceOracleDonationConversionTest`, `PriceOracleBankBookingConversionTest`, `PspWebhookIdempotencyTest`, `BankStatementStoreTest`, `DonationStoreTripwireTest`, backup round trip, DSGVO export and `PriceOracleScreenTest`.
+- **Open questions:** see `docs/features/price-oracle-reference-date.adoc` (F9 deviating PSP amounts, F10 receipt label "Bankzahlung", F11 overview and refunds).
+
 ### V1.9.328 donation as an entity of its own, justification of a manual reference date
 
 Schema **V174**. No switch to change: the behaviour only exists in the reference-date mode (off by default). **A backup taken after V174 cannot be restored onto a server that is still before V174.** V173 is on `master` but in no tag, so V174 is a new migration instead of an edit of V173.

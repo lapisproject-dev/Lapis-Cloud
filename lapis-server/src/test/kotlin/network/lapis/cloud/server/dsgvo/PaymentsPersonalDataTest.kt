@@ -10,6 +10,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ContributionTable
+import network.lapis.cloud.server.db.generated.DonationTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
@@ -82,6 +83,7 @@ class PaymentsPersonalDataTest :
                     SepaMandateTable.deleteWhere { SepaMandateTable.id inList createdMandateIds }
                 }
                 if (createdMemberIds.isNotEmpty()) {
+                    DonationTable.deleteWhere { DonationTable.memberId inList createdMemberIds }
                     PaymentTransactionTable.deleteWhere { PaymentTransactionTable.memberId inList createdMemberIds }
                     PaymentCheckoutSessionTable.deleteWhere { PaymentCheckoutSessionTable.memberId inList createdMemberIds }
                     SepaMandateTable.deleteWhere { SepaMandateTable.memberId inList createdMemberIds }

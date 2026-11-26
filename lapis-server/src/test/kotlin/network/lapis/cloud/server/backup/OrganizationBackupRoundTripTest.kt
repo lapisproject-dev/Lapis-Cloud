@@ -100,6 +100,7 @@ class OrganizationBackupRoundTripTest :
             val oraclePaymentId = Uuid.random()
             val oracleDonationId = Uuid.random()
             val oracleDonation2Id = Uuid.random()
+            val anonymousDonationId = Uuid.random()
             val applicantId = Uuid.random()
             val memberTierId = Uuid.random()
             val documentId = Uuid.random()
@@ -435,6 +436,34 @@ class OrganizationBackupRoundTripTest :
                         it[createdBy] = adminId
                     }
                 }
+                // V1.9.329: an anonymous PayPal donation without a member and without a booking day (NULL columns survive a backup + restore).
+                val anonymousPaymentId = Uuid.random()
+                PaymentTransactionTable.insert {
+                    it[id] = anonymousPaymentId
+                    it[provider] = PaymentProvider.PAYPAL
+                    it[providerEventId] = "evt-$anonymousPaymentId"
+                    it[providerPaymentId] = "pay-$anonymousPaymentId"
+                    it[status] = PaymentTransactionStatus.CAPTURED
+                    it[amount] = BigDecimal("7.00")
+                    it[currency] = "EUR"
+                    it[feeAmount] = null
+                    it[intent] = PaymentIntent.DONATION
+                    it[contributionId] = null
+                    it[PaymentTransactionTable.memberId] = null
+                    it[payerReference] = null
+                    it[receivedAt] = LocalDateTime(2027, 1, 5, 0, 0)
+                    it[rawPayloadDigest] = "0".repeat(64)
+                }
+                DonationTable.insert {
+                    it[id] = anonymousDonationId
+                    it[paymentTransactionId] = anonymousPaymentId
+                    it[DonationTable.memberId] = null
+                    it[amount] = BigDecimal("7.00")
+                    it[currency] = "EUR"
+                    it[bookingDate] = null
+                    it[createdAt] = LocalDateTime(2027, 1, 6, 9, 0)
+                    it[createdBy] = null
+                }
                 // basis, donation (null = legacy row without one), reason
                 listOf(
                     Triple(ReferenceRateBasis.SNAPSHOT, oracleDonationId, null as String?),
@@ -582,7 +611,10 @@ class OrganizationBackupRoundTripTest :
                 (restoreOrder.indexOf("donation") < restoreOrder.indexOf("price_oracle_conversion")) shouldBe true
                 (restoreOrder.indexOf("payment_transaction") < restoreOrder.indexOf("donation")) shouldBe true
                 transaction(targetDb) {
-                    DonationTable.selectAll().count() shouldBe 2L
+                    DonationTable.selectAll().count() shouldBe 3L
+                    val anonymousRow = DonationTable.selectAll().where { DonationTable.id eq anonymousDonationId }.single()
+                    anonymousRow[DonationTable.memberId] shouldBe null
+                    anonymousRow[DonationTable.bookingDate] shouldBe null
                     PriceOracleConversionTable
                         .selectAll()
                         .where { PriceOracleConversionTable.donationId eq oracleDonation2Id }

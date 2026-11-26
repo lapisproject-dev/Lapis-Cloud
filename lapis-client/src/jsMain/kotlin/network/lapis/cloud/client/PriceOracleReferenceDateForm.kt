@@ -20,6 +20,7 @@ import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.ConversionRateBasis
+import network.lapis.cloud.shared.domain.DonationChannel
 import network.lapis.cloud.shared.domain.DonationConversionInput
 import network.lapis.cloud.shared.domain.DonationPaymentCandidateDto
 import network.lapis.cloud.shared.domain.MemberSummaryDto
@@ -120,12 +121,16 @@ internal fun renderReferenceDateConvertForm(
     fun updateDateHint() {
         val payment = selectedPayment()
         val date = dateInput.dateOrNull()
-        val deviates = payment != null && date != null && date != payment.bookingDate
+        // Without a bank booking (PayPal, Stripe, ...) the date is always chosen by hand and always needs a justification.
+        val deviates = payment != null && (payment.bookingDate == null || (date != null && date != payment.bookingDate))
+        reasonInput.label =
+            if (payment?.bookingDate == null) tr("Begründung für den Stichtag") else tr("Begründung für den abweichenden Stichtag")
         if (deviates) {
             reasonInput.show()
             reasonCounter.show()
             reasonHint.show()
-            resetDateButton.show()
+            // Without a booking day there is nothing to return to: the reset would only wipe the date and the typed reason.
+            if (payment?.bookingDate != null) resetDateButton.show() else resetDateButton.hide()
         } else {
             reasonInput.hide()
             reasonCounter.hide()
@@ -133,9 +138,14 @@ internal fun renderReferenceDateConvertForm(
             resetDateButton.hide()
             reasonInput.value = null
         }
+        val booking = payment?.bookingDate
         when {
             payment == null -> dateHint.hide()
-            payment.bookingDate >= organizationToday() -> {
+            booking == null -> {
+                dateHint.content = noBookingText(payment)
+                dateHint.show()
+            }
+            booking >= organizationToday() -> {
                 dateHint.content =
                     tr(
                         "Die Bankzahlung wurde heute gebucht. " +
@@ -143,7 +153,7 @@ internal fun renderReferenceDateConvertForm(
                     )
                 dateHint.show()
             }
-            date == payment.bookingDate -> {
+            date == booking -> {
                 dateHint.content = tr("Der Stichtag ist der Buchungstag der Bankzahlung.")
                 dateHint.show()
             }
@@ -151,7 +161,7 @@ internal fun renderReferenceDateConvertForm(
                 dateHint.content =
                     gettext(
                         "Der Stichtag weicht vom Buchungstag der Bankzahlung (%1) ab und gilt als manuell gewählt.",
-                        formatDate(payment.bookingDate),
+                        formatDate(booking),
                     )
                 dateHint.show()
             }
@@ -167,7 +177,7 @@ internal fun renderReferenceDateConvertForm(
         } else {
             amountInput.value = payment.amount.toString()
             // A booking from today has no closing rate yet: the date stays empty and the hint says why.
-            dateInput.setDate(if (payment.bookingDate < organizationToday()) payment.bookingDate else null)
+            dateInput.setDate(payment.bookingDate?.takeIf { it < organizationToday() })
         }
         updateDateHint()
         updateCheckEnabled()
@@ -192,8 +202,7 @@ internal fun renderReferenceDateConvertForm(
             if (loaded == null || generation != candidatesGeneration) return@launch
             candidates = loaded
             // Date and amount only: never the purpose text or an account number.
-            paymentSelect.options =
-                loaded.map { it.id to "${formatDate(it.bookingDate)} · ${formatDonationAmount(it.amount, it.currency)}" }
+            paymentSelect.options = loaded.map { it.id to formatCandidateLabel(it) }
             if (loaded.isEmpty()) {
                 paymentHint.content = tr("Keine offene Spende für dieses Mitglied.")
                 paymentHint.show()
@@ -222,7 +231,7 @@ internal fun renderReferenceDateConvertForm(
     }
     resetDateButton.onClick {
         val payment = selectedPayment() ?: return@onClick
-        dateInput.setDate(if (payment.bookingDate < organizationToday()) payment.bookingDate else null)
+        dateInput.setDate(payment.bookingDate?.takeIf { it < organizationToday() })
         reasonInput.value = null
     }
     dateInput.subscribe {
@@ -295,7 +304,13 @@ internal fun renderReferenceDateConvertForm(
         val payment = selectedPayment() ?: return@onClick
         // A date other than the booking day needs the justification; it is shown to the server as typed text only (never rendered as HTML).
         val reason =
-            if (date != payment.bookingDate) ReferenceRateRules.normalizeOverrideReason(reasonInput.value.orEmpty()) else null
+            if (payment.bookingDate == null ||
+                date != payment.bookingDate
+            ) {
+                ReferenceRateRules.normalizeOverrideReason(reasonInput.value.orEmpty())
+            } else {
+                null
+            }
         if (reason != null && !ReferenceRateRules.isOverrideReasonLengthValid(reason)) {
             errorBox.content =
                 gettext(
@@ -306,13 +321,18 @@ internal fun renderReferenceDateConvertForm(
             errorBox.show()
             return@onClick
         }
+        val booking = payment.bookingDate
         val paymentLine =
             " " +
-                gettext(
-                    "Bankzahlung vom %1, Stichtag: %2.",
-                    formatDate(payment.bookingDate),
-                    if (date == payment.bookingDate) gettext("Buchungstag") else gettext("manuell gewählt"),
-                )
+                if (booking == null) {
+                    gettext("Spende ohne Bankbuchung, Stichtag: %1.", gettext("manuell gewählt"))
+                } else {
+                    gettext(
+                        "Bankzahlung vom %1, Stichtag: %2.",
+                        formatDate(booking),
+                        if (date == booking) gettext("Buchungstag") else gettext("manuell gewählt"),
+                    )
+                }
         confirmDialog(
             title = tr("Spenden-Konvertierung bestätigen"),
             message =
@@ -359,6 +379,20 @@ internal fun renderReferenceDateConvertForm(
                 }
             }
         }
+    }
+}
+
+/** The hint of a donation without a bank booking: the day it arrived and the channel, and why the date is always manual. */
+private fun noBookingText(payment: DonationPaymentCandidateDto): String {
+    val received = payment.receivedDate
+    return if (received != null) {
+        gettext(
+            "Diese Spende hat keine Bankbuchung (Eingang am %1 über %2). Der Stichtag gilt deshalb immer als manuell gewählt und braucht eine Begründung.",
+            formatDate(received),
+            channelLabel(payment.channel),
+        )
+    } else {
+        gettext("Diese Spende hat keine Bankbuchung. Der Stichtag gilt deshalb immer als manuell gewählt und braucht eine Begründung.")
     }
 }
 
@@ -541,6 +575,27 @@ private fun manualRateDialog(
 }
 
 private const val BPS_PER_UNIT = 10_000
+
+private fun channelLabel(channel: DonationChannel): String =
+    when (channel) {
+        DonationChannel.BANK -> gettext("Bank")
+        DonationChannel.PAYPAL -> gettext("PayPal")
+        DonationChannel.STRIPE -> gettext("Stripe")
+        DonationChannel.OTHER -> gettext("Sonstige Zahlung")
+    }
+
+/**
+ * The option text of the donation select (date and amount only, never a purpose text or an account number): the booking day and the bank for a
+ * bank donation, else the day it arrived, the channel and "no booking day".
+ */
+internal fun formatCandidateLabel(candidate: DonationPaymentCandidateDto): String {
+    val amount = formatDonationAmount(candidate.amount, candidate.currency)
+    val booking = candidate.bookingDate
+    if (booking != null) return "${formatDate(booking)} · $amount · ${channelLabel(candidate.channel)}"
+    val received = candidate.receivedDate
+    val head = if (received != null) "${formatDate(received)} · " else ""
+    return "$head$amount · ${channelLabel(candidate.channel)} · ${gettext("kein Buchungstag")}"
+}
 
 /** The value of the donation select while nothing is chosen. */
 private const val NO_PAYMENT = ""

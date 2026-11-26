@@ -14,10 +14,10 @@ import org.jetbrains.exposed.v1.datetime.datetime
 public object DonationTable : Table("donation") {
     public val id: Column<Uuid> = uuid("id")
     public val paymentTransactionId: Column<Uuid> = reference("payment_transaction_id", PaymentTransactionTable.id)
-    public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)
+    public val memberId: Column<Uuid?> = optReference("member_id", MemberTable.id)
     public val amount: Column<BigDecimal> = decimal("amount", 18, 2)
     public val currency: Column<String> = varchar("currency", 3)
-    public val bookingDate: Column<LocalDate> = date("booking_date")
+    public val bookingDate: Column<LocalDate?> = date("booking_date").nullable()
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
     public val createdBy: Column<Uuid?> = optReference("created_by", MemberTable.id)
 

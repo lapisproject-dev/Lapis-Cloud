@@ -165,6 +165,7 @@ class PriceOracleBankBookingConversionTest :
             currency: String = "EUR",
             amount: String = "25.00",
             receivedAt: LocalDateTime = LocalDateTime(2026, 11, 20, 0, 0),
+            withDonation: Boolean = true,
         ): Uuid =
             DonationFixtures.bankedDonation(
                 member = member,
@@ -174,6 +175,7 @@ class PriceOracleBankBookingConversionTest :
                 intent = intent,
                 currency = currency,
                 receivedAt = receivedAt,
+                withDonation = withDonation,
             )
 
         fun snapshot(at: String = "2026-11-20T15:00:00") {
@@ -302,7 +304,7 @@ class PriceOracleBankBookingConversionTest :
         // ---- candidate list ----
 
         test(
-            "the candidate list holds only captured donations of the member in the donation currency with exactly one POSTED bank line, not converted yet",
+            "the candidate list holds the open donations of the member in the donation currency (with or without a bank booking), not converted yet",
         ) {
             app {
                 val member = createMember("bb-list@example.org")
@@ -314,18 +316,28 @@ class PriceOracleBankBookingConversionTest :
                 donation(member, status = PaymentTransactionStatus.REFUNDED)
                 donation(member, intent = PaymentIntent.CONTRIBUTION)
                 donation(member, currency = "USD")
-                donation(member, booking = null)
                 donation(other)
-                val unposted = donation(member, booking = null)
+                val noLine = donation(member, booking = null, amount = "41.00")
+                val unposted = donation(member, booking = null, amount = "42.00")
                 addLine(unposted, LocalDate(2026, 11, 21), status = BankStatementLineStatus.UNMATCHED)
-                val twoLines = donation(member)
+                // two POSTED lines: ambiguous, so the donation has no booking day
+                val twoLines = donation(member, amount = "43.00", withDonation = false)
                 addLine(twoLines, LocalDate(2026, 11, 21))
+                DonationFixtures.ensureDonation(twoLines)
                 val converted = donation(member)
                 snapshot()
                 client.convert(member, "2026-11-20", converted.toString()).status shouldBe HttpStatusCode.OK
 
-                val body = client.candidates(member).bodyAsText()
-                body shouldBe "$newer,2026-11-24,30.00;$good,2026-11-20,25.00"
+                val entries = client.candidates(member).bodyAsText().split(";")
+                entries.first() shouldBe "$newer,2026-11-24,30.00"
+                entries.toSet() shouldBe
+                    setOf(
+                        "$newer,2026-11-24,30.00",
+                        "$good,2026-11-20,25.00",
+                        "$noLine,null,41.00",
+                        "$unposted,null,42.00",
+                        "$twoLines,null,43.00",
+                    )
             }
         }
 

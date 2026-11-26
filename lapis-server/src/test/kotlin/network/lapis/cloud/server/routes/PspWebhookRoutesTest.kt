@@ -25,6 +25,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.ContributionTable
+import network.lapis.cloud.server.db.generated.DonationTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.ExternalDonorTable
@@ -161,6 +162,7 @@ class PspWebhookRoutesTest :
                                 .where { PaymentTransactionTable.id inList transactionIds }
                                 .mapNotNull { it[PaymentTransactionTable.journalEntryId] }
                         PspWebhookEventTable.deleteWhere { PspWebhookEventTable.paymentTransactionId inList transactionIds }
+                        DonationTable.deleteWhere { DonationTable.paymentTransactionId inList transactionIds }
                         PaymentTransactionTable.deleteWhere { PaymentTransactionTable.id inList transactionIds }
                         if (journalEntryIds.isNotEmpty()) {
                             PostingTable.deleteWhere { PostingTable.journalEntryId inList journalEntryIds }
@@ -1135,6 +1137,63 @@ class PspWebhookRoutesTest :
                         ContributionTable.selectAll().where { ContributionTable.id eq contributionId }.single()[ContributionTable.status]
                     }
                 contributionStatus shouldBe ContributionStatus.OPEN
+            }
+        }
+
+        // V1.9.329 review: a DONATION payment that is stored but not posted (amount mismatch, delayed method) must NOT become a convertible donation
+        // that carries the SESSION amount.
+        test("donation session: amount mismatch (100.00 vs 10.00) and payment_status unpaid -> payment stored, but NO donation row") {
+            testApplication {
+                application { routing { registerPspWebhookRoutes(pspConfig = testConfig(), rateLimiter = FederationInboxRateLimiter()) } }
+
+                val member = createMember("psp-webhook-donation-unposted-${Uuid.random()}@example.org")
+                val bankAccountId = createLedgerAccount(number = "W7${Uuid.random().toString().take(6)}", type = LedgerAccountType.ASSET)
+                val incomeAccountId = createLedgerAccount(number = "W8${Uuid.random().toString().take(6)}", type = LedgerAccountType.INCOME)
+                enableGateway(bankAccountId = bankAccountId, incomeAccountId = incomeAccountId)
+                val mismatchSession = "cs_don_mismatch_${Uuid.random()}"
+                val unpaidSession = "cs_don_unpaid_${Uuid.random()}"
+                listOf(mismatchSession, unpaidSession).forEach {
+                    createCheckoutSession(
+                        memberId = member,
+                        contributionId = null,
+                        amount = BigDecimal("100.00"),
+                        providerSessionId = it,
+                    )
+                }
+                val bodies =
+                    listOf(
+                        checkoutCompletedBody(
+                            eventId = "evt_don_mm_${Uuid.random()}",
+                            sessionId = mismatchSession,
+                            amountTotalMinorUnits = 1000,
+                        ),
+                        checkoutCompletedBody(
+                            eventId = "evt_don_up_${Uuid.random()}",
+                            sessionId = unpaidSession,
+                            amountTotalMinorUnits = 10000,
+                            paymentStatus = "unpaid",
+                        ),
+                    )
+                bodies.forEach { body ->
+                    client
+                        .post("/api/webhooks/stripe") {
+                            header("Stripe-Signature", signedHeader(body = body))
+                            contentType(ContentType.Application.Json)
+                            setBody(body)
+                        }.status shouldBe HttpStatusCode.OK
+                }
+
+                transaction {
+                    val payments = PaymentTransactionTable.selectAll().where { PaymentTransactionTable.memberId eq member }.toList()
+                    payments.size shouldBe 2
+                    payments.forEach {
+                        it[PaymentTransactionTable.journalEntryId] shouldBe null
+                        DonationTable
+                            .selectAll()
+                            .where { DonationTable.paymentTransactionId eq it[PaymentTransactionTable.id] }
+                            .count() shouldBe 0L
+                    }
+                }
             }
         }
 

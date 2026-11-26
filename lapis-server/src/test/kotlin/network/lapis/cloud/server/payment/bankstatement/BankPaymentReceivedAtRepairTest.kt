@@ -7,6 +7,7 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.BankStatementImportTable
 import network.lapis.cloud.server.db.generated.BankStatementLineTable
+import network.lapis.cloud.server.db.generated.DonationTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.time.OrganizationTimeZone
@@ -65,6 +66,7 @@ class BankPaymentReceivedAtRepairTest :
         afterSpec {
             transaction {
                 BankStatementLineTable.deleteWhere { BankStatementLineTable.importId eq importId }
+                DonationTable.deleteWhere { DonationTable.paymentTransactionId inList paymentIds }
                 PaymentTransactionTable.deleteWhere { PaymentTransactionTable.id inList paymentIds }
                 BankStatementImportTable.deleteWhere { BankStatementImportTable.id eq importId }
                 MemberTable.deleteWhere { MemberTable.id eq memberId }

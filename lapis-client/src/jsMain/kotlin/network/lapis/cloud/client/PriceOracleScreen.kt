@@ -1145,6 +1145,10 @@ internal fun renderConversionResult(
         if (!result.rawValuesStored) box.div(rawValuesNotStoredText()) { addCssClass("text-muted") }
     }
     result.paymentTransactionId?.let { box.div(gettext("Bankzahlung: %1", it)) { addCssClass("text-muted") } }
+    // V1.9.329: a reference-date conversion from before the donation entity (V174/V175) carries no donation: a muted note, no badge.
+    if (result.donationId == null && result.rateBasis != ReferenceRateBasis.CURRENT) {
+        box.div(gettext("Altbestand: ohne Spende erfasst")) { addCssClass("text-muted") }
+    }
     // V1.9.328: the justification of a manual reference date. Untrusted text: a text node via gettext, never HTML.
     result.referenceDateOverrideReason?.let { box.untrustedDiv(gettext("Begründung: %1", it), className = "text-muted") }
     box.div(gettext("Buchung: %1", result.ltrLedgerEntryId)) { addCssClass("text-muted") }
