@@ -26969,8 +26969,8 @@ msgstr "activado"
 msgid "aus"
 msgstr "desactivado"
 
-msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3"
-msgstr "Zona horaria: %1 · Número de miembros público: %2 · Solicitud de afiliación en línea: %3"
+msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3 · Mailsprache: %4"
+msgstr "Zona horaria: %1 · Número de miembros público: %2 · Solicitud de afiliación en línea: %3 · Idioma del correo: %4"
 
 msgid "Rauschunterdrückung: %1 · Overlays: %2"
 msgstr "Supresión de ruido: %1 · Superposiciones: %2"
@@ -34381,3 +34381,18 @@ msgstr "Donación sin contabilización bancaria, fecha de referencia: %1."
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
 msgid "Altbestand: ohne Spende erfasst"
 msgstr "Registro antiguo: registrado sin donación"
+
+msgid "E-Mails"
+msgstr "Correos electrónicos"
+
+msgid "Sprache der E-Mails"
+msgstr "Idioma de los correos electrónicos"
+
+msgid "Die Sprache, in der die Instanz E-Mails einsprachig versendet. Heute gilt sie für die Quittung an den Gewinner einer Ausschreibung und den Hinweis an den Vorstand bei einer fehlgeschlagenen Auszahlung. Alle übrigen E-Mails bleiben zweisprachig."
+msgstr "El idioma en el que la instancia envía correos electrónicos en un solo idioma. Hoy se aplica al recibo para el ganador de una licitación y al aviso a la junta directiva sobre un pago fallido. Todos los demás correos siguen siendo bilingües."
+
+msgid "Unbekannte Sprache"
+msgstr "Idioma desconocido"
+
+msgid "Sprache der E-Mails gespeichert."
+msgstr "Idioma de los correos electrónicos guardado."

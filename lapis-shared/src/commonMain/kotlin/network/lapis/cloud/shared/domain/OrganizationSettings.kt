@@ -267,6 +267,12 @@ data class OrganizationSettingsDto(
      * `true` = the behaviour before V1.9.315.
      */
     val membershipApplicationEnabled: Boolean = true,
+    /**
+     * V1.9.332 -- language code of the instance's single-language mails (one of de, en, es, fr, it, nl, pl, ru). **Read-only here**: it
+     * changes only through [network.lapis.cloud.shared.rpc.IOrganizationSettingsService.updateMailLanguage] (ADMIN, audited). `de` = the
+     * behaviour before V1.9.332.
+     */
+    val mailLanguage: String = "de",
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */

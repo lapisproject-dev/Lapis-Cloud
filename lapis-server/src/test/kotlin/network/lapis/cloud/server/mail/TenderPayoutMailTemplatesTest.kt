@@ -6,6 +6,7 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.mail.budget.MailLane
+import network.lapis.cloud.shared.domain.EmailChangeKind
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
 
@@ -65,7 +66,7 @@ class TenderPayoutMailTemplatesTest :
             policy.outboxTtl shouldBe null
         }
 
-        test("V1.9.331 failure notice: fixed subject, title only sanitised in the body, DE and EN, link, no amount") {
+        test("V1.9.331 failure notice: fixed subject, title only sanitised in the body, German only (V1.9.332), link, no amount") {
             val mail =
                 MailTemplates.tenderPayoutFailed(
                     notification =
@@ -77,10 +78,10 @@ class TenderPayoutMailTemplatesTest :
                     brandTitle = "Partei",
                     branding = branding(),
                 )
-            mail.subject shouldBe "Partei: LTR-Auszahlung fehlgeschlagen / LTR payout failed"
+            mail.subject shouldBe "Partei: LTR-Auszahlung fehlgeschlagen"
             mail.plainText shouldNotContain "\r"
             mail.plainText shouldContain "LTR-Auszahlung fehlgeschlagen"
-            mail.plainText shouldContain "LTR payout failed"
+            mail.plainText shouldNotContain "LTR payout failed"
             mail.plainText shouldContain "Boese Bcc: evil@example.org <script>"
             mail.plainText shouldContain "https://pzb.example.org/app#/tenders/00000000-0000-0000-0000-000000000042"
             mail.html shouldNotContain "<script>"
@@ -110,5 +111,91 @@ class TenderPayoutMailTemplatesTest :
             policy.priority shouldBe 1
             policy.lane shouldBe MailLane.SYSTEM
             policy.outboxTtl shouldBe null
+        }
+
+        val allLanguages = listOf("de", "en", "es", "fr", "it", "nl", "pl", "ru")
+
+        fun failedNotification(title: String = "Website-Relaunch") =
+            TenderPayoutFailedNotification(
+                tenderId = Uuid.parse("00000000-0000-0000-0000-000000000042"),
+                tenderTitle = title,
+                recipientEmails = listOf("a@example.org"),
+            )
+
+        test("V1.9.332 every language renders the receipt completely: no placeholder left, title only in the body, never in the subject") {
+            allLanguages.forEach { lang ->
+                val mail =
+                    MailTemplates.tenderPayoutPaid(
+                        notification = notification(title = "Boese\r\nTitel {amount}"),
+                        brandTitle = "Partei",
+                        branding = branding(),
+                        language = lang,
+                    )
+                mail.subject shouldContain "Partei"
+                mail.subject shouldNotContain "Titel"
+                mail.subject shouldNotContain "\n"
+                mail.subject shouldNotContain "{"
+                // the title is free text: a token inside it is shown literally, never expanded
+                mail.plainText shouldContain "Boese Titel {amount}"
+                mail.plainText.replace("Boese Titel {amount}", "") shouldNotContain "{"
+                mail.plainText shouldContain "12,50"
+                mail.plainText shouldContain "https://pzb.example.org/app#/tenders/00000000-0000-0000-0000-000000000042"
+                mail.html shouldContain "12,50"
+            }
+        }
+
+        test("V1.9.332 every language renders the failure notice completely, in that language only") {
+            val subjects = mutableSetOf<String>()
+            allLanguages.forEach { lang ->
+                val mail =
+                    MailTemplates.tenderPayoutFailed(
+                        notification = failedNotification(title = "Titel"),
+                        brandTitle = "Partei",
+                        branding = branding(),
+                        language = lang,
+                    )
+                subjects += mail.subject
+                mail.subject shouldNotContain "{"
+                mail.subject shouldNotContain "Titel"
+                mail.plainText shouldContain "Titel"
+                mail.plainText shouldNotContain "{"
+                mail.plainText shouldNotContain "----"
+                mail.plainText shouldContain "https://pzb.example.org/app#/tenders/00000000-0000-0000-0000-000000000042"
+                mail.html shouldContain "https://pzb.example.org"
+            }
+            subjects.size shouldBe allLanguages.size
+        }
+
+        test("V1.9.332 an unknown language falls back to German, the default parameter is German") {
+            val xx =
+                MailTemplates.tenderPayoutPaid(
+                    notification = notification(),
+                    brandTitle = "Partei",
+                    branding = branding(),
+                    language = "xx",
+                )
+            val de = MailTemplates.tenderPayoutPaid(notification = notification(), brandTitle = "Partei", branding = branding())
+            xx shouldBe de
+            de.subject shouldBe "Partei: LTR gutgeschrieben"
+            val en =
+                MailTemplates.tenderPayoutPaid(
+                    notification = notification(),
+                    brandTitle = "Partei",
+                    branding = branding(),
+                    language = "en",
+                )
+            en.subject shouldBe "Partei: LTR credited"
+            en.plainText shouldContain "12,50 LTR"
+        }
+
+        test("V1.9.332 a mail that is still bilingual keeps its two-language layout") {
+            val mail =
+                MailTemplates.emailChangeConfirm(
+                    rawToken = "tok",
+                    kind = EmailChangeKind.PROPOSAL,
+                    effectiveAt = null,
+                    branding = branding(),
+                )
+            mail.plainText shouldContain "----"
         }
     })

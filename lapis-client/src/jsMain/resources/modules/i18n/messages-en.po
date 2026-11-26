@@ -27413,8 +27413,8 @@ msgstr "on"
 msgid "aus"
 msgstr "off"
 
-msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3"
-msgstr "Time zone: %1 · Member count public: %2 · Online membership application: %3"
+msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3 · Mailsprache: %4"
+msgstr "Time zone: %1 · Member count public: %2 · Online membership application: %3 · Mail language: %4"
 
 msgid "Rauschunterdrückung: %1 · Overlays: %2"
 msgstr "Noise suppression: %1 · Overlays: %2"
@@ -34825,3 +34825,18 @@ msgstr "Donation without a bank booking, reference date: %1."
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
 msgid "Altbestand: ohne Spende erfasst"
 msgstr "Legacy entry: recorded without a donation"
+
+msgid "E-Mails"
+msgstr "Emails"
+
+msgid "Sprache der E-Mails"
+msgstr "Email language"
+
+msgid "Die Sprache, in der die Instanz E-Mails einsprachig versendet. Heute gilt sie für die Quittung an den Gewinner einer Ausschreibung und den Hinweis an den Vorstand bei einer fehlgeschlagenen Auszahlung. Alle übrigen E-Mails bleiben zweisprachig."
+msgstr "The language in which the instance sends emails in a single language. Today it applies to the receipt to the winner of a tender and the notice to the board about a failed payout. All other emails remain bilingual."
+
+msgid "Unbekannte Sprache"
+msgstr "Unknown language"
+
+msgid "Sprache der E-Mails gespeichert."
+msgstr "Email language saved."

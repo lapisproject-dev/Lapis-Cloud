@@ -106,4 +106,11 @@ interface IOrganizationSettingsService {
      * audit entry; setting the value it already has writes nothing.
      */
     suspend fun updateMembershipApplicationEnabled(enabled: Boolean): OrganizationSettingsDto
+
+    /**
+     * V1.9.332. Role: ADMIN only. Sets the language of the instance's single-language mails (today: the receipt to a tender winner and the
+     * notice to the board about a failed payout). [language] must be exactly one of de, en, es, fr, it, nl, pl, ru, otherwise
+     * [ConflictException]. A change writes one audit entry; setting the value it already has writes nothing.
+     */
+    suspend fun updateMailLanguage(language: String): OrganizationSettingsDto
 }

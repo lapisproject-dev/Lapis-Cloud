@@ -27346,8 +27346,8 @@ msgstr "attivo"
 msgid "aus"
 msgstr "disattivato"
 
-msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3"
-msgstr "Fuso orario: %1 · Numero di membri pubblico: %2 · Richiesta di adesione online: %3"
+msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3 · Mailsprache: %4"
+msgstr "Fuso orario: %1 · Numero di membri pubblico: %2 · Domanda di adesione online: %3 · Lingua delle e-mail: %4"
 
 msgid "Rauschunterdrückung: %1 · Overlays: %2"
 msgstr "Soppressione del rumore: %1 · Overlay: %2"
@@ -34758,3 +34758,18 @@ msgstr "Donazione senza contabilizzazione bancaria, data di riferimento: %1."
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
 msgid "Altbestand: ohne Spende erfasst"
 msgstr "Voce precedente: registrata senza donazione"
+
+msgid "E-Mails"
+msgstr "E-mail"
+
+msgid "Sprache der E-Mails"
+msgstr "Lingua delle e-mail"
+
+msgid "Die Sprache, in der die Instanz E-Mails einsprachig versendet. Heute gilt sie für die Quittung an den Gewinner einer Ausschreibung und den Hinweis an den Vorstand bei einer fehlgeschlagenen Auszahlung. Alle übrigen E-Mails bleiben zweisprachig."
+msgstr "La lingua in cui l'istanza invia le e-mail in una sola lingua. Oggi vale per la ricevuta al vincitore di un bando e per l'avviso al consiglio direttivo in caso di pagamento non riuscito. Tutte le altre e-mail restano bilingui."
+
+msgid "Unbekannte Sprache"
+msgstr "Lingua sconosciuta"
+
+msgid "Sprache der E-Mails gespeichert."
+msgstr "Lingua delle e-mail salvata."

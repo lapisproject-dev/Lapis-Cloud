@@ -27458,8 +27458,8 @@ msgstr "aan"
 msgid "aus"
 msgstr "uit"
 
-msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3"
-msgstr "Tijdzone: %1 · Ledenaantal openbaar: %2 · Online lidmaatschapsaanvraag: %3"
+msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3 · Mailsprache: %4"
+msgstr "Tijdzone: %1 · Ledenaantal openbaar: %2 · Online lidmaatschapsaanvraag: %3 · Taal van e-mails: %4"
 
 msgid "Rauschunterdrückung: %1 · Overlays: %2"
 msgstr "Ruisonderdrukking: %1 · Overlays: %2"
@@ -34870,3 +34870,18 @@ msgstr "Donatie zonder bankboeking, peildatum: %1."
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
 msgid "Altbestand: ohne Spende erfasst"
 msgstr "Oudere invoer: zonder donatie vastgelegd"
+
+msgid "E-Mails"
+msgstr "E-mails"
+
+msgid "Sprache der E-Mails"
+msgstr "Taal van e-mails"
+
+msgid "Die Sprache, in der die Instanz E-Mails einsprachig versendet. Heute gilt sie für die Quittung an den Gewinner einer Ausschreibung und den Hinweis an den Vorstand bei einer fehlgeschlagenen Auszahlung. Alle übrigen E-Mails bleiben zweisprachig."
+msgstr "De taal waarin de instantie e-mails in één taal verzendt. Vandaag geldt dit voor de ontvangstbevestiging aan de winnaar van een aanbesteding en het bericht aan het bestuur bij een mislukte uitbetaling. Alle overige e-mails blijven tweetalig."
+
+msgid "Unbekannte Sprache"
+msgstr "Onbekende taal"
+
+msgid "Sprache der E-Mails gespeichert."
+msgstr "Taal van e-mails opgeslagen."

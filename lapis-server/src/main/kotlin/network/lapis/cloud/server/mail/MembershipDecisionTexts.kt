@@ -33,6 +33,9 @@ internal data class MembershipDecisionTexts(
             return if (code in ALL) code else DEFAULT_LANGUAGE
         }
 
+        /** V1.9.332 -- true when [code] is one of the supported languages, with exactly the normalisation of [normalize] (so "PL" counts). */
+        fun isSupported(code: String?): Boolean = code != null && code.trim().lowercase() in ALL
+
         fun forLanguage(language: String?): MembershipDecisionTexts = ALL.getValue(normalize(language))
 
         fun fill(

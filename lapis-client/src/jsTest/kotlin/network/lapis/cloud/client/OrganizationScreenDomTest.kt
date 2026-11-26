@@ -27,6 +27,7 @@ class OrganizationScreenDomTest {
         visibility: TenderBidVisibility = TenderBidVisibility.HIDDEN_UNTIL_DEADLINE,
         showCount: Boolean = true,
         finder: Boolean = false,
+        mail: String = "de",
     ) = jsonOf(
         OrganizationSettingsDto.serializer(),
         OrganizationSettingsDto(
@@ -44,6 +45,7 @@ class OrganizationScreenDomTest {
             noiseSuppressionDefault = noise,
             memberFinderEnabled = finder,
             tenderDefaultVisibility = visibility,
+            mailLanguage = mail,
         ),
     )
 
@@ -65,6 +67,8 @@ class OrganizationScreenDomTest {
         var settingsReads = 0
         var noiseWrites = mutableListOf<Boolean>()
         var tenderWrites = mutableListOf<TenderBidVisibility>()
+        var mailWrites = mutableListOf<String>()
+        var rejectMail = false
     }
 
     private suspend fun scenario(
@@ -84,9 +88,11 @@ class OrganizationScreenDomTest {
         val calls = Calls()
         var noiseNow = noise
         var visibilityNow = TenderBidVisibility.HIDDEN_UNTIL_DEADLINE
+        var mailNow = "de"
         val getSettings = routeOf { rpcService<IOrganizationSettingsService>().getOrganizationSettings() }
         val setNoise = routeOf { rpcService<IOrganizationSettingsService>().updateNoiseSuppressionDefault(true) }
         val setTender = routeOf { rpcService<IOrganizationSettingsService>().updateTenderDefaultVisibility(TenderBidVisibility.OPEN) }
+        val setMail = routeOf { rpcService<IOrganizationSettingsService>().updateMailLanguage("pl") }
         val getZone = routeOf { rpcService<IOrganizationTimeZoneService>().getOrganizationTimeZone() }
         withFetchStub(
             respond = { request ->
@@ -94,7 +100,7 @@ class OrganizationScreenDomTest {
                     !request.isRpc -> StubResponse()
                     request.rpcRoute == getSettings -> {
                         calls.settingsReads++
-                        request.answerWith(settings(noise = noiseNow, visibility = visibilityNow))
+                        request.answerWith(settings(noise = noiseNow, visibility = visibilityNow, mail = mailNow))
                     }
                     request.rpcRoute == setNoise -> {
                         noiseNow = request.rpcParam(0) as Boolean
@@ -105,6 +111,16 @@ class OrganizationScreenDomTest {
                         visibilityNow = TenderBidVisibility.valueOf(request.rpcParam(0) as String)
                         calls.tenderWrites += visibilityNow
                         request.answerWith(settings(visibility = visibilityNow))
+                    }
+                    request.rpcRoute == setMail -> {
+                        val wanted = request.rpcParam(0) as String
+                        calls.mailWrites += wanted
+                        if (calls.rejectMail) {
+                            serviceExceptionResult(request.json.id as Int, "network.lapis.cloud.shared.rpc.ConflictException")
+                        } else {
+                            mailNow = wanted
+                            request.answerWith(settings(mail = mailNow))
+                        }
                     }
                     request.rpcRoute == getZone -> request.answerWith("""{"zoneId":"Europe/Berlin","availableZoneIds":$zones}""")
                     else -> request.answerWith("[]")
@@ -140,7 +156,7 @@ class OrganizationScreenDomTest {
                 )
                 assertTrue(page.sections().none { it.hasAttribute("open") }, "all sections start closed")
                 assertEquals(
-                    "Zeitzone: Europe/Berlin · Mitgliederzahl öffentlich: an · Online-Mitgliedsantrag: an",
+                    "Zeitzone: Europe/Berlin · Mitgliederzahl öffentlich: an · Online-Mitgliedsantrag: an · Mailsprache: Deutsch",
                     page.summaryOf("allgemein"),
                 )
                 assertEquals("Rauschunterdrückung: an · Overlays: aus", page.summaryOf("videokonferenz"))
@@ -191,6 +207,71 @@ class OrganizationScreenDomTest {
                     calls.noiseWrites == listOf(true) && page.summaryOf("videokonferenz").startsWith("Rauschunterdrückung: an")
                 }
                 assertTrue(page.isOpen("videokonferenz"), "the section stays open after saving")
+            }
+        }
+
+    private fun HTMLElement.mailLanguageSelect(): HTMLElement? = allOf("select").firstOrNull { it.querySelectorAll("option").length == 8 }
+
+    @Test
+    fun theMailLanguageSelect_offersEightEndonyms_savesOnlyOnTheButton_andTheSummaryFollows(): Promise<Unit> =
+        test {
+            scenario { page, calls ->
+                page.open("allgemein")
+                awaitUntil("the mail language select appears") { page.section("allgemein").mailLanguageSelect() != null }
+                val select = page.section("allgemein").mailLanguageSelect()!!
+                val options = select.allOf("option")
+                assertEquals(
+                    listOf("de", "en", "es", "fr", "it", "nl", "pl", "ru"),
+                    options.map { it.getAttribute("value") },
+                )
+                assertEquals(
+                    listOf("Deutsch", "English", "Español", "Français", "Italiano", "Nederlands", "Polski", "Русский"),
+                    options.map { it.textContent?.trim() },
+                )
+                select.asDynamic().value = "pl"
+                select.dispatchEvent(
+                    org.w3c.dom.events
+                        .Event("change"),
+                )
+                awaitAppScopeIdle("idle")
+                assertTrue(calls.mailWrites.isEmpty(), "changing the select saves nothing")
+                var holder: HTMLElement? = select
+                while (holder != null &&
+                    holder.allOf("button").none { it.textContent?.trim() == "Speichern" }
+                ) {
+                    holder = holder.parentElement as? HTMLElement
+                }
+                holder!!.buttonNamed("Speichern").click()
+                awaitUntil("saved once and the summary follows") {
+                    calls.mailWrites == listOf("pl") && page.summaryOf("allgemein").endsWith("Mailsprache: Polski")
+                }
+            }
+        }
+
+    @Test
+    fun aRejectedMailLanguage_putsTheSelectBackToTheStoredValue(): Promise<Unit> =
+        test {
+            scenario { page, calls ->
+                calls.rejectMail = true
+                page.open("allgemein")
+                awaitUntil("the mail language select appears") { page.section("allgemein").mailLanguageSelect() != null }
+                val select = page.section("allgemein").mailLanguageSelect()!!
+                select.asDynamic().value = "ru"
+                select.dispatchEvent(
+                    org.w3c.dom.events
+                        .Event("change"),
+                )
+                var holder: HTMLElement? = select
+                while (holder != null &&
+                    holder.allOf("button").none { it.textContent?.trim() == "Speichern" }
+                ) {
+                    holder = holder.parentElement as? HTMLElement
+                }
+                holder!!.buttonNamed("Speichern").click()
+                awaitUntil("the call was made") { calls.mailWrites == listOf("ru") }
+                awaitAppScopeIdle("idle")
+                assertEquals("de", select.asDynamic().value as String)
+                assertTrue(page.summaryOf("allgemein").endsWith("Mailsprache: Deutsch"))
             }
         }
 

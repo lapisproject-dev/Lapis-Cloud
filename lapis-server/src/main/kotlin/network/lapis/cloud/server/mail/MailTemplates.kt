@@ -476,28 +476,39 @@ object MailTemplates {
     }
 
     /**
-     * V1.9.330 -- receipt to the winner of a tender after a committed LTR payout. The subject is fixed (instance name only): the tender
-     * title is free text and only ever appears, sanitised and shortened, in the body. Names neither the paying member nor a ledger id.
+     * V1.9.330 / V1.9.332 -- receipt to the winner of a tender after a committed LTR payout, in ONE language ([language], see [MailLanguage]).
+     * The subject is fixed (instance name only): the tender title is free text and only ever appears, sanitised and shortened, in the body.
+     * Names neither the paying member nor a ledger id.
      */
     fun tenderPayoutPaid(
         notification: TenderPayoutPaidNotification,
         brandTitle: String,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
-        val subject = "${sanitizeSubjectFragment(brandTitle)}: LTR gutgeschrieben"
-        val cleanTitle = sanitizeSubjectFragment(notification.tenderTitle).replace(Regex("\\s+"), " ")
-        val safeTitle = if (cleanTitle.length > 120) cleanTitle.take(119).trimEnd() + "…" else cleanTitle
+        val texts = TenderPayoutPaidTexts.forLanguage(language)
+        val safeBrand = sanitizeSubjectFragment(brandTitle)
+        val subject = fillTenderPayout(template = texts.subject, values = mapOf("brand" to safeBrand))
         val amount =
             notification.amount
                 .setScale(2, java.math.RoundingMode.HALF_UP)
                 .toPlainString()
                 .replace('.', ',')
         val link = "${branding.publicBaseUrl}/app#/tenders/${notification.tenderId}"
-        val sentence = "Ihnen wurden $amount LTR für die Ausschreibung „$safeTitle“ gutgeschrieben (${formatUtc(notification.executedAt)})."
+        val sentence =
+            fillTenderPayout(
+                template = texts.sentence,
+                values =
+                    mapOf(
+                        "amount" to amount,
+                        "title" to safeTenderTitle(notification.tenderTitle),
+                        "when" to formatUtc(notification.executedAt),
+                    ),
+            )
         val plainText =
             buildString {
                 append(sentence)
-                append("\n\nZur Ausschreibung:\n")
+                append("\n\n").append(texts.linkIntro).append("\n")
                 append(link)
                 append("\n\n")
                 append(brandTitle)
@@ -508,11 +519,11 @@ object MailTemplates {
             createHTML().html {
                 head { title { +subject } }
                 body {
-                    h1 { +"LTR gutgeschrieben" }
+                    h1 { +texts.heading }
                     p { +sentence }
                     p {
-                        +"Zur Ausschreibung: "
-                        a(href = link) { +"Ausschreibung öffnen" }
+                        +"${texts.linkIntro} "
+                        a(href = link) { +texts.linkLabel }
                     }
                     p { +brandTitle }
                     p { +footer(branding) }
@@ -522,43 +533,46 @@ object MailTemplates {
     }
 
     /**
-     * V1.9.331 -- notice to the board that a tender payout failed. German first, English second. The subject is fixed (instance name only, the
-     * tender title never enters a header); the title appears sanitised and shortened in the body. No amount, no winner, no reason, no payer.
+     * V1.9.331 / V1.9.332 -- notice to the board that a tender payout failed, in ONE language ([language]; before V1.9.332 German and
+     * English in one mail). The subject is fixed (instance name only, the tender title never enters a header); the title appears sanitised
+     * and shortened in the body. No amount, no winner, no reason, no payer.
      */
     fun tenderPayoutFailed(
         notification: TenderPayoutFailedNotification,
         brandTitle: String,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
-        val subject = "${sanitizeSubjectFragment(brandTitle)}: LTR-Auszahlung fehlgeschlagen / LTR payout failed"
-        val cleanTitle = sanitizeSubjectFragment(notification.tenderTitle).replace(Regex("\\s+"), " ")
-        val safeTitle = if (cleanTitle.length > 120) cleanTitle.take(119).trimEnd() + "…" else cleanTitle
+        val texts = TenderPayoutFailedTexts.forLanguage(language)
+        val subject = fillTenderPayout(template = texts.subject, values = mapOf("brand" to sanitizeSubjectFragment(brandTitle)))
+        val title = mapOf("title" to safeTenderTitle(notification.tenderTitle))
         val link = "${branding.publicBaseUrl}/app#/tenders/${notification.tenderId}"
-        val de =
-            MailSection(
-                heading = "LTR-Auszahlung fehlgeschlagen",
-                paragraphs =
-                    listOf(
-                        "Die LTR-Auszahlung der Ausschreibung „$safeTitle“ konnte nicht gebucht werden, " +
-                            "weil der Gewinner derzeit kein LTR empfangen kann. Es wurde nichts gebucht.",
-                        "Sobald die Ursache geklärt ist, kann die Auszahlung auf der Ausschreibung erneut ausgelöst werden.",
-                    ),
-                linkLabel = "Ausschreibung öffnen",
-                link = link,
-            )
-        val en =
-            MailSection(
-                heading = "LTR payout failed",
-                paragraphs =
-                    listOf(
-                        "The LTR payout of the tender \"$safeTitle\" could not be booked " +
-                            "because the winner cannot currently receive LTR. Nothing was booked.",
-                        "Once the cause is resolved, the payout can be triggered again on the tender.",
-                    ),
-                linkLabel = "Open the tender",
-                link = link,
-            )
-        return bilingual(subject = subject, de = de, en = en, branding = branding)
+        val heading = texts.heading
+        val paragraphs = listOf(fillTenderPayout(template = texts.p1, values = title), texts.p2)
+        val plainText =
+            buildString {
+                append(heading).append("\n\n")
+                paragraphs.forEach { append(it).append("\n\n") }
+                append(texts.linkLabel).append(":\n").append(link).append("\n\n")
+                append(footer(branding))
+            }
+        val html =
+            createHTML().html {
+                head { title { +subject } }
+                body {
+                    h1 { +heading }
+                    paragraphs.forEach { paragraph -> p { +paragraph } }
+                    p { a(href = link) { +texts.linkLabel } }
+                    p { +footer(branding) }
+                }
+            }
+        return RenderedMail(subject = subject, plainText = plainText, html = html)
+    }
+
+    /** Tender title for a mail BODY: control characters and line breaks flattened, whitespace collapsed, at most 120 characters. */
+    private fun safeTenderTitle(title: String): String {
+        val clean = sanitizeSubjectFragment(title).replace(Regex("\\s+"), " ")
+        return if (clean.length > 120) clean.take(119).trimEnd() + "…" else clean
     }
 
     /**

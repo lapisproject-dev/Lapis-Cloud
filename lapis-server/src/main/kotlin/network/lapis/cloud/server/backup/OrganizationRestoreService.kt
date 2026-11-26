@@ -18,6 +18,7 @@ import network.lapis.cloud.server.carpool.CarpoolWithdrawalTarget
 import network.lapis.cloud.server.economy.oracle.NO_LEGACY_CUTOFF
 import network.lapis.cloud.server.economy.oracle.RawValuesCutoff
 import network.lapis.cloud.server.economy.oracle.RawValuesCutoffHolder
+import network.lapis.cloud.server.mail.MembershipDecisionTexts
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AuctionCurrencies
 import network.lapis.cloud.shared.domain.BackupOperationStatus
@@ -49,6 +50,26 @@ class NonEmptyTargetException(
 class RestoreIncompleteException(
     message: String,
 ) : RuntimeException(message)
+
+/**
+ * V1.9.332 -- the `mail_language` value of a restored `organization_settings` row. A bundle written before the column existed has no value:
+ * the column default `de` applies (an absent key would otherwise be bound as NULL against a NOT NULL column). A value outside the supported
+ * codes is refused with a message naming the column.
+ */
+internal fun withValidMailLanguage(row: JsonObject): JsonObject {
+    val value = row["mail_language"]
+    if (value == null || value == JsonNull) {
+        return JsonObject(row + ("mail_language" to JsonPrimitive(MembershipDecisionTexts.DEFAULT_LANGUAGE)))
+    }
+    val code = (value as? JsonPrimitive)?.takeIf { it.isString }?.content
+    if (code == null || code !in MembershipDecisionTexts.SUPPORTED) {
+        throw RestoreIncompleteException(
+            "Column 'mail_language' of table 'organization_settings' holds an unsupported language code -- the bundle is invalid " +
+                "or comes from an incompatible version. The target instance now holds a partial restore and should be discarded.",
+        )
+    }
+    return row
+}
 
 /** One row's worth of PK/value bookkeeping the generic upsert needs -- see [OrganizationRestoreService.upsertRow]. */
 private const val RESTORE_BATCH_SIZE = 200
@@ -498,6 +519,7 @@ class OrganizationRestoreService(
         when (table.tableName) {
             "organization_settings" -> {
                 var result = row
+                result = withValidMailLanguage(result)
                 if ((result["carpool_federation_enabled"] as? JsonPrimitive)?.contentOrNull == "true") {
                     counter.incrementAndGet()
                     result = JsonObject(result + ("carpool_federation_enabled" to JsonPrimitive(false)))

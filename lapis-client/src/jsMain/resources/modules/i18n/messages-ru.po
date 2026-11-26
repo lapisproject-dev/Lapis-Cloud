@@ -27308,8 +27308,8 @@ msgstr "включено"
 msgid "aus"
 msgstr "выключено"
 
-msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3"
-msgstr "Часовой пояс: %1 · Число членов публично: %2 · Онлайн-заявление о членстве: %3"
+msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3 · Mailsprache: %4"
+msgstr "Часовой пояс: %1 · Число членов публично: %2 · Онлайн-заявление о членстве: %3 · Язык писем: %4"
 
 msgid "Rauschunterdrückung: %1 · Overlays: %2"
 msgstr "Шумоподавление: %1 · Оверлеи: %2"
@@ -34729,3 +34729,18 @@ msgstr "Пожертвование без банковской проводки,
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
 msgid "Altbestand: ohne Spende erfasst"
 msgstr "Прежняя запись: внесена без пожертвования"
+
+msgid "E-Mails"
+msgstr "Электронные письма"
+
+msgid "Sprache der E-Mails"
+msgstr "Язык писем"
+
+msgid "Die Sprache, in der die Instanz E-Mails einsprachig versendet. Heute gilt sie für die Quittung an den Gewinner einer Ausschreibung und den Hinweis an den Vorstand bei einer fehlgeschlagenen Auszahlung. Alle übrigen E-Mails bleiben zweisprachig."
+msgstr "Язык, на котором экземпляр отправляет письма на одном языке. Сегодня это относится к квитанции победителю тендера и уведомлению правления о неудавшейся выплате. Все остальные письма остаются двуязычными."
+
+msgid "Unbekannte Sprache"
+msgstr "Неизвестный язык"
+
+msgid "Sprache der E-Mails gespeichert."
+msgstr "Язык писем сохранён."

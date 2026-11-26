@@ -26566,7 +26566,7 @@ msgstr ""
 msgid "aus"
 msgstr ""
 
-msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3"
+msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3 · Mailsprache: %4"
 msgstr ""
 
 msgid "Rauschunterdrückung: %1 · Overlays: %2"
@@ -34230,4 +34230,19 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
 msgid "Altbestand: ohne Spende erfasst"
+msgstr ""
+
+msgid "E-Mails"
+msgstr ""
+
+msgid "Sprache der E-Mails"
+msgstr ""
+
+msgid "Die Sprache, in der die Instanz E-Mails einsprachig versendet. Heute gilt sie für die Quittung an den Gewinner einer Ausschreibung und den Hinweis an den Vorstand bei einer fehlgeschlagenen Auszahlung. Alle übrigen E-Mails bleiben zweisprachig."
+msgstr ""
+
+msgid "Unbekannte Sprache"
+msgstr ""
+
+msgid "Sprache der E-Mails gespeichert."
 msgstr ""

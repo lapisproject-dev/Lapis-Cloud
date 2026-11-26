@@ -15,6 +15,7 @@ import network.lapis.cloud.server.encounter.PulpitStopReason
 import network.lapis.cloud.server.events.EventCaptureLock
 import network.lapis.cloud.server.events.EventCaptureNotice
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.MembershipDecisionTexts
 import network.lapis.cloud.server.memberfinder.MemberFinderLifecycle
 import network.lapis.cloud.server.memberfinder.MemberFinderNotice
 import network.lapis.cloud.server.payment.sepa.BicValidator
@@ -140,6 +141,40 @@ class OrganizationSettingsService(
                 loadOrganizationSettings().withInfrastructure() to (before != enabled)
             }
         if (result.second) logger.info { "noise suppression default set to $enabled by ${current.memberId}" }
+        return result.first
+    }
+
+    /**
+     * V1.9.332 -- the ONLY way to change [OrganizationSettingsDto.mailLanguage] (ADMIN): the language of the instance's single-language mails.
+     * The code must be exactly one of [MembershipDecisionTexts.SUPPORTED] (no trim, no case folding), otherwise [ConflictException]. A change
+     * writes one [AuditEntityType.ORGANIZATION_SETTINGS] `UPDATE` entry (before/after as a one-field JSON snapshot; the code is a validated
+     * literal, so nothing needs escaping); setting the value it already has writes neither a row nor an audit entry. The generic
+     * [updateOrganizationSettings] never touches the column.
+     */
+    override suspend fun updateMailLanguage(language: String): OrganizationSettingsDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        if (language !in MembershipDecisionTexts.SUPPORTED) throw ConflictException("Unbekannte Sprache.")
+        val result =
+            transaction {
+                val before = MailLanguageStore.load()
+                if (before != language) {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[mailLanguage] = language
+                    }
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.ORGANIZATION_SETTINGS,
+                        entityId = ORGANIZATION_SETTINGS_ID,
+                        action = AuditAction.UPDATE,
+                        before = "{\"mailLanguage\":\"$before\"}",
+                        after = "{\"mailLanguage\":\"$language\"}",
+                    )
+                }
+                loadOrganizationSettings().withInfrastructure() to (before != language)
+            }
+        if (result.second) logger.info { "mail language set to $language by ${current.memberId}" }
         return result.first
     }
 
@@ -813,6 +848,7 @@ class OrganizationSettingsService(
                 // V1.9.144: memberFinderEnabled / memberFinderNoticeVersion likewise -- only updateMemberFinderEnabled may set them.
                 // V1.9.156: eventCaptureEnabled / eventCaptureNoticeVersion likewise -- only updateEventCaptureEnabled may set them.
                 // V1.9.201: tenderDefaultVisibility likewise -- only updateTenderDefaultVisibility may set it.
+                // V1.9.332: mailLanguage likewise -- only updateMailLanguage may set it.
                 // V1.9.262: conferenceBroadcastViewDefault likewise -- only setConferenceBroadcastViewDefault may set it.
             }
 
@@ -1038,7 +1074,27 @@ fun ResultRow.toOrganizationSettingsDto(): OrganizationSettingsDto =
         conferenceBroadcastViewDefault = this[OrganizationSettingsTable.conferenceBroadcastViewDefault],
         // V1.9.315 -- read-only here, set only through updateMembershipApplicationEnabled.
         membershipApplicationEnabled = this[OrganizationSettingsTable.membershipApplicationEnabled],
+        // V1.9.332 -- read-only here, set only through updateMailLanguage. A foreign value in the column reads as the default.
+        mailLanguage = MembershipDecisionTexts.normalize(this[OrganizationSettingsTable.mailLanguage]),
     )
+
+/**
+ * V1.9.332 -- the language of the instance's single-language mails. [load] must run inside a `transaction {}`; a missing row (never happens,
+ * V1 seeds it) or a foreign value means `de`. [loadOrDefault] opens its own transaction and NEVER fails: a mail must not be lost because a
+ * setting could not be read.
+ */
+internal object MailLanguageStore {
+    fun load(): String =
+        MembershipDecisionTexts.normalize(
+            OrganizationSettingsTable
+                .select(OrganizationSettingsTable.mailLanguage)
+                .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                .singleOrNull()
+                ?.get(OrganizationSettingsTable.mailLanguage),
+        )
+
+    fun loadOrDefault(): String = runCatching { transaction { load() } }.getOrDefault(MembershipDecisionTexts.DEFAULT_LANGUAGE)
+}
 
 /**
  * V1.9.124 -- the organisation's noise suppression default for the join answers of the video conferences. Must run inside a

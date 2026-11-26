@@ -1,0 +1,46 @@
+= Mail language of the instance
+:toc:
+
+Since V1.9.332 an ADMIN can set the language in which the instance sends *single-language* mails
+(Organisation page, section "Allgemein", "E-Mails"). The setting is `organization_settings.mail_language`
+(migration V176, default `de`). It is changed only through `IOrganizationSettingsService.updateMailLanguage`
+(ADMIN, audited on change); the generic settings update never touches it.
+
+== Supported languages
+
+`de`, `en`, `es`, `fr`, `it`, `nl`, `pl`, `ru` (the codes of `MembershipDecisionTexts.SUPPORTED`). The RPC
+accepts exactly these codes: no trimming, no case folding. A value outside the list in the column reads as `de`.
+
+== Which language a mail uses
+
+`MailLanguage.resolve(recipient, instance)`:
+
+. the recipient's own language, if it is a supported code;
+. otherwise the instance language;
+. otherwise `de`.
+
+The instance language is read when the mail is sent, not when the event happens, so a change applies without a
+restart. A setting that cannot be read never blocks a mail: it falls back to `de`.
+
+== Scope today
+
+Single-language in the instance language:
+
+* the receipt to the winner of a tender after an LTR payout (V1.9.330);
+* the notice to the board about a failed payout (V1.9.331; before V1.9.332 German and English in one mail).
+
+All other mails stay bilingual German/English. Candidates for later waves: `keycloakMemberProvisioned`,
+`keycloakEmailSyncedNotice`, `emailChange*`, `passwordResetByAdmin`, `peer*`, `encounterEntryNotice`, `carpoolNotice`,
+`finTsReauthRequired`, `webhookEndpointDeactivated`, `friendVerification`, `articleReview`, and the fallback of the
+membership-decision mails (still fixed `de` when the applicant has no stored language).
+
+== Translations
+
+The German texts are the original wording. The translations into the other seven languages were written by the
+model and are *not reviewed by native speakers*.
+
+== Known limits
+
+* Amounts keep the decimal comma and timestamps the `yyyy-MM-dd HH:mm UTC` form in every language.
+* The language list exists twice (server and client); a test keeps both in step.
+* Backup restore: a bundle without the column gets `de`; a value outside the list is refused.

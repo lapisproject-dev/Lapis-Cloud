@@ -565,6 +565,13 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "TRUE"
             stereotype("Column") { "columnName" to "membership_application_enabled" }
         }
+        // Welle V1.9.332 (V176__organization_mail_language.sql). Language code of the instance's single-language mails (one of the eight
+        // supported codes, validated in the service, no CHECK), NOT NULL, 'de' = today's behaviour. NOT part of the generic
+        // updateOrganizationSettings write-set: settable ONLY through IOrganizationSettingsService.updateMailLanguage (ADMIN, audited on change).
+        attribute(name = "mailLanguage", type = "String") {
+            defaultValue = "'de'"
+            stereotype("Column") { "columnName" to "mail_language"; "sqlType" to "VARCHAR(8)" }
+        }
         // Welle V1.9.143 (V106__pulpit_recording.sql). The instance switch of the optional pulpit recording in the encounter space (NOT NULL,
         // FALSE = off), the version of the operator notice the admin acknowledged when switching it on (NULL until then) and whether the
         // pulpit has to confirm before a recording starts (NOT NULL, TRUE). All three are NOT part of the generic updateOrganizationSettings

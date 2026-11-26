@@ -27316,8 +27316,8 @@ msgstr "włączone"
 msgid "aus"
 msgstr "wyłączone"
 
-msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3"
-msgstr "Strefa czasowa: %1 · Liczba członków jawna: %2 · Wniosek o członkostwo online: %3"
+msgid "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3 · Mailsprache: %4"
+msgstr "Strefa czasowa: %1 · Liczba członków publiczna: %2 · Internetowy wniosek o członkostwo: %3 · Język e-maili: %4"
 
 msgid "Rauschunterdrückung: %1 · Overlays: %2"
 msgstr "Tłumienie szumów: %1 · Nakładki: %2"
@@ -34737,3 +34737,18 @@ msgstr "Darowizna bez księgowania bankowego, data referencyjna: %1."
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
 msgid "Altbestand: ohne Spende erfasst"
 msgstr "Wpis historyczny: zapisany bez darowizny"
+
+msgid "E-Mails"
+msgstr "E-maile"
+
+msgid "Sprache der E-Mails"
+msgstr "Język e-maili"
+
+msgid "Die Sprache, in der die Instanz E-Mails einsprachig versendet. Heute gilt sie für die Quittung an den Gewinner einer Ausschreibung und den Hinweis an den Vorstand bei einer fehlgeschlagenen Auszahlung. Alle übrigen E-Mails bleiben zweisprachig."
+msgstr "Język, w którym instancja wysyła e-maile w jednym języku. Obecnie dotyczy to potwierdzenia dla zwycięzcy przetargu oraz powiadomienia zarządu o nieudanej wypłacie. Wszystkie pozostałe e-maile pozostają dwujęzyczne."
+
+msgid "Unbekannte Sprache"
+msgstr "Nieznany język"
+
+msgid "Sprache der E-Mails gespeichert."
+msgstr "Język e-maili został zapisany."

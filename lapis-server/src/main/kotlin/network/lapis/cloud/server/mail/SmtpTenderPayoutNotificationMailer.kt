@@ -13,13 +13,27 @@ class SmtpTenderPayoutNotificationMailer(
     private val branding: MailBranding,
     private val smtpConfigured: Boolean,
     private val brandTitle: String,
+    /** V1.9.332 -- the instance mail language, read at SEND time (a setting change needs no restart). Must not throw; see [lang]. */
+    private val mailLanguage: () -> String = { "de" },
 ) : TenderPayoutNotificationMailer {
+    private fun lang(): String =
+        MailLanguage.resolve(
+            recipient = null,
+            instance = runCatching { mailLanguage() }.getOrDefault(MembershipDecisionTexts.DEFAULT_LANGUAGE),
+        )
+
     override fun sendPaidForWinner(notification: TenderPayoutPaidNotification) {
         if (!smtpConfigured) {
             logger.info { "tender payout receipt skipped (SMTP not configured): tenderId=${notification.tenderId}" }
             return
         }
-        val mail = MailTemplates.tenderPayoutPaid(notification = notification, brandTitle = brandTitle, branding = branding)
+        val mail =
+            MailTemplates.tenderPayoutPaid(
+                notification = notification,
+                brandTitle = brandTitle,
+                branding = branding,
+                language = lang(),
+            )
         dispatcher.enqueue(
             to = notification.winnerEmail,
             subject = mail.subject,
@@ -35,7 +49,13 @@ class SmtpTenderPayoutNotificationMailer(
             logger.info { "tender payout failure notice skipped (SMTP not configured): tenderId=${notification.tenderId}" }
             return
         }
-        val mail = MailTemplates.tenderPayoutFailed(notification = notification, brandTitle = brandTitle, branding = branding)
+        val mail =
+            MailTemplates.tenderPayoutFailed(
+                notification = notification,
+                brandTitle = brandTitle,
+                branding = branding,
+                language = lang(),
+            )
         // One mail per recipient: nobody sees the addresses of the others (no To/Cc/Bcc list).
         notification.recipientEmails.forEach { email ->
             try {

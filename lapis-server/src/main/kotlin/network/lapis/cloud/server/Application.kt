@@ -404,6 +404,7 @@ import network.lapis.cloud.server.rpc.KeycloakLinkService
 import network.lapis.cloud.server.rpc.LtrLedgerService
 import network.lapis.cloud.server.rpc.LupaBbSyncService
 import network.lapis.cloud.server.rpc.MailDeliveryStatusService
+import network.lapis.cloud.server.rpc.MailLanguageStore
 import network.lapis.cloud.server.rpc.MailingService
 import network.lapis.cloud.server.rpc.McpAccessService
 import network.lapis.cloud.server.rpc.MeetingProtocolService
@@ -980,6 +981,7 @@ internal fun Application.module(
             branding = mailBranding,
             smtpConfigured = smtpConfigState is SmtpConfigState.Configured,
             brandTitle = resolvedBranding.title,
+            mailLanguage = { MailLanguageStore.loadOrDefault() },
         )
     val articleReviewNotificationMailer: ArticleReviewNotificationMailer =
         SmtpArticleReviewNotificationMailer(

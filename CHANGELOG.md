@@ -6,6 +6,18 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.332 instance mail language for the tender payout mails
+
+Schema **V176** (`organization_settings.mail_language`, default `de`). **A backup taken after V176 cannot be restored onto a server that is still before V176 without the column being added first; a backup from before V176 restores with `de`.**
+
+- **Setting:** Organisation page, section "Allgemein", "E-Mails": an ADMIN picks one of eight languages (de, en, es, fr, it, nl, pl, ru). It is saved through its own RPC `updateMailLanguage` (ADMIN, exact code, audited on change) and read when a mail is sent, so a change needs no restart.
+- **Applies today to:** the receipt to the winner of a tender (V1.9.330) and the notice to the board about a failed payout (V1.9.331). Everything else stays bilingual German/English.
+- **Behaviour change:** the board notice is now single-language (before: German and English in one mail). Its subject no longer carries the English half.
+- **Texts:** the translations other than German were written by the model and are not reviewed by native speakers. Amounts keep the decimal comma and dates the `yyyy-MM-dd HH:mm UTC` form in every language.
+- **Restore:** a bundle without `mail_language` gets `de`; an unknown value is refused with a message naming the column.
+- **Later candidates (not part of this wave):** `keycloakMemberProvisioned`, `keycloakEmailSyncedNotice`, `emailChange*`, `passwordResetByAdmin`, `peer*`, `encounterEntryNotice`, `carpoolNotice`, `finTsReauthRequired`, `webhookEndpointDeactivated`, `friendVerification`, `articleReview`, and the fallback of the membership-decision mails (still fixed `de`).
+- **Tests:** `MailLanguageTest`, `TenderPayoutMailTemplatesTest` (all eight languages), `SmtpTenderPayoutNotificationMailerLanguageTest`, `OrganizationSettingsMailLanguageTest`, `OrganizationSettingsMailLanguageMigrationTest` (H2 and PostgreSQL), `MailLanguageRestoreTest`, schema-drift addendum, client `OrganizationScreenDomTest` and `MailLanguageWireCompatTest`.
+
 ### V1.9.331 tender payout: notice to the board on a failed payout
 
 No migration. When a payout ends freshly in `PAYOUT_FAILED` (winner cannot receive LTR), the board gets one notice mail (new purpose `tender-payout-failed`, priority 1, lane SYSTEM, no TTL), sent after the commit and never result-relevant (a mail error changes nothing). Recipients: ACTIVE members with the effective role BOARD, ADMIN or TREASURER, except every bidder of the tender (withdrawn bids included, so the winner too) and the member who triggered the payout; deduplicated case-insensitively, sorted by member id, at most 20. Each recipient gets an own mail (no address of another is visible). A one-person board gets no mail (info log only). Every retry that fails again sends one more round; a retry that pays sends only the winner's receipt. The mail is German first and English second (members have no language preference), the subject is fixed (instance name only), the tender title appears sanitised in the body, and there is no amount, no winner, no reason and no payer. No client texts, no `.po` change.

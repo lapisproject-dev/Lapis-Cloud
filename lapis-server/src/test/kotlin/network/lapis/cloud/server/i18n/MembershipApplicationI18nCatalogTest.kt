@@ -28,7 +28,7 @@ class MembershipApplicationI18nCatalogTest :
                 "Der Baustein „Mitglied werden“ ist ausgeblendet, weil der Online-Mitgliedsantrag ausgeschaltet ist.",
                 "Der Online-Mitgliedsantrag wird angeboten.",
                 "Der Online-Mitgliedsantrag wird nicht mehr angeboten.",
-                "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3",
+                "Zeitzone: %1 · Mitgliederzahl öffentlich: %2 · Online-Mitgliedsantrag: %3 · Mailsprache: %4",
                 "Zur Anmeldung",
             )
         val used by lazy {

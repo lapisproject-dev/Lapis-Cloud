@@ -62,6 +62,12 @@ class OrganizationSettingsSchemaDriftTest :
             transaction { introspectOrganizationSettingsTable() }.columns.getValue("noise_suppression_default").nullable shouldBe false
         }
 
+        test("mail_language is NOT NULL in the model and in the migrated schema -- V1.9.332 addendum") {
+            val entity = model.entities.single { it.name == "organization_settings" }
+            entity.attributeByName("mail_language")?.nullable shouldBe false
+            transaction { introspectOrganizationSettingsTable() }.columns.getValue("mail_language").nullable shouldBe false
+        }
+
         test("conference_broadcast_view_default is NOT NULL in the model and in the migrated schema -- V1.9.262 addendum") {
             val entity = model.entities.single { it.name == "organization_settings" }
             entity.attributeByName("conference_broadcast_view_default")?.nullable shouldBe false
