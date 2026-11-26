@@ -34,6 +34,7 @@ import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.mail.NoOpTenderPayoutNotificationMailer
+import network.lapis.cloud.server.mail.TenderPayoutFailedNotification
 import network.lapis.cloud.server.mail.TenderPayoutNotificationMailer
 import network.lapis.cloud.server.mail.TenderPayoutPaidNotification
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
@@ -457,8 +458,15 @@ internal class RecordingTenderPayoutMailer(
 ) : TenderPayoutNotificationMailer {
     val sent = java.util.concurrent.CopyOnWriteArrayList<TenderPayoutPaidNotification>()
 
+    val failed = java.util.concurrent.CopyOnWriteArrayList<TenderPayoutFailedNotification>()
+
     override fun sendPaidForWinner(notification: TenderPayoutPaidNotification) {
         sent += notification
+        failWith?.let { throw it }
+    }
+
+    override fun sendFailedForBoard(notification: TenderPayoutFailedNotification) {
+        failed += notification
         failWith?.let { throw it }
     }
 }

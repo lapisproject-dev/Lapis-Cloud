@@ -613,12 +613,13 @@ class TenderService(
      * does NOT make this throw: the failure is saved on the tender (status PAYOUT_FAILED, board view) in the same transaction and the call returns
      * the detail, because an exception would roll the record back. Only a freshly committed [TenderPayout.Outcome.Paid] sends the winner's receipt
      * (V1.9.330), after the commit; never for AlreadyPaid or Failed.
+     * Only a freshly committed Failed sends the board notice (V1.9.331).
      */
     override suspend fun payOutTender(tenderId: String): TenderDetailDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*TENDER_PAYOUT_ROLES.toTypedArray())
         val id = tenderId.toTenderUuid()
-        val (detail, paidNow) =
+        val (detail, paidNow, failedNow) =
             transaction {
                 requireActiveMembership(memberId = current.memberId)
                 val wallNow = OrganizationTimeZone.wallNow()
@@ -652,12 +653,17 @@ class TenderService(
                                 ),
                         )
                 }
-                Pair(
+                Triple(
                     TenderDtos.detail(row = TenderStore.lock(id), current = current, wallNow = wallNow),
                     outcome is TenderPayout.Outcome.Paid,
+                    outcome is TenderPayout.Outcome.Failed,
                 )
             }
-        if (paidNow) TenderPayoutNotifier(payoutNotificationMailer).paid(id)
+        if (paidNow) {
+            TenderPayoutNotifier(payoutNotificationMailer).paid(id)
+        } else if (failedNow) {
+            TenderPayoutNotifier(payoutNotificationMailer).failed(tenderId = id, payerId = current.memberId)
+        }
         return detail
     }
 

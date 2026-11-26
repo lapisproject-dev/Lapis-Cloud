@@ -491,6 +491,19 @@ internal object TenderStore {
         val executedAt: LocalDateTime,
     )
 
+    /** V1.9.331: what the board notice needs. */
+    data class PayoutFailureData(
+        val title: String,
+        val bidderIds: Set<Uuid>,
+    )
+
+    /** `null` unless the tender is STILL PAYOUT_FAILED in the committed state (a concurrent retry that paid meanwhile => no mail). */
+    fun payoutFailureData(tenderId: Uuid): PayoutFailureData? {
+        val row = TenderTable.selectAll().where { TenderTable.id eq tenderId }.singleOrNull() ?: return null
+        if (row[TenderTable.status] != TenderStatus.PAYOUT_FAILED) return null
+        return PayoutFailureData(title = row[TenderTable.title], bidderIds = bidderIds(tenderId))
+    }
+
     fun payoutReceiptData(tenderId: Uuid): PayoutReceiptData? {
         val payout = payout(tenderId) ?: return null
         val winnerId =

@@ -64,4 +64,51 @@ class TenderPayoutMailTemplatesTest :
             policy.lane shouldBe MailLane.SYSTEM
             policy.outboxTtl shouldBe null
         }
+
+        test("V1.9.331 failure notice: fixed subject, title only sanitised in the body, DE and EN, link, no amount") {
+            val mail =
+                MailTemplates.tenderPayoutFailed(
+                    notification =
+                        TenderPayoutFailedNotification(
+                            tenderId = Uuid.parse("00000000-0000-0000-0000-000000000042"),
+                            tenderTitle = "Boese\r\nBcc: evil@example.org <script>",
+                            recipientEmails = listOf("a@example.org"),
+                        ),
+                    brandTitle = "Partei",
+                    branding = branding(),
+                )
+            mail.subject shouldBe "Partei: LTR-Auszahlung fehlgeschlagen / LTR payout failed"
+            mail.plainText shouldNotContain "\r"
+            mail.plainText shouldContain "LTR-Auszahlung fehlgeschlagen"
+            mail.plainText shouldContain "LTR payout failed"
+            mail.plainText shouldContain "Boese Bcc: evil@example.org <script>"
+            mail.plainText shouldContain "https://pzb.example.org/app#/tenders/00000000-0000-0000-0000-000000000042"
+            mail.html shouldNotContain "<script>"
+            mail.plainText shouldNotContain "WINNER_"
+            listOf("*", ":innen", "_innen").forEach { mail.plainText shouldNotContain it }
+        }
+
+        test("V1.9.331 failure notice: a long title is cut to 120 characters") {
+            val mail =
+                MailTemplates.tenderPayoutFailed(
+                    notification =
+                        TenderPayoutFailedNotification(
+                            tenderId = Uuid.random(),
+                            tenderTitle = "x".repeat(300),
+                            recipientEmails = listOf("a@example.org"),
+                        ),
+                    brandTitle = "Partei",
+                    branding = branding(),
+                )
+            mail.plainText shouldNotContain "x".repeat(121)
+            mail.plainText shouldContain "…"
+        }
+
+        test("V1.9.331 the failure purpose is registered: priority 1, lane SYSTEM, no TTL") {
+            (TENDER_PAYOUT_FAILED_PURPOSE in MailPurpose.KNOWN_PURPOSES) shouldBe true
+            val policy = MailPurpose.policyFor(TENDER_PAYOUT_FAILED_PURPOSE)
+            policy.priority shouldBe 1
+            policy.lane shouldBe MailLane.SYSTEM
+            policy.outboxTtl shouldBe null
+        }
     })

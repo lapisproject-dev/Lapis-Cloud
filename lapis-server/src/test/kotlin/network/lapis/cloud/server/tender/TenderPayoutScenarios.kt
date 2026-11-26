@@ -54,6 +54,7 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.notLike
 import org.jetbrains.exposed.v1.core.sum
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
@@ -763,6 +764,162 @@ abstract class TenderPayoutScenarios(
                     val seen = tender(member = p.winner) { getTender(p.tenderId) }.payout
                     seen?.paidByDisplayName shouldBe null
                     seen?.viewerIsWinner shouldBe true
+                }
+            }
+        }
+
+        fun emailOf(member: Uuid): String =
+            transaction {
+                MemberTable
+                    .selectAll()
+                    .where { MemberTable.id eq member }
+                    .single()[MemberTable.email]
+            }
+
+        // The seeded database already holds board members; the exact-recipient tests silence every member that is not a fixture member.
+        fun silenceSeededMembers() {
+            transaction {
+                MemberTable.update({ MemberTable.email notLike "tender-test-%" }) { it[status] = MemberStatus.WITHDRAWN }
+            }
+        }
+
+        test("V1.9.331: a failed payout sends one board notice; not to the winner, the payer or a bidder; the paid list stays empty") {
+            val clock = tenderClock()
+            TimeTestSupport.withMutableServerClock(clock = clock) {
+                tenderTestApplication {
+                    silenceSeededMembers()
+                    val p = payable(clock = clock)
+                    val admin = fx.member(label = "admin", role = AccountRole.ADMIN)
+                    val treasurer2 = fx.member(label = "treasurer2", role = AccountRole.TREASURER)
+                    val plain = fx.member(label = "plain")
+                    val inactive = fx.member(label = "inactive-board", status = MemberStatus.WITHDRAWN, role = AccountRole.BOARD)
+                    setStatus(p.winner, MemberStatus.GUEST)
+                    val mailer = RecordingTenderPayoutMailer()
+                    tender(member = p.treasurer, mailer = mailer) { payOutTender(p.tenderId) }
+                        .tender.status shouldBe TenderStatus.PAYOUT_FAILED
+                    mailer.sent.size shouldBe 0
+                    mailer.failed.size shouldBe 1
+                    val mail = mailer.failed.single()
+                    mail.tenderId shouldBe Uuid.parse(p.tenderId)
+                    val recipients = mail.recipientEmails.toSet()
+                    recipients shouldBe setOf(emailOf(p.board), emailOf(admin), emailOf(treasurer2))
+                    (emailOf(p.winner) in recipients) shouldBe false
+                    (emailOf(p.treasurer) in recipients) shouldBe false
+                    (emailOf(plain) in recipients) shouldBe false
+                    (emailOf(inactive) in recipients) shouldBe false
+                }
+            }
+        }
+
+        test("V1.9.331: no board notice for a paid or already paid tender, a refused caller or a friend winner") {
+            val clock = tenderClock()
+            TimeTestSupport.withMutableServerClock(clock = clock) {
+                tenderTestApplication {
+                    val p = payable(clock = clock)
+                    val mailer = RecordingTenderPayoutMailer()
+                    tender(member = p.treasurer, mailer = mailer) { payOutTender(p.tenderId) }.tender.status shouldBe TenderStatus.PAID
+                    tender(member = p.treasurer, mailer = mailer) { payOutTender(p.tenderId) }
+                    val q = payable(clock = clock)
+                    setStatus(q.winner, MemberStatus.GUEST)
+                    listOf(q.winner, q.board, fx.member(label = "plain")).forEach { who ->
+                        tenderAttempt(member = who, mailer = mailer) { payOutTender(q.tenderId) }
+                            .exceptionOrNull()
+                            .shouldBeInstanceOf<ForbiddenException>()
+                    }
+                    mailer.failed.size shouldBe 0
+                }
+            }
+        }
+
+        test("V1.9.331: recipients are deduplicated, cleaned, a bidder on the board is left out, a lone payer sends nothing") {
+            val clock = tenderClock()
+            TimeTestSupport.withMutableServerClock(clock = clock) {
+                tenderTestApplication {
+                    val p = payable(clock = clock)
+                    setStatus(p.winner, MemberStatus.GUEST)
+                    val a = fx.member(label = "board-a", role = AccountRole.BOARD)
+                    val b = fx.member(label = "board-b", role = AccountRole.BOARD)
+                    val c = fx.member(label = "board-c", role = AccountRole.BOARD)
+                    val shared = "Shared-Board@Example.org"
+                    transaction {
+                        MemberTable.update({ MemberTable.id eq a }) { it[email] = shared }
+                        MemberTable.update({ MemberTable.id eq b }) { it[email] = shared.lowercase() }
+                        MemberTable.update({ MemberTable.id eq c }) { it[email] = "no-at-sign" }
+                    }
+                    val mailer = RecordingTenderPayoutMailer()
+                    tender(member = p.treasurer, mailer = mailer) { payOutTender(p.tenderId) }
+                    val recipients = mailer.failed.single().recipientEmails
+                    recipients.count { it.equals(shared, ignoreCase = true) } shouldBe 1
+                    ("no-at-sign" in recipients) shouldBe false
+                    (emailOf(p.board) in recipients) shouldBe true
+                }
+            }
+        }
+
+        test("V1.9.331: with nobody else on the board no notice is sent and nothing fails") {
+            val clock = tenderClock()
+            TimeTestSupport.withMutableServerClock(clock = clock) {
+                tenderTestApplication {
+                    silenceSeededMembers()
+                    val p = payable(clock = clock)
+                    setStatus(p.winner, MemberStatus.GUEST)
+                    setStatus(p.board, MemberStatus.WITHDRAWN)
+                    val mailer = RecordingTenderPayoutMailer()
+                    tender(member = p.treasurer, mailer = mailer) { payOutTender(p.tenderId) }
+                        .tender.status shouldBe TenderStatus.PAYOUT_FAILED
+                    mailer.failed.size shouldBe 0
+                }
+            }
+        }
+
+        test("V1.9.331: at most 20 recipients, deterministic by member id") {
+            val clock = tenderClock()
+            TimeTestSupport.withMutableServerClock(clock = clock) {
+                tenderTestApplication {
+                    silenceSeededMembers()
+                    val p = payable(clock = clock)
+                    setStatus(p.winner, MemberStatus.GUEST)
+                    val extra = (1..25).map { fx.member(label = "b$it", role = AccountRole.BOARD) }
+                    val mailer = RecordingTenderPayoutMailer()
+                    tender(member = p.treasurer, mailer = mailer) { payOutTender(p.tenderId) }
+                    val recipients = mailer.failed.single().recipientEmails
+                    recipients.size shouldBe 20
+                    val expected = (extra + p.board).sorted().take(20).map { emailOf(it) }
+                    recipients shouldBe expected
+                }
+            }
+        }
+
+        test("V1.9.331: a retry that fails again mails again; a retry that pays sends only the receipt") {
+            val clock = tenderClock()
+            TimeTestSupport.withMutableServerClock(clock = clock) {
+                tenderTestApplication {
+                    val p = payable(clock = clock)
+                    setStatus(p.winner, MemberStatus.GUEST)
+                    val mailer = RecordingTenderPayoutMailer()
+                    tender(member = p.treasurer, mailer = mailer) { payOutTender(p.tenderId) }
+                    tender(member = p.treasurer, mailer = mailer) { payOutTender(p.tenderId) }
+                    mailer.failed.size shouldBe 2
+                    setStatus(p.winner, MemberStatus.ACTIVE)
+                    tender(member = p.treasurer, mailer = mailer) { payOutTender(p.tenderId) }.tender.status shouldBe TenderStatus.PAID
+                    mailer.failed.size shouldBe 2
+                    mailer.sent.size shouldBe 1
+                }
+            }
+        }
+
+        test("V1.9.331: a mailer that throws changes nothing about the failed payout") {
+            val clock = tenderClock()
+            TimeTestSupport.withMutableServerClock(clock = clock) {
+                tenderTestApplication {
+                    val p = payable(clock = clock)
+                    setStatus(p.winner, MemberStatus.GUEST)
+                    val broken = RecordingTenderPayoutMailer(failWith = IllegalStateException("smtp down"))
+                    val dto = tender(member = p.treasurer, mailer = broken) { payOutTender(p.tenderId) }
+                    dto.tender.status shouldBe TenderStatus.PAYOUT_FAILED
+                    broken.failed.size shouldBe 1
+                    payoutRows(p.tenderId).size shouldBe 0
+                    payoutAudit(p.tenderId).last().contains("\"PAYOUT_FAILED\"") shouldBe true
                 }
             }
         }

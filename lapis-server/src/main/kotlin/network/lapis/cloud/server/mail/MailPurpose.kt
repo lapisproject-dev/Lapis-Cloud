@@ -71,6 +71,7 @@ object MailPurpose {
             "event-ticket",
             EVENT_REGISTRATION_MESSAGE_PURPOSE,
             TENDER_PAYOUT_PAID_PURPOSE,
+            TENDER_PAYOUT_FAILED_PURPOSE,
         )
 
     /** Priority 1, lane BULK. */
@@ -120,6 +121,12 @@ const val EVENT_REGISTRATION_MESSAGE_PURPOSE = "event-registration-message"
  * The mail carries the amount, the tender title and a link; never the name of the paying member.
  */
 const val TENDER_PAYOUT_PAID_PURPOSE = "tender-payout-paid"
+
+/**
+ * V1.9.331 -- the registry string of the notice to the board after a tender payout ended in PAYOUT_FAILED. Priority 1, lane SYSTEM, no TTL.
+ * The mail names neither an amount nor the winner nor the paying member.
+ */
+const val TENDER_PAYOUT_FAILED_PURPOSE = "tender-payout-failed"
 
 /**
  * V1.9.310 (R6b) -- the registry string of the mail that carries the 6-digit code of an auditor's read access to kept versions of the party

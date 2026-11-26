@@ -522,6 +522,46 @@ object MailTemplates {
     }
 
     /**
+     * V1.9.331 -- notice to the board that a tender payout failed. German first, English second. The subject is fixed (instance name only, the
+     * tender title never enters a header); the title appears sanitised and shortened in the body. No amount, no winner, no reason, no payer.
+     */
+    fun tenderPayoutFailed(
+        notification: TenderPayoutFailedNotification,
+        brandTitle: String,
+        branding: MailBranding,
+    ): RenderedMail {
+        val subject = "${sanitizeSubjectFragment(brandTitle)}: LTR-Auszahlung fehlgeschlagen / LTR payout failed"
+        val cleanTitle = sanitizeSubjectFragment(notification.tenderTitle).replace(Regex("\\s+"), " ")
+        val safeTitle = if (cleanTitle.length > 120) cleanTitle.take(119).trimEnd() + "…" else cleanTitle
+        val link = "${branding.publicBaseUrl}/app#/tenders/${notification.tenderId}"
+        val de =
+            MailSection(
+                heading = "LTR-Auszahlung fehlgeschlagen",
+                paragraphs =
+                    listOf(
+                        "Die LTR-Auszahlung der Ausschreibung „$safeTitle“ konnte nicht gebucht werden, " +
+                            "weil der Gewinner derzeit kein LTR empfangen kann. Es wurde nichts gebucht.",
+                        "Sobald die Ursache geklärt ist, kann die Auszahlung auf der Ausschreibung erneut ausgelöst werden.",
+                    ),
+                linkLabel = "Ausschreibung öffnen",
+                link = link,
+            )
+        val en =
+            MailSection(
+                heading = "LTR payout failed",
+                paragraphs =
+                    listOf(
+                        "The LTR payout of the tender \"$safeTitle\" could not be booked " +
+                            "because the winner cannot currently receive LTR. Nothing was booked.",
+                        "Once the cause is resolved, the payout can be triggered again on the tender.",
+                    ),
+                linkLabel = "Open the tender",
+                link = link,
+            )
+        return bilingual(subject = subject, de = de, en = en, branding = branding)
+    }
+
+    /**
      * Welle V1.9.56 "E-Mail-Änderung absichern" -- link to the NEW address. [EmailChangeKind.PROPOSAL]: accept with the
      * password (`/app#/confirm-email?token=...`); the other proposal kinds: prove the address (`/app#/verify-new-email`),
      * effective no earlier than [effectiveAt]. German first, English second, one message (members have no language

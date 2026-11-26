@@ -29,4 +29,27 @@ class SmtpTenderPayoutNotificationMailer(
             logRecipient = false,
         )
     }
+
+    override fun sendFailedForBoard(notification: TenderPayoutFailedNotification) {
+        if (!smtpConfigured) {
+            logger.info { "tender payout failure notice skipped (SMTP not configured): tenderId=${notification.tenderId}" }
+            return
+        }
+        val mail = MailTemplates.tenderPayoutFailed(notification = notification, brandTitle = brandTitle, branding = branding)
+        // One mail per recipient: nobody sees the addresses of the others (no To/Cc/Bcc list).
+        notification.recipientEmails.forEach { email ->
+            try {
+                dispatcher.enqueue(
+                    to = email,
+                    subject = mail.subject,
+                    plainTextBody = mail.plainText,
+                    htmlBody = mail.html,
+                    purpose = TENDER_PAYOUT_FAILED_PURPOSE,
+                    logRecipient = false,
+                )
+            } catch (e: Exception) {
+                logger.warn { "tender payout failure notice enqueue failed: tenderId=${notification.tenderId} ${e::class.simpleName}" }
+            }
+        }
+    }
 }

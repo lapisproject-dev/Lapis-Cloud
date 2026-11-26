@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.331 tender payout: notice to the board on a failed payout
+
+No migration. When a payout ends freshly in `PAYOUT_FAILED` (winner cannot receive LTR), the board gets one notice mail (new purpose `tender-payout-failed`, priority 1, lane SYSTEM, no TTL), sent after the commit and never result-relevant (a mail error changes nothing). Recipients: ACTIVE members with the effective role BOARD, ADMIN or TREASURER, except every bidder of the tender (withdrawn bids included, so the winner too) and the member who triggered the payout; deduplicated case-insensitively, sorted by member id, at most 20. Each recipient gets an own mail (no address of another is visible). A one-person board gets no mail (info log only). Every retry that fails again sends one more round; a retry that pays sends only the winner's receipt. The mail is German first and English second (members have no language preference), the subject is fixed (instance name only), the tender title appears sanitised in the body, and there is no amount, no winner, no reason and no payer. No client texts, no `.po` change.
+
 ### V1.9.330 tender payout: receipt mail to the winner, amount in the payout line
 
 No migration. After a committed LTR payout of a tender the winner receives one receipt mail (new purpose `tender-payout-paid`, priority 1, lane SYSTEM): fixed subject "<instance>: LTR gutgeschrieben", amount, tender title (sanitised, shortened), date and a link; sent only after the payout transaction committed and only for a freshly paid tender (never for an idempotent second call or `PAYOUT_FAILED`); a mail failure never changes the payout. Visibility change: `TenderPayoutDto.paidByDisplayName` is now shown to the board's read view only, never to the winner; new field `viewerIsWinner`. The payout line on the tender page now shows the amount, and the winner gets a link to the own LTR account. The LTR booking path (`TenderPayout.kt`, V157) is untouched.
