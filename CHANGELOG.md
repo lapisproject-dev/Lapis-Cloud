@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.330 tender payout: receipt mail to the winner, amount in the payout line
+
+No migration. After a committed LTR payout of a tender the winner receives one receipt mail (new purpose `tender-payout-paid`, priority 1, lane SYSTEM): fixed subject "<instance>: LTR gutgeschrieben", amount, tender title (sanitised, shortened), date and a link; sent only after the payout transaction committed and only for a freshly paid tender (never for an idempotent second call or `PAYOUT_FAILED`); a mail failure never changes the payout. Visibility change: `TenderPayoutDto.paidByDisplayName` is now shown to the board's read view only, never to the winner; new field `viewerIsWinner`. The payout line on the tender page now shows the amount, and the winner gets a link to the own LTR account. The LTR booking path (`TenderPayout.kt`, V157) is untouched.
+
 ### V1.9.329 a donation for every donation payment
 
 Schema **V175**. No switch to change: the behaviour only exists in the reference-date mode (off by default). **A backup taken after V175 cannot be restored onto a server that is still before V175.** V174 is on `master`, so V175 is a new migration instead of an edit of V174.

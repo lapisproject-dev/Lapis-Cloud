@@ -197,6 +197,71 @@ class LtrLedgerServiceTest :
             }
         }
 
+        test("listMyEntries hides the paying actor of a TENDER_PAYOUT row from the winner (createdByDisplayName == null)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installLtrLedgerExceptionHandlers() }
+                    routing { registerLtrLedgerTestRoutes() }
+                }
+                val winner = createTestMember("ltr-tender-winner@example.org")
+                transaction {
+                    LtrLedgerEntryTable.insert {
+                        it[LtrLedgerEntryTable.id] = Uuid.random()
+                        it[memberId] = winner
+                        it[entryType] = LtrLedgerEntryType.TENDER_PAYOUT
+                        it[amountLtr] = BigDecimal("5.00")
+                        it[createdBy] = Uuid.parse(TREASURER_ID)
+                        it[createdAt] = kotlinx.datetime.LocalDateTime(2026, 11, 1, 10, 0)
+                    }
+                }
+                val body = client.get("/test/my-entry-actors") { header("X-Member-Id", winner.toString()) }.bodyAsText()
+                body shouldBe "TENDER_PAYOUT:null:null"
+            }
+        }
+
+        test("listMemberEntries with the own id hides the payer of a TENDER_PAYOUT row (normal member and TREASURER winner)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installLtrLedgerExceptionHandlers() }
+                    routing { registerLtrLedgerTestRoutes() }
+                }
+                val winner = createTestMember("ltr-tender-winner-own-id@example.org")
+                val treasurerRowId = Uuid.random()
+                transaction {
+                    LtrLedgerEntryTable.insert {
+                        it[LtrLedgerEntryTable.id] = Uuid.random()
+                        it[memberId] = winner
+                        it[entryType] = LtrLedgerEntryType.TENDER_PAYOUT
+                        it[amountLtr] = BigDecimal("5.00")
+                        it[createdBy] = Uuid.parse(BOARD_ID)
+                        it[createdAt] = kotlinx.datetime.LocalDateTime(2026, 11, 1, 10, 0)
+                    }
+                    LtrLedgerEntryTable.insert {
+                        it[LtrLedgerEntryTable.id] = treasurerRowId
+                        it[memberId] = Uuid.parse(TREASURER_ID)
+                        it[entryType] = LtrLedgerEntryType.TENDER_PAYOUT
+                        it[amountLtr] = BigDecimal("5.00")
+                        it[createdBy] = Uuid.parse(BOARD_ID)
+                        it[createdAt] = kotlinx.datetime.LocalDateTime(2026, 11, 1, 10, 0)
+                    }
+                }
+                try {
+                    val own = client.get("/test/entry-actors/$winner") { header("X-Member-Id", winner.toString()) }.bodyAsText()
+                    own shouldBe "TENDER_PAYOUT:null:null"
+
+                    val treasurerOwn =
+                        client.get("/test/entry-actors/$TREASURER_ID") { header("X-Member-Id", TREASURER_ID) }.bodyAsText()
+                    treasurerOwn.split(",").filter { it.startsWith("TENDER_PAYOUT") } shouldBe listOf("TENDER_PAYOUT:null:null")
+
+                    // A privileged lookup of ANOTHER member's account keeps the board view (actor visible).
+                    val boardView = client.get("/test/entry-actors/$winner") { header("X-Member-Id", TREASURER_ID) }.bodyAsText()
+                    boardView.startsWith("TENDER_PAYOUT:null:null") shouldBe false
+                } finally {
+                    transaction { LtrLedgerEntryTable.deleteWhere { LtrLedgerEntryTable.id eq treasurerRowId } }
+                }
+            }
+        }
+
         test("Welle V1.1.4: getMyBalance/listMyEntries -- FRIEND is admitted (0.00 with no entries, correct amount once minted)") {
             testApplication {
                 application {
@@ -319,6 +384,18 @@ private fun Route.registerLtrLedgerTestRoutes() {
     get("/test/my-entries") {
         val service = LtrLedgerService(call = call)
         call.respondText(service.listMyEntries().joinToString(",") { it.id })
+    }
+    get("/test/my-entry-actors") {
+        val service = LtrLedgerService(call = call)
+        call.respondText(service.listMyEntries().joinToString(",") { "${it.entryType}:${it.createdByDisplayName}:${it.createdById}" })
+    }
+    get("/test/entry-actors/{memberId}") {
+        val service = LtrLedgerService(call = call)
+        call.respondText(
+            service.listMemberEntries(memberId = call.parameters["memberId"]!!).joinToString(",") {
+                "${it.entryType}:${it.createdByDisplayName}:${it.createdById}"
+            },
+        )
     }
     get("/test/balance/{memberId}") {
         val service = LtrLedgerService(call = call)

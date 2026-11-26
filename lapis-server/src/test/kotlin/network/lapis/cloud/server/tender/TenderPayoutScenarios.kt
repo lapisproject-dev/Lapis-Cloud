@@ -29,6 +29,7 @@ import network.lapis.cloud.server.routes.PublicTransparencyReader
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.server.time.MutableTestClock
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.TimeTestSupport
@@ -641,6 +642,127 @@ abstract class TenderPayoutScenarios(
                     tender(member = bidTreasurer) { listTenders(TenderStatus.PAYOUT_FAILED) }.size shouldBe 0
                     tender(member = bidTreasurer) { listTenders(TenderStatus.COMPLETED) }.size shouldBe 1
                     tender(member = bidTreasurer) { getTender(p.tenderId) }.tender.status shouldBe TenderStatus.COMPLETED
+                }
+            }
+        }
+
+        // ---- V1.9.330: receipt mail to the winner, name hidden from the winner --------------------------------------------------------
+
+        test("V1.9.330 happy path: exactly one receipt to the winner (amount, tender, time); the winner sees the amount but not the name") {
+            val clock = tenderClock()
+            TimeTestSupport.withMutableServerClock(clock = clock) {
+                tenderTestApplication {
+                    val p = payable(clock = clock, price = "12.50")
+                    val mailer = RecordingTenderPayoutMailer()
+                    val dto = tender(member = p.treasurer, mailer = mailer) { payOutTender(p.tenderId) }
+                    mailer.sent.size shouldBe 1
+                    val mail = mailer.sent.single()
+                    mail.tenderId shouldBe Uuid.parse(p.tenderId)
+                    mail.amount.compareTo(BigDecimal("12.50")) shouldBe 0
+                    mail.winnerEmail shouldBe "tender-test-${p.winner}@example.org"
+                    val stored = transaction { TenderPayoutTable.selectAll().single() }
+                    mail.executedAt shouldBe stored[TenderPayoutTable.executedAt]
+                    dto.payout?.viewerIsWinner shouldBe false
+
+                    val seenByWinner = tender(member = p.winner) { getTender(p.tenderId) }.payout
+                    seenByWinner?.viewerIsWinner shouldBe true
+                    seenByWinner?.paidByDisplayName shouldBe null
+                    (seenByWinner?.ledgerEntryId != null) shouldBe true
+                    seenByWinner?.amount?.compareTo(BigDecimal("12.50")) shouldBe 0
+
+                    val seenByBoard = tender(member = p.board) { getTender(p.tenderId) }.payout
+                    seenByBoard?.paidByDisplayName shouldBe "Tender-Test treasurer"
+                    seenByBoard?.viewerIsWinner shouldBe false
+
+                    val stranger = fx.member(label = "stranger")
+                    val seenByStranger = tender(member = stranger) { getTender(p.tenderId) }.payout
+                    seenByStranger?.paidByDisplayName shouldBe null
+                    seenByStranger?.ledgerEntryId shouldBe null
+                    seenByStranger?.viewerIsWinner shouldBe false
+                }
+            }
+        }
+
+        test("V1.9.330: FRIEND and DONOR winners are paid and receive one receipt each") {
+            val clock = tenderClock()
+            TimeTestSupport.withMutableServerClock(clock = clock) {
+                tenderTestApplication {
+                    listOf(MemberStatus.FRIEND, MemberStatus.DONOR).forEach { status ->
+                        val p = payable(clock = clock)
+                        setStatus(p.winner, status)
+                        val mailer = RecordingTenderPayoutMailer()
+                        tender(member = p.treasurer, mailer = mailer) { payOutTender(p.tenderId) }.tender.status shouldBe TenderStatus.PAID
+                        mailer.sent.size shouldBe 1
+                        payoutRows(p.tenderId).size shouldBe 1
+                    }
+                }
+            }
+        }
+
+        test("V1.9.330: a guest winner (PAYOUT_FAILED), a second call and refused callers send no mail") {
+            val clock = tenderClock()
+            TimeTestSupport.withMutableServerClock(clock = clock) {
+                tenderTestApplication {
+                    val failedCase = payable(clock = clock)
+                    setStatus(failedCase.winner, MemberStatus.GUEST)
+                    val mailer = RecordingTenderPayoutMailer()
+                    tender(member = failedCase.treasurer, mailer = mailer) { payOutTender(failedCase.tenderId) }
+                        .tender.status shouldBe TenderStatus.PAYOUT_FAILED
+                    mailer.sent.size shouldBe 0
+
+                    val p = payable(clock = clock)
+                    tender(member = p.treasurer, mailer = mailer) { payOutTender(p.tenderId) }
+                    mailer.sent.size shouldBe 1
+                    tender(member = p.treasurer, mailer = mailer) { payOutTender(p.tenderId) }
+                    tender(member = fx.member(label = "board3", role = AccountRole.BOARD), mailer = mailer) { payOutTender(p.tenderId) }
+                    mailer.sent.size shouldBe 1
+                    payoutRows(p.tenderId).size shouldBe 1
+
+                    val q = payable(clock = clock)
+                    listOf(p.winner, q.winner, q.board, fx.member(label = "plain")).forEach { who ->
+                        tenderAttempt(member = who, mailer = mailer) { payOutTender(q.tenderId) }
+                            .exceptionOrNull()
+                            .shouldBeInstanceOf<ForbiddenException>()
+                    }
+                    mailer.sent.size shouldBe 1
+                    payoutRows(q.tenderId).size shouldBe 0
+                }
+            }
+        }
+
+        test("V1.9.330: a mailer that throws does not fail or repeat the payout; a winner without a usable address gets no mail") {
+            val clock = tenderClock()
+            TimeTestSupport.withMutableServerClock(clock = clock) {
+                tenderTestApplication {
+                    val p = payable(clock = clock)
+                    val broken = RecordingTenderPayoutMailer(failWith = IllegalStateException("smtp down"))
+                    tender(member = p.treasurer, mailer = broken) { payOutTender(p.tenderId) }.tender.status shouldBe TenderStatus.PAID
+                    broken.sent.size shouldBe 1
+                    payoutRows(p.tenderId).size shouldBe 1
+                    tender(member = p.treasurer, mailer = broken) { payOutTender(p.tenderId) }
+                    broken.sent.size shouldBe 1
+
+                    val q = payable(clock = clock)
+                    transaction { MemberTable.update({ MemberTable.id eq q.winner }) { it[MemberTable.email] = "" } }
+                    val quiet = RecordingTenderPayoutMailer()
+                    tender(member = q.treasurer, mailer = quiet) { payOutTender(q.tenderId) }.tender.status shouldBe TenderStatus.PAID
+                    quiet.sent.size shouldBe 0
+                }
+            }
+        }
+
+        test("V1.9.330: a board member who is also the winner does not see the paying member's name") {
+            val clock = tenderClock()
+            TimeTestSupport.withMutableServerClock(clock = clock) {
+                tenderTestApplication {
+                    val p = payable(clock = clock)
+                    transaction {
+                        AccountTable.update({ AccountTable.memberId eq p.winner }) { it.legacyAccountRole(role = AccountRole.BOARD) }
+                    }
+                    tender(member = p.treasurer) { payOutTender(p.tenderId) }
+                    val seen = tender(member = p.winner) { getTender(p.tenderId) }.payout
+                    seen?.paidByDisplayName shouldBe null
+                    seen?.viewerIsWinner shouldBe true
                 }
             }
         }

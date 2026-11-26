@@ -33,6 +33,9 @@ import network.lapis.cloud.server.db.generated.VoteBallotTable
 import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
+import network.lapis.cloud.server.mail.NoOpTenderPayoutNotificationMailer
+import network.lapis.cloud.server.mail.TenderPayoutNotificationMailer
+import network.lapis.cloud.server.mail.TenderPayoutPaidNotification
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.TenderService
 import network.lapis.cloud.server.testdb.legacyAccountRole
@@ -438,13 +441,27 @@ internal suspend fun TenderApp.newTender(
 
 internal suspend fun <T> TenderApp.tender(
     member: Uuid,
+    mailer: TenderPayoutNotificationMailer = NoOpTenderPayoutNotificationMailer,
     op: suspend TenderService.() -> T,
-): T = call(member = member) { TenderService(call = it).op() }
+): T = call(member = member) { TenderService(call = it, payoutNotificationMailer = mailer).op() }
 
 internal suspend fun <T> TenderApp.tenderAttempt(
     member: Uuid,
+    mailer: TenderPayoutNotificationMailer = NoOpTenderPayoutNotificationMailer,
     op: suspend TenderService.() -> T,
-): Result<T> = attempt(member = member) { TenderService(call = it).op() }
+): Result<T> = attempt(member = member) { TenderService(call = it, payoutNotificationMailer = mailer).op() }
+
+/** V1.9.330: collects the winner receipts; [failWith] makes every send throw (the payout must stay successful). */
+internal class RecordingTenderPayoutMailer(
+    private val failWith: RuntimeException? = null,
+) : TenderPayoutNotificationMailer {
+    val sent = java.util.concurrent.CopyOnWriteArrayList<TenderPayoutPaidNotification>()
+
+    override fun sendPaidForWinner(notification: TenderPayoutPaidNotification) {
+        sent += notification
+        failWith?.let { throw it }
+    }
+}
 
 /** The BEST_OFFER fixture: a committee of five seats (quorum 60 %), s1..s3 clean, s4 and s5 the bidders; the clock ends past the deadline. */
 internal class BestOfferScenario(

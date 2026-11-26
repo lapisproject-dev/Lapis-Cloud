@@ -223,6 +223,8 @@ import network.lapis.cloud.server.mail.SmtpMembershipDecisionMailer
 import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpPeerNotificationMailer
 import network.lapis.cloud.server.mail.SmtpStartupCheck
+import network.lapis.cloud.server.mail.SmtpTenderPayoutNotificationMailer
+import network.lapis.cloud.server.mail.TenderPayoutNotificationMailer
 import network.lapis.cloud.server.mail.budget.MailBudgetStore
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryConfig
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
@@ -972,6 +974,13 @@ internal fun Application.module(
     // notifications (approve/reject/unpublish), fire-and-forget over mailDispatcher, same "smtp
     // NotConfigured -> skip and log, never enqueue" posture SmtpArticleReviewNotificationMailer's
     // own KDoc documents (Q3: kept plaintext+HTML, sender stays mailBranding.fromDisplayName).
+    val tenderPayoutNotificationMailer: TenderPayoutNotificationMailer =
+        SmtpTenderPayoutNotificationMailer(
+            dispatcher = mailDispatcher,
+            branding = mailBranding,
+            smtpConfigured = smtpConfigState is SmtpConfigState.Configured,
+            brandTitle = resolvedBranding.title,
+        )
     val articleReviewNotificationMailer: ArticleReviewNotificationMailer =
         SmtpArticleReviewNotificationMailer(
             dispatcher = mailDispatcher,
@@ -3206,7 +3215,12 @@ internal fun Application.module(
         }
         // V1.9.201 tenders. Since V1.9.224 fourth to last (Kilua numbers routes by declaration order).
         registerService(ITenderService::class) { call ->
-            TenderService(call = call, previewRateLimiter = tenderDescriptionPreviewRateLimiter, votingRightPolicy = votingRightPolicy)
+            TenderService(
+                call = call,
+                previewRateLimiter = tenderDescriptionPreviewRateLimiter,
+                votingRightPolicy = votingRightPolicy,
+                payoutNotificationMailer = tenderPayoutNotificationMailer,
+            )
         }
         // V1.9.215 online counts (admin dashboard tile). Third to last since V1.9.224 (the dashboard is the LAST registerService;
         // Kilua numbers routes by declaration order).

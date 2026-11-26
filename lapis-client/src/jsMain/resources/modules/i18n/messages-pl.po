@@ -32487,12 +32487,20 @@ msgid "Auszahlung"
 msgstr "Wypłata"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
-msgid "Ausgezahlt am %1 von %2"
-msgstr "Wypłacono dnia %1 (wypłacił: %2)"
+msgid "Ihnen wurden %1 gutgeschrieben am %2."
+msgstr "Zaksięgowano Państwu %1 dnia %2."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
-msgid "Ausgezahlt am %1"
-msgstr "Wypłacono dnia %1"
+msgid "%1 ausgezahlt am %2 von %3."
+msgstr "Wypłacono %1 dnia %2 (wypłacił: %3)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "%1 ausgezahlt am %2."
+msgstr "Wypłacono %1 dnia %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "Im LTR-Konto ansehen"
+msgstr "Zobacz na koncie LTR"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
 msgid "Auszahlung gescheitert am %1: %2"

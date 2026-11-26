@@ -8,6 +8,7 @@ import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.tender.TenderPayout
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.LtrLedgerBalanceDto
 import network.lapis.cloud.shared.domain.LtrLedgerEntryDto
@@ -99,6 +100,7 @@ class LtrLedgerService(
         return transaction {
             requireLtrEligibleMembership(memberId = current.memberId)
             loadEntries(condition = LtrLedgerEntryTable.memberId eq current.memberId, limit = boundedLimit)
+                .map { TenderPayout.withoutPayoutActor(it) }
         }
     }
 
@@ -112,7 +114,10 @@ class LtrLedgerService(
         val boundedLimit = limit.coerceIn(1, MAX_ENTRY_LIST_LIMIT)
         return transaction {
             if (targetId == current.memberId) requireLtrEligibleMembership(memberId = current.memberId)
-            loadEntries(condition = LtrLedgerEntryTable.memberId eq targetId, limit = boundedLimit)
+            val entries = loadEntries(condition = LtrLedgerEntryTable.memberId eq targetId, limit = boundedLimit)
+            // Own-id lookup is the same view as listMyEntries: the payer of a tender payout is never shown to the winner,
+            // also not to a winner who is a board member or treasurer.
+            if (targetId == current.memberId) entries.map { TenderPayout.withoutPayoutActor(it) } else entries
         }
     }
 

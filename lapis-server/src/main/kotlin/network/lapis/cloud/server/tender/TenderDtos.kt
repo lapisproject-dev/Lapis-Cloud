@@ -138,7 +138,7 @@ internal object TenderDtos {
                     listOfNotNull(
                         winnerBid?.get(TenderBidTable.bidderMemberId),
                         acceptedRow?.get(TenderAcceptanceTable.decidedBy),
-                        payoutRow?.get(TenderPayoutTable.executedBy),
+                        payoutRow?.takeIf { readViewEarly }?.get(TenderPayoutTable.executedBy),
                         row[TenderTable.payoutFailedBy],
                     ),
             )
@@ -209,13 +209,15 @@ internal object TenderDtos {
             }
         val shownPayout =
             payoutRow?.let {
-                val named = readView || isWinner
+                // V1.9.330: the winner never sees the paying member's name (also not as a board member); the board's read view does.
+                val boardNamed = readView && !isWinner
                 TenderPayoutDto(
                     amount = it[TenderPayoutTable.amountLtr],
                     currency = row[TenderTable.currency],
                     executedAt = it[TenderPayoutTable.executedAt],
-                    paidByDisplayName = if (named) names[it[TenderPayoutTable.executedBy]] else null,
-                    ledgerEntryId = if (named) it[TenderPayoutTable.ledgerEntryId].toString() else null,
+                    paidByDisplayName = if (boardNamed) names[it[TenderPayoutTable.executedBy]] else null,
+                    ledgerEntryId = if (readView || isWinner) it[TenderPayoutTable.ledgerEntryId].toString() else null,
+                    viewerIsWinner = isWinner,
                 )
             }
         val failureReason = row[TenderTable.payoutFailureReason]

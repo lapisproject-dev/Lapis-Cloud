@@ -476,6 +476,52 @@ object MailTemplates {
     }
 
     /**
+     * V1.9.330 -- receipt to the winner of a tender after a committed LTR payout. The subject is fixed (instance name only): the tender
+     * title is free text and only ever appears, sanitised and shortened, in the body. Names neither the paying member nor a ledger id.
+     */
+    fun tenderPayoutPaid(
+        notification: TenderPayoutPaidNotification,
+        brandTitle: String,
+        branding: MailBranding,
+    ): RenderedMail {
+        val subject = "${sanitizeSubjectFragment(brandTitle)}: LTR gutgeschrieben"
+        val cleanTitle = sanitizeSubjectFragment(notification.tenderTitle).replace(Regex("\\s+"), " ")
+        val safeTitle = if (cleanTitle.length > 120) cleanTitle.take(119).trimEnd() + "…" else cleanTitle
+        val amount =
+            notification.amount
+                .setScale(2, java.math.RoundingMode.HALF_UP)
+                .toPlainString()
+                .replace('.', ',')
+        val link = "${branding.publicBaseUrl}/app#/tenders/${notification.tenderId}"
+        val sentence = "Ihnen wurden $amount LTR für die Ausschreibung „$safeTitle“ gutgeschrieben (${formatUtc(notification.executedAt)})."
+        val plainText =
+            buildString {
+                append(sentence)
+                append("\n\nZur Ausschreibung:\n")
+                append(link)
+                append("\n\n")
+                append(brandTitle)
+                append("\n\n")
+                append(footer(branding))
+            }
+        val html =
+            createHTML().html {
+                head { title { +subject } }
+                body {
+                    h1 { +"LTR gutgeschrieben" }
+                    p { +sentence }
+                    p {
+                        +"Zur Ausschreibung: "
+                        a(href = link) { +"Ausschreibung öffnen" }
+                    }
+                    p { +brandTitle }
+                    p { +footer(branding) }
+                }
+            }
+        return RenderedMail(subject = subject, plainText = plainText, html = html)
+    }
+
+    /**
      * Welle V1.9.56 "E-Mail-Änderung absichern" -- link to the NEW address. [EmailChangeKind.PROPOSAL]: accept with the
      * password (`/app#/confirm-email?token=...`); the other proposal kinds: prove the address (`/app#/verify-new-email`),
      * effective no earlier than [effectiveAt]. German first, English second, one message (members have no language

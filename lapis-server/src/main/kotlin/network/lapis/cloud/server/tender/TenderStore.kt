@@ -483,6 +483,36 @@ internal object TenderStore {
 
     fun payout(tenderId: Uuid): ResultRow? = TenderPayoutTable.selectAll().where { TenderPayoutTable.tenderId eq tenderId }.singleOrNull()
 
+    /** V1.9.330: what the winner's receipt is built from -- the committed payout row, the winning bidder and the tender title. */
+    data class PayoutReceiptData(
+        val winnerId: Uuid,
+        val title: String,
+        val amount: BigDecimal,
+        val executedAt: LocalDateTime,
+    )
+
+    fun payoutReceiptData(tenderId: Uuid): PayoutReceiptData? {
+        val payout = payout(tenderId) ?: return null
+        val winnerId =
+            TenderBidTable
+                .selectAll()
+                .where { TenderBidTable.id eq payout[TenderPayoutTable.bidId] }
+                .singleOrNull()
+                ?.get(TenderBidTable.bidderMemberId) ?: return null
+        val title =
+            TenderTable
+                .selectAll()
+                .where { TenderTable.id eq tenderId }
+                .singleOrNull()
+                ?.get(TenderTable.title) ?: return null
+        return PayoutReceiptData(
+            winnerId = winnerId,
+            title = title,
+            amount = payout[TenderPayoutTable.amountLtr],
+            executedAt = payout[TenderPayoutTable.executedAt],
+        )
+    }
+
     /**
      * Inserts the booking record. The caller wraps this in a savepoint and treats ONLY a unique violation as "somebody else paid first"
      * (primary key on `tender_id`, unique `ledger_entry_id` and `bid_id`).

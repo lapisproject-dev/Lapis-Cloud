@@ -5,6 +5,7 @@ import io.kvision.html.ButtonStyle
 import io.kvision.html.Link
 import io.kvision.html.div
 import io.kvision.html.h2
+import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.html.span
 import io.kvision.i18n.I18n
@@ -522,14 +523,19 @@ private fun renderPayoutCard(
     val box = panel.vPanel(spacing = 8) { addCssClasses("border rounded p-3") }
     if (payout != null) {
         val date = formatSystemDateTime(payout.executedAt)
+        val amount = formatLtr(payout.amount)
         val name = payout.paidByDisplayName
         val line =
-            if (name != null) {
-                gettext("Ausgezahlt am %1 von %2", date, sanitizeUntrustedI18nText(name))
-            } else {
-                gettext("Ausgezahlt am %1", date)
+            when {
+                payout.viewerIsWinner -> gettext("Ihnen wurden %1 gutgeschrieben am %2.", amount, date)
+                name != null -> gettext("%1 ausgezahlt am %2 von %3.", amount, date, sanitizeUntrustedI18nText(name))
+                else -> gettext("%1 ausgezahlt am %2.", amount, date)
             }
         box.p(line, className = "mb-0")
+        // The ledger screen always shows the viewer's OWN account, so the link is only meaningful for the winner.
+        if (payout.viewerIsWinner && payout.ledgerEntryId != null) {
+            box.link(tr("Im LTR-Konto ansehen"), url = "#${Routes.LTR_LEDGER}")
+        }
         return
     }
     if (failure != null) {

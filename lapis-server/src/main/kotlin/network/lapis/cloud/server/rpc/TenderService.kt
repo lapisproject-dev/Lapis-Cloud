@@ -18,6 +18,8 @@ import network.lapis.cloud.server.db.generated.TenderTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.withSavepoint
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.NoOpTenderPayoutNotificationMailer
+import network.lapis.cloud.server.mail.TenderPayoutNotificationMailer
 import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
@@ -32,6 +34,7 @@ import network.lapis.cloud.server.tender.TenderDtos
 import network.lapis.cloud.server.tender.TenderMotionBinding
 import network.lapis.cloud.server.tender.TenderOptions
 import network.lapis.cloud.server.tender.TenderPayout
+import network.lapis.cloud.server.tender.TenderPayoutNotifier
 import network.lapis.cloud.server.tender.TenderStore
 import network.lapis.cloud.server.tender.TenderViewer
 import network.lapis.cloud.server.tender.effectiveTenderStatus
@@ -101,7 +104,8 @@ internal const val CONCURRENT_CHANGE = "The tender was changed concurrently, ple
 
 /**
  * V1.9.201 -- tenders, wave 1 (see [ITenderService], `docs/features/tenders.adoc`, `docs/architecture/tenders.adoc`). Only the payout of V1.9.308
- * (`TenderPayout`) moves LTR; nothing has an external effect, so everything runs in one transaction per call.
+ * (`TenderPayout`) moves LTR; nothing has an external effect, so everything runs in one transaction per call. The one exception is the receipt
+ * mail to the winner of a payout (V1.9.330): it is sent AFTER the payout transaction committed ([TenderPayoutNotifier]).
  *
  * ## Lock order (every writing method, deadlock-free)
  *
@@ -128,6 +132,8 @@ class TenderService(
     private val previewRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes),
     // V1.9.307 -- the voting-right rule; LEGACY default for older constructions, `Application.module` passes the configured one (ExternalMemberIdWiringTripwireTest).
     private val votingRightPolicy: VotingRightPolicy = VotingRightPolicy.LEGACY,
+    // V1.9.330 -- receipt to the winner after a committed payout; Application passes ONE shared instance (ExternalMemberIdWiringTripwireTest-style wiring).
+    private val payoutNotificationMailer: TenderPayoutNotificationMailer = NoOpTenderPayoutNotificationMailer,
 ) : ITenderService {
     override suspend fun createTender(input: TenderCreateInput): TenderDetailDto {
         val current = resolveCurrentMember(call)
@@ -605,46 +611,54 @@ class TenderService(
     /**
      * V1.9.308 -- the LTR payout of an accepted tender (see `TenderPayout`). One transaction, no external effect. A winner who cannot receive LTR
      * does NOT make this throw: the failure is saved on the tender (status PAYOUT_FAILED, board view) in the same transaction and the call returns
-     * the detail, because an exception would roll the record back.
+     * the detail, because an exception would roll the record back. Only a freshly committed [TenderPayout.Outcome.Paid] sends the winner's receipt
+     * (V1.9.330), after the commit; never for AlreadyPaid or Failed.
      */
     override suspend fun payOutTender(tenderId: String): TenderDetailDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*TENDER_PAYOUT_ROLES.toTypedArray())
         val id = tenderId.toTenderUuid()
-        return transaction {
-            requireActiveMembership(memberId = current.memberId)
-            val wallNow = OrganizationTimeZone.wallNow()
-            when (val outcome = TenderPayout.payOut(current = current, tenderId = id)) {
-                TenderPayout.Outcome.AlreadyPaid -> Unit
-                is TenderPayout.Outcome.Paid ->
-                    audit(
-                        current = current,
-                        tenderId = id,
-                        snapshot =
-                            TenderAuditSnapshot(
-                                event = "PAYOUT",
-                                status = TenderStatus.PAID.name,
-                                fromStatus = outcome.fromStatus.name,
-                                bidId = outcome.bidId.toString(),
-                                ledgerEntryId = outcome.ledgerEntryId.toString(),
-                            ),
-                    )
-                is TenderPayout.Outcome.Failed ->
-                    audit(
-                        current = current,
-                        tenderId = id,
-                        snapshot =
-                            TenderAuditSnapshot(
-                                event = "PAYOUT_FAILED",
-                                status = TenderStatus.PAYOUT_FAILED.name,
-                                fromStatus = outcome.fromStatus.name,
-                                bidId = outcome.bidId.toString(),
-                                failureReason = outcome.reason.name,
-                            ),
-                    )
+        val (detail, paidNow) =
+            transaction {
+                requireActiveMembership(memberId = current.memberId)
+                val wallNow = OrganizationTimeZone.wallNow()
+                val outcome = TenderPayout.payOut(current = current, tenderId = id)
+                when (outcome) {
+                    TenderPayout.Outcome.AlreadyPaid -> Unit
+                    is TenderPayout.Outcome.Paid ->
+                        audit(
+                            current = current,
+                            tenderId = id,
+                            snapshot =
+                                TenderAuditSnapshot(
+                                    event = "PAYOUT",
+                                    status = TenderStatus.PAID.name,
+                                    fromStatus = outcome.fromStatus.name,
+                                    bidId = outcome.bidId.toString(),
+                                    ledgerEntryId = outcome.ledgerEntryId.toString(),
+                                ),
+                        )
+                    is TenderPayout.Outcome.Failed ->
+                        audit(
+                            current = current,
+                            tenderId = id,
+                            snapshot =
+                                TenderAuditSnapshot(
+                                    event = "PAYOUT_FAILED",
+                                    status = TenderStatus.PAYOUT_FAILED.name,
+                                    fromStatus = outcome.fromStatus.name,
+                                    bidId = outcome.bidId.toString(),
+                                    failureReason = outcome.reason.name,
+                                ),
+                        )
+                }
+                Pair(
+                    TenderDtos.detail(row = TenderStore.lock(id), current = current, wallNow = wallNow),
+                    outcome is TenderPayout.Outcome.Paid,
+                )
             }
-            TenderDtos.detail(row = TenderStore.lock(id), current = current, wallNow = wallNow)
-        }
+        if (paidNow) TenderPayoutNotifier(payoutNotificationMailer).paid(id)
+        return detail
     }
 
     override suspend fun getTenderDefaults(): TenderDefaultsDto {

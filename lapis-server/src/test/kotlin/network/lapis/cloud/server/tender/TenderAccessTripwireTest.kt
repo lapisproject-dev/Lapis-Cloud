@@ -73,6 +73,7 @@ class TenderAccessTripwireTest :
                     "TenderOptions.kt",
                     "TenderPayout.kt",
                     "TenderPayoutRules.kt",
+                    "TenderPayoutNotifier.kt",
                 )
         }
 

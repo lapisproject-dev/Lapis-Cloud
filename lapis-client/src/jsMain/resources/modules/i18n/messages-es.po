@@ -32134,12 +32134,20 @@ msgid "Auszahlung"
 msgstr "Pago"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
-msgid "Ausgezahlt am %1 von %2"
-msgstr "Pagado el %1 por %2"
+msgid "Ihnen wurden %1 gutgeschrieben am %2."
+msgstr "Se le han abonado %1 el %2."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
-msgid "Ausgezahlt am %1"
-msgstr "Pagado el %1"
+msgid "%1 ausgezahlt am %2 von %3."
+msgstr "%1 pagados el %2 por %3."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "%1 ausgezahlt am %2."
+msgstr "%1 pagados el %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "Im LTR-Konto ansehen"
+msgstr "Ver en la cuenta LTR"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
 msgid "Auszahlung gescheitert am %1: %2"

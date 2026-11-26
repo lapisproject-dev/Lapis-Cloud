@@ -13,6 +13,7 @@ import network.lapis.cloud.server.rpc.CONCURRENT_CHANGE
 import network.lapis.cloud.server.rpc.NOT_AVAILABLE
 import network.lapis.cloud.server.rpc.lockedMemberStatuses
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.shared.domain.LtrLedgerEntryDto
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
 import network.lapis.cloud.shared.domain.TenderBidStatus
@@ -47,6 +48,13 @@ private val logger = KotlinLogging.logger {}
  * No log line carries an amount, a name or a text -- only ids and enum names.
  */
 internal object TenderPayout {
+    /**
+     * The winner must never learn who paid out (tenders.adoc). In the member's OWN ledger view the actor of a payout row is
+     * dropped; the board-side views keep it.
+     */
+    fun withoutPayoutActor(entry: LtrLedgerEntryDto): LtrLedgerEntryDto =
+        if (entry.entryType == LtrLedgerEntryType.TENDER_PAYOUT) entry.copy(createdById = null, createdByDisplayName = null) else entry
+
     /** What a payout call did. The caller writes the audit entry for [Paid] and [Failed] (the last database operation of the transaction). */
     sealed interface Outcome {
         /** The tender was already PAID: nothing was written. */

@@ -626,7 +626,9 @@ class TenderDetailScreenDomTest {
                     )
                 }
             withDetail("tender-paid-named", named) { el, _, _, _ ->
-                assertTrue(el.text().contains("Ausgezahlt am") && el.text().contains("von Tina Kasse"), el.text())
+                assertTrue(el.text().contains("ausgezahlt am") && el.text().contains("von Tina Kasse"), el.text())
+                assertTrue(el.text().contains("LTR"), el.text())
+                assertTrue(el.allOf("a").none { it.text().contains("Im LTR-Konto ansehen") }, "the board gets no ledger link")
                 assertTrue(el.allOf("button").none { it.text().trim() in setOf("LTR auszahlen", "Erneut auszahlen") })
             }
         }
@@ -648,8 +650,35 @@ class TenderDetailScreenDomTest {
                     )
                 }
             withDetail("tender-paid-anonymous", anonymous) { el, _, _, _ ->
-                assertTrue(el.text().contains("Ausgezahlt am"), el.text())
+                assertTrue(el.text().contains("ausgezahlt am"), el.text())
                 assertFalse(el.text().contains("von Tina"))
+                assertTrue(el.allOf("a").none { it.text().contains("Im LTR-Konto ansehen") })
+            }
+        }
+
+    @Test
+    fun aPaidTender_forTheWinner_showsTheAmountAndTheLedgerLinkButNoName(): Promise<Unit> =
+        run {
+            AppState.setSession(tenderSession(AccountRole.MEMBER))
+            val paid = tenderSummary(status = TenderStatus.PAID, count = 1)
+            val winner =
+                tenderDetail(paid) {
+                    copy(
+                        payout =
+                            TenderPayoutDto(
+                                amount = 5.0.toDecimal(),
+                                currency = TenderCurrency.LTR,
+                                executedAt = LocalDateTime(2099, 11, 4, 9, 0),
+                                ledgerEntryId = "l1",
+                                viewerIsWinner = true,
+                            ),
+                    )
+                }
+            withDetail("tender-paid-winner", winner) { el, _, _, _ ->
+                assertTrue(el.text().contains("Ihnen wurden") && el.text().contains("gutgeschrieben am"), el.text())
+                assertTrue(el.text().contains("5") && el.text().contains("LTR"), el.text())
+                assertFalse(el.text().contains(" von "))
+                assertTrue(el.allOf("a").any { it.text().contains("Im LTR-Konto ansehen") })
             }
         }
 }

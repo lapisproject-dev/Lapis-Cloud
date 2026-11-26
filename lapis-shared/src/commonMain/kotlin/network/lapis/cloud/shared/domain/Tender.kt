@@ -202,16 +202,20 @@ data class TenderBidDto(
 )
 
 /**
- * V1.9.308: the booked payout. [paidByDisplayName] and [ledgerEntryId] only ever leave the server for the board's read view and the winner;
- * everybody else gets the amount and the date.
+ * V1.9.308: the booked payout. [ledgerEntryId] only leaves the server for the board's read view and the winner, [paidByDisplayName] (V1.9.330)
+ * only for the board's read view; everybody else gets the amount and the date.
  */
 @Serializable
 data class TenderPayoutDto(
     val amount: Decimal,
     val currency: TenderCurrency,
     val executedAt: LocalDateTime,
+    /** V1.9.330: only the board's read view, NEVER the winner. */
     val paidByDisplayName: String? = null,
+    /** Board read view and winner. */
     val ledgerEntryId: String? = null,
+    /** V1.9.330: the viewer is the winner of this tender (server truth). */
+    val viewerIsWinner: Boolean = false,
 )
 
 /** V1.9.308: the last failed payout attempt; board view only. */
