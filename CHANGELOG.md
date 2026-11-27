@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.340 Article text: nesting limit when saving
+
+**No migration, no schema or API signature change.** An article text nested deeper than 64 levels (quotes, lists, emphasis inside each other) is now refused when it is **saved** (draft create and auto-save update), **submitted**, **previewed**, **imported** (reason in the import check) and **created through the MCP draft tool** -- until now such a body was accepted. This closes the follow-up recorded in V1.9.337. Behaviour change: a draft stored earlier with a too deeply nested body can no longer be submitted until the author simplifies it. New distinct exception `ArticleTextTooDeeplyNestedException` (Kilua RPC transmits only the type), with a translated message in the editor status line (no retry button, the same text would be refused again) and in the preview; the new msgid is in `messages.pot` and all seven `.po` files. The read paths (`/aktuelles/{slug}`, review view) are unchanged: articles stored earlier stay readable and are not touched. The check is shared with the agreement texts (`ArticleMarkdown.parseWithinDepthLimit`); agreement-text behaviour is unchanged.
+
 ### V1.9.339 Approval counters on the suffix mechanism
 
 **No migration, no server change.** The counters of "Artikel", "Beitragsvergünstigungen", "Reisekosten-Freigaben" and "Ehrenamtspauschalen-Freigaben" in the sidebar now use the same suffix mechanism as "Nachrichten", "Videokonferenz" and "Begegnungsräume": a child span (`aria-hidden`) inside the link, never part of the label. The link carries the accessible name "<label>, <n> offen". The figures, the cap ("200+"), the permissions (articles only for BOARD/ADMIN, the other three entries only for BOARD/ADMIN through the navigation registry) and the server calls are unchanged; the counter is still loaded once when the sidebar is built (no live update). A failure to load still raises no toast and leaves the entry without a number.

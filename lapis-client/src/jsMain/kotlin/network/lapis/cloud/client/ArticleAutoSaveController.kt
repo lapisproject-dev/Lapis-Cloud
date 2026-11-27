@@ -5,6 +5,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.ArticleDraftInput
 import network.lapis.cloud.shared.domain.ArticleDto
+import network.lapis.cloud.shared.rpc.ARTICLE_TEXT_TOO_DEEPLY_NESTED_MESSAGE
+import network.lapis.cloud.shared.rpc.ArticleTextTooDeeplyNestedException
 
 /** A cancellable pending timer -- the real implementation wraps `kotlinx.browser.window.setTimeout`/`clearTimeout`, a test double can fire synchronously. */
 fun interface ArticleAutoSaveSchedule {
@@ -198,7 +200,11 @@ class ArticleAutoSaveController(
             } catch (e: Throwable) {
                 inFlight = false
                 dirty = true // the failed input stays pending so retry()/a later change can resend it.
-                setState(SaveState.Failed(e.message))
+                setState(
+                    SaveState.Failed(
+                        if (e is ArticleTextTooDeeplyNestedException) ARTICLE_TEXT_TOO_DEEPLY_NESTED_MESSAGE else e.message,
+                    ),
+                )
                 pendingCompletion?.complete(Unit)
                 pendingCompletion = null
             }

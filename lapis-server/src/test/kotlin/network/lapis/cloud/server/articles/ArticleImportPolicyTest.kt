@@ -90,6 +90,12 @@ class ArticleImportPolicyTest :
             invalid(parse(entry(byline = "x".repeat(121))).single())
         }
 
+        test("V1.9.340: a body nested too deeply is rejected with a reason, a normal body is unchanged") {
+            val result = invalid(parse(entry(body = ">".repeat(200) + " x")).single())
+            result.reasons.any { it.contains("zu tief verschachtelt") } shouldBe true
+            parse(entry(body = "> Zitat\n\n- a\n- b")).single().shouldBeInstanceOf<EntryCheck.Valid>()
+        }
+
         test("an overlong excerpt is rejected, never silently shortened") {
             val result = invalid(parse(entry(excerpt = "x".repeat(440))).single())
             result.reasons.any { it.contains("Teaser") } shouldBe true

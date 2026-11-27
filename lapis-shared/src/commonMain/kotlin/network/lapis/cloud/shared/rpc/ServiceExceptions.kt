@@ -1265,6 +1265,19 @@ class MembershipApplicationClosedException(
 
 const val MEMBERSHIP_APPLICATION_CLOSED_MESSAGE = "Online membership applications are not available on this server."
 
+/**
+ * Welle V1.9.340 -- distinct type (Kilua RPC transmits only the exception TYPE, so the client cannot read a message). An article text is
+ * nested deeper than the allowed limit (quotes, lists, emphasis); refused when saving, submitting, previewing or importing. Constant message,
+ * independent of the input; the client shows its own translated text.
+ */
+@RpcServiceException
+class ArticleTextTooDeeplyNestedException(
+    override val message: String = ARTICLE_TEXT_TOO_DEEPLY_NESTED_MESSAGE,
+) : AbstractServiceException()
+
+const val ARTICLE_TEXT_TOO_DEEPLY_NESTED_MESSAGE =
+    "Der Text ist zu tief verschachtelt (höchstens 64 Ebenen aus Zitaten, Listen und Hervorhebungen). Bitte vereinfachen Sie die Gliederung."
+
 // ── Welle V1.9.320 "Auktionen in Euro mit Direktzahlung" -- distinct types (Kilua RPC transmits only the exception TYPE). Every message is a
 // CONSTANT: it never contains an amount, an IBAN, a link, a holder name or an id.
 

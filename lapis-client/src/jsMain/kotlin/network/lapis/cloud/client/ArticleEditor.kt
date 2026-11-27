@@ -16,6 +16,8 @@ import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.ArticleDraftInput
 import network.lapis.cloud.shared.domain.ArticleDto
 import network.lapis.cloud.shared.domain.ArticleStatus
+import network.lapis.cloud.shared.rpc.ARTICLE_TEXT_TOO_DEEPLY_NESTED_MESSAGE
+import network.lapis.cloud.shared.rpc.ArticleTextTooDeeplyNestedException
 import network.lapis.cloud.shared.rpc.IArticleService
 import network.lapis.cloud.shared.rpc.RateLimitedException
 
@@ -288,8 +290,14 @@ fun renderArticleEditor(
                     is ArticleAutoSaveController.SaveState.Failed -> {
                         // No automatic retry actually happens -- see ArticleAutoSaveController.retry's
                         // KDoc -- so this must NOT promise one; offer the explicit `retryButton` instead.
-                        statusText.content = tr("Speichern fehlgeschlagen.")
-                        retryButton.show()
+                        if (state.message == ARTICLE_TEXT_TOO_DEEPLY_NESTED_MESSAGE) {
+                            // V1.9.340: the same text would be refused again, so no retry; the author has to simplify it.
+                            statusText.content = articleTooDeeplyNestedText()
+                            retryButton.hide()
+                        } else {
+                            statusText.content = tr("Speichern fehlgeschlagen.")
+                            retryButton.show()
+                        }
                     }
                 }
             },
@@ -322,6 +330,9 @@ fun renderArticleEditor(
                             } catch (e: RateLimitedException) {
                                 // V1.9.158: the general "too many requests" text is not about the preview -- this one is
                                 notifyError(tr("Vorschau vorübergehend nicht verfügbar – bitte kurz warten."))
+                                null
+                            } catch (e: ArticleTextTooDeeplyNestedException) {
+                                notifyError(articleTooDeeplyNestedText())
                                 null
                             }
                         }

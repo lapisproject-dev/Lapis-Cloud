@@ -34884,3 +34884,7 @@ msgstr "Vind ik niet leuk"
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
 msgid "%1, %2 offen"
 msgstr "%1, %2 open"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
+msgid "Der Text ist zu tief verschachtelt (zu viele Zitate, Listen oder Hervorhebungen ineinander). Bitte vereinfachen Sie die Gliederung."
+msgstr "De tekst is te diep genest (te veel citaten, lijsten of nadruk in elkaar). Vereenvoudig de structuur."

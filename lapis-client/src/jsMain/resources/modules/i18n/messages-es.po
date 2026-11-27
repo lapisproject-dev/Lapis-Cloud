@@ -34391,3 +34391,7 @@ msgstr "No me gusta"
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
 msgid "%1, %2 offen"
 msgstr "%1, pendientes: %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
+msgid "Der Text ist zu tief verschachtelt (zu viele Zitate, Listen oder Hervorhebungen ineinander). Bitte vereinfachen Sie die Gliederung."
+msgstr "El texto está demasiado anidado (demasiadas citas, listas o énfasis unos dentro de otros). Simplifique la estructura."

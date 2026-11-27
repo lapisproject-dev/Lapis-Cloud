@@ -1,9 +1,12 @@
 package network.lapis.cloud.server.articles
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import network.lapis.cloud.shared.domain.ArticleDraftInput
+import network.lapis.cloud.shared.rpc.ArticleTextTooDeeplyNestedException
 import java.io.File
 
 /**
@@ -57,6 +60,45 @@ class ArticleMarkdownTest :
             val html = ArticleMarkdown.render(markdown = "[Mail](mailto:info@example.org)")
             html shouldContain "rel=\"nofollow noopener ugc\""
             html shouldNotContain "target"
+        }
+
+        test("V1.9.340: the depth limit is exact -- the deepest accepted quote nesting passes, one more is refused") {
+            fun quote(n: Int) = ">".repeat(n) + " x"
+
+            fun depthOf(n: Int) =
+                ArticleMarkdown.nestingDepth(ArticleMarkdown.parse(markdown = quote(n), maxChars = ArticlePolicy.BODY_MAX))
+            var n = 1
+            while (depthOf(n + 1) <= ArticleMarkdown.MAX_NESTING_DEPTH) n++
+            depthOf(n) shouldBe ArticleMarkdown.MAX_NESTING_DEPTH
+            ArticleMarkdown.exceedsNestingDepth(markdown = quote(n)) shouldBe false
+            ArticleMarkdown.exceedsNestingDepth(markdown = quote(n + 1)) shouldBe true
+            ArticleMarkdown.parseWithinDepthLimit(markdown = quote(n + 1), maxChars = ArticlePolicy.BODY_MAX) shouldBe null
+            // The read path still renders the refused text (stored earlier) without an exception.
+            ArticleMarkdown.render(markdown = quote(n + 1)) shouldContain "x"
+        }
+
+        test("V1.9.340: pathological nesting is refused without a StackOverflowError, a normal article is accepted") {
+            ArticleMarkdown.exceedsNestingDepth(markdown = ">".repeat(20_000)) shouldBe true
+            ArticleMarkdown.exceedsNestingDepth(markdown = "*a ".repeat(30_000) + " b*".repeat(30_000)) shouldBe true
+            ArticleMarkdown.exceedsNestingDepth(
+                markdown = (0 until 3_000).joinToString("\n") { i -> " ".repeat(i * 2) + "- item" },
+            ) shouldBe
+                true
+            ArticleMarkdown.exceedsNestingDepth(
+                markdown = "# Titel\n\nAbsatz mit [Link](https://example.org) und ![Bild](u).\n\n- a\n- b\n\n> Zitat",
+            ) shouldBe
+                false
+        }
+
+        test("V1.9.340: ArticlePolicy refuses a deeply nested body when saving a draft and when submitting (older drafts)") {
+            val deep = ">".repeat(200) + " x"
+            shouldThrow<ArticleTextTooDeeplyNestedException> {
+                ArticlePolicy.validateDraftLengths(ArticleDraftInput(title = "Titel", excerpt = "Kurz", body = deep))
+            }
+            shouldThrow<ArticleTextTooDeeplyNestedException> {
+                ArticlePolicy.validateForSubmit(title = "Ein Titel", excerpt = "Kurz", body = deep)
+            }
+            ArticlePolicy.validateForSubmit(title = "Ein Titel", excerpt = "Kurz", body = "> Zitat")
         }
 
         test("body at the 100000-character cap does not crash and is cut off, not truncated mid-tag") {

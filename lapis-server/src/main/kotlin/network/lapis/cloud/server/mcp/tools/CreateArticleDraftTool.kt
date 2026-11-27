@@ -7,6 +7,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import network.lapis.cloud.server.articles.ArticleMarkdown
 import network.lapis.cloud.server.articles.ArticlePolicy
 import network.lapis.cloud.server.articles.McpArticleDraftStore
 import network.lapis.cloud.server.mcp.auth.McpPrincipal
@@ -90,6 +91,10 @@ internal object CreateArticleDraftTool {
             args
                 .requiredStringArg(key = "body", minLength = BODY_MIN, maxLength = BODY_MAX)
                 .requireNoControlChars(key = "body", allowNewlines = true)
+        // V1.9.340: same limit as the member save path; the message names no text.
+        if (ArticleMarkdown.exceedsNestingDepth(markdown = body)) {
+            throw McpInvalidToolArgumentsException("'body' is nested too deeply (quotes, lists, emphasis)")
+        }
         val excerpt =
             args
                 .optionalStringArg(key = "excerpt", maxLength = EXCERPT_MAX)

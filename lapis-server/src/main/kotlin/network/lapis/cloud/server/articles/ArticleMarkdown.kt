@@ -102,8 +102,30 @@ object ArticleMarkdown {
     }
 
     /**
-     * Renders markdown into sanitized HTML. Does not refuse deeply nested input (article semantics unchanged): the parser limits turn excess
-     * nesting into plain text, so it can neither overflow the stack nor run away. Follow-up item: refuse such bodies when an article is saved.
+     * Parses [markdown] and returns the tree, or `null` if it is nested deeper than [MAX_NESTING_DEPTH] (checked on the parsed tree, not by
+     * waiting for a `StackOverflowError`, which stays as a second safety net). Shared by the agreement texts and the article write paths.
+     */
+    internal fun parseWithinDepthLimit(
+        markdown: String,
+        maxChars: Int,
+    ): Node? =
+        try {
+            val document = parse(markdown = markdown, maxChars = maxChars)
+            if (nestingDepth(document) > MAX_NESTING_DEPTH) null else document
+        } catch (_: StackOverflowError) {
+            null
+        }
+
+    /** `true` if [markdown] is nested deeper than [MAX_NESTING_DEPTH]. Nothing about the text is logged. */
+    internal fun exceedsNestingDepth(
+        markdown: String,
+        maxChars: Int = ArticlePolicy.BODY_MAX,
+    ): Boolean = parseWithinDepthLimit(markdown = markdown, maxChars = maxChars) == null
+
+    /**
+     * Renders markdown into sanitized HTML. Does not refuse deeply nested input (the READ path must keep showing articles stored earlier): the
+     * parser limits turn excess nesting into plain text, so it can neither overflow the stack nor run away. Deeply nested bodies are refused
+     * when an article is saved, submitted, previewed or imported (V1.9.340, [exceedsNestingDepth]).
      */
     fun render(
         markdown: String,

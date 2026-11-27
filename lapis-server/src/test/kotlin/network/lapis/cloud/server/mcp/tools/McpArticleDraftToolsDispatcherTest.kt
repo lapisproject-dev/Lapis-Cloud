@@ -250,6 +250,8 @@ class McpArticleDraftToolsDispatcherTest :
                     args(title = "x".repeat(141)),
                     args(body = ""),
                     args(body = "y".repeat(20_001)),
+                    // V1.9.340: nested deeper than the article depth limit
+                    args(body = ">".repeat(200) + " x"),
                     args(excerpt = "z".repeat(301)),
                     args(title = null, extra = mapOf("title" to JsonPrimitive(42))),
                     args(title = null, extra = mapOf("title" to buildJsonObject { put("a", JsonPrimitive("b")) })),

@@ -2,6 +2,7 @@ package network.lapis.cloud.server.articles
 
 import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.shared.domain.ArticleDraftInput
+import network.lapis.cloud.shared.rpc.ArticleTextTooDeeplyNestedException
 import network.lapis.cloud.shared.rpc.BadRequestException
 
 /**
@@ -36,6 +37,12 @@ object ArticlePolicy {
         if (input.title.length > TITLE_MAX) throw BadRequestException("title exceeds $TITLE_MAX characters")
         if (input.excerpt.length > EXCERPT_MAX) throw BadRequestException("excerpt exceeds $EXCERPT_MAX characters")
         if (input.body.length > BODY_MAX) throw BadRequestException("body exceeds $BODY_MAX characters")
+        requireNotTooDeeplyNested(input.body)
+    }
+
+    /** V1.9.340: refuses a body nested deeper than [ArticleMarkdown.MAX_NESTING_DEPTH]; the message never echoes the text. */
+    fun requireNotTooDeeplyNested(body: String) {
+        if (ArticleMarkdown.exceedsNestingDepth(markdown = body)) throw ArticleTextTooDeeplyNestedException()
     }
 
     /** Server-side authority regardless of any client-side pre-check -- see `ArticleService.submitArticle`. */
@@ -53,6 +60,8 @@ object ArticlePolicy {
         if (body.length < BODY_MIN || body.length > BODY_MAX) {
             throw BadRequestException("body must be $BODY_MIN..$BODY_MAX characters")
         }
+        // V1.9.340: also stops drafts saved before the limit existed from being submitted (and later published) as they are.
+        requireNotTooDeeplyNested(body)
     }
 
     fun validateRejectionReason(reason: String?) {

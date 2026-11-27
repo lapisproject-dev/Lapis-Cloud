@@ -49,16 +49,9 @@ internal object AgreementMarkdown {
         body: String,
         maxChars: Int = AgreementTextRules.MAX_CHARS,
     ): String? =
-        try {
-            val document = ArticleMarkdown.parse(markdown = body, maxChars = maxChars)
-            if (ArticleMarkdown.nestingDepth(document) > ArticleMarkdown.MAX_NESTING_DEPTH) {
-                null
-            } else {
-                ArticleMarkdown.renderDocument(document = document, softBreakAsLineBreak = true)
-            }
-        } catch (_: StackOverflowError) {
-            null
-        }
+        ArticleMarkdown
+            .parseWithinDepthLimit(markdown = body, maxChars = maxChars)
+            ?.let { document -> ArticleMarkdown.renderDocument(document = document, softBreakAsLineBreak = true) }
 
     /**
      * Like [renderOrNull] but WITHOUT the depth refusal: the read paths of already stored texts (tender description, travel contact hint). A text

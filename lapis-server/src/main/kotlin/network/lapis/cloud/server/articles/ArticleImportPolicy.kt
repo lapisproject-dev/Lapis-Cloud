@@ -199,6 +199,9 @@ object ArticleImportPolicy {
         if (rawBody != null && body != null && (body.length < ArticlePolicy.BODY_MIN || body.length > ArticlePolicy.BODY_MAX)) {
             reasons += "$label: Der Text muss ${ArticlePolicy.BODY_MIN} bis ${ArticlePolicy.BODY_MAX} Zeichen lang sein."
         }
+        if (rawBody != null && body != null && ArticleMarkdown.exceedsNestingDepth(markdown = body)) {
+            reasons += "$label: Der Text ist zu tief verschachtelt."
+        }
         if (byline != null && byline.length > ArticleBylinePolicy.BYLINE_MAX) {
             reasons += "$label: Die Autorenzeile ist zu lang (maximal ${ArticleBylinePolicy.BYLINE_MAX} Zeichen)."
         }

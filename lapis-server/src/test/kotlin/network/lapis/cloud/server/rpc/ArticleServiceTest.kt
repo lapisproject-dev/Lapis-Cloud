@@ -36,6 +36,8 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ArticleDraftInput
 import network.lapis.cloud.shared.domain.ArticleStatus
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.rpc.ARTICLE_TEXT_TOO_DEEPLY_NESTED_MESSAGE
+import network.lapis.cloud.shared.rpc.ArticleTextTooDeeplyNestedException
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -139,6 +141,41 @@ class ArticleServiceTest :
                         header("X-Member-Id", author.toString())
                     }
                 response.status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
+        test("V1.9.340: saveDraft (create and update) and previewArticle refuse a too deeply nested body, a normal one passes") {
+            testApplication {
+                application {
+                    install(StatusPages) { installArticleExceptionHandlers() }
+                    routing { registerArticleTestRoutes() }
+                }
+                val author = createTestMember("article-nesting@example.org")
+                val deep = "%3E".repeat(200) + "%20x"
+
+                val refusedCreate =
+                    client.post("/test/save-draft?title=Tiefer%20Entwurf&excerpt=Kurz&body=$deep") {
+                        header("X-Member-Id", author.toString())
+                    }
+                refusedCreate.status shouldBe HttpStatusCode.BadRequest
+                refusedCreate.bodyAsText() shouldBe ARTICLE_TEXT_TOO_DEEPLY_NESTED_MESSAGE
+
+                val created =
+                    client
+                        .post("/test/save-draft?title=Normaler%20Entwurf&excerpt=Kurz&body=%3E%20Zitat") {
+                            header("X-Member-Id", author.toString())
+                        }.bodyAsText()
+                val id = created.substringBefore(":")
+                createdArticleIds += Uuid.parse(id)
+
+                val refusedUpdate =
+                    client.post("/test/save-draft?id=$id&title=Normaler%20Entwurf&excerpt=Kurz&body=$deep") {
+                        header("X-Member-Id", author.toString())
+                    }
+                refusedUpdate.status shouldBe HttpStatusCode.BadRequest
+
+                val refusedPreview = client.get("/test/preview?body=$deep") { header("X-Member-Id", author.toString()) }
+                refusedPreview.status shouldBe HttpStatusCode.BadRequest
             }
         }
 
@@ -863,6 +900,7 @@ private fun StatusPagesConfig.installArticleExceptionHandlers() {
     exception<NotFoundException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.NotFound) }
     exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
     exception<BadRequestException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.BadRequest) }
+    exception<ArticleTextTooDeeplyNestedException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.BadRequest) }
     exception<RateLimitedException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.TooManyRequests) }
 }
 

@@ -34743,3 +34743,7 @@ msgstr "Не нравится"
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
 msgid "%1, %2 offen"
 msgstr "%1, ожидают: %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
+msgid "Der Text ist zu tief verschachtelt (zu viele Zitate, Listen oder Hervorhebungen ineinander). Bitte vereinfachen Sie die Gliederung."
+msgstr "Текст слишком глубоко вложен (слишком много цитат, списков или выделений друг в друге). Пожалуйста, упростите структуру."

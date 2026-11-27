@@ -22,6 +22,7 @@ import network.lapis.cloud.shared.rpc.AgreementTextInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextLayoutInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextOutdatedException
 import network.lapis.cloud.shared.rpc.AgreementTextVersionLabelTakenException
+import network.lapis.cloud.shared.rpc.ArticleTextTooDeeplyNestedException
 import network.lapis.cloud.shared.rpc.AuctionAlreadyConfirmedException
 import network.lapis.cloud.shared.rpc.AuctionAmountOutOfRangeException
 import network.lapis.cloud.shared.rpc.AuctionCurrencyLockedException
@@ -261,6 +262,8 @@ internal fun typedRefusalText(e: Throwable): String? =
         // V1.9.315: the online membership application is switched off (the registration screen renders its own closed state).
         is MembershipApplicationClosedException ->
             tr("Ein Online-Mitgliedsantrag ist auf dieser Plattform nicht möglich. Bitte wenden Sie sich direkt an die Organisation.")
+        // V1.9.340: article text nested too deeply (save, submit, preview, import).
+        is ArticleTextTooDeeplyNestedException -> articleTooDeeplyNestedText()
         is ExternalMemberIdTakenException -> tr("Diese ID ist bereits einem anderen Mitglied zugeordnet.")
         is ExternalMemberIdSourceNotConfiguredException -> tr("Für diese Instanz ist keine externe Mitglieds-ID-Quelle eingerichtet.")
         is FoundingMemberRateLimitedException -> tr("Zu viele Anfragen – bitte kurz warten.")
@@ -538,3 +541,9 @@ internal fun sessionExpired() {
     notifyError(tr("Sitzung abgelaufen -- bitte erneut anmelden."))
     navigateTo(Routes.LOGIN)
 }
+
+/** V1.9.340: the translated refusal for an article text that is nested too deeply (shared by the editor status line and the preview). */
+internal fun articleTooDeeplyNestedText(): String =
+    tr(
+        "Der Text ist zu tief verschachtelt (zu viele Zitate, Listen oder Hervorhebungen ineinander). Bitte vereinfachen Sie die Gliederung.",
+    )

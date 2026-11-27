@@ -29,6 +29,7 @@ import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.BoardBylineInput
 import network.lapis.cloud.shared.domain.BoardBylineMode
+import network.lapis.cloud.shared.rpc.ArticleTextTooDeeplyNestedException
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -240,7 +241,10 @@ internal class ArticleService(
         transaction { requireActiveMembership(memberId = current.memberId) }
         if (!previewRateLimiter.checkAndRecord("member:${current.memberId}")) throw RateLimitedException()
         if (body.length > ArticlePolicy.BODY_MAX) throw BadRequestException("body exceeds ${ArticlePolicy.BODY_MAX} characters")
-        return ArticleMarkdown.render(markdown = body)
+        val document =
+            ArticleMarkdown.parseWithinDepthLimit(markdown = body, maxChars = ArticlePolicy.BODY_MAX)
+                ?: throw ArticleTextTooDeeplyNestedException()
+        return ArticleMarkdown.renderDocument(document = document)
     }
 
     // -- Welle V1.9.105: author line (byline) with consent --
