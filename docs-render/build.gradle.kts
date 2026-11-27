@@ -13,6 +13,12 @@ kotlin {
 }
 
 dependencies {
+    // V1.9.333 security floor: guava arrives through the kUML layout engine (ELK, range [15.0,)).
+    constraints {
+        implementation(libs.guava.floor) {
+            because("GHSA fix since 33.7.2; ELK declares the open range [15.0,) so the resolved version would depend on the cache")
+        }
+    }
     implementation(libs.kuml.asciidoc)
 
     // `kuml-asciidoc` itself only pulls in the core UML/C4/SysML2/BPMN/ERM metamodels — a

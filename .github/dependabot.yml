@@ -1,0 +1,40 @@
+# V1.9.333: Dependabot is a SIGNAL only. Pull requests are not merged on GitHub; the change is replayed locally
+# in the squash workflow (see CLAUDE.md "Dependency updates"). There is no npm entry: this repo has no package.json,
+# the Kotlin/JS yarn.lock is maintained by hand (see CLAUDE.md).
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    ignore:
+      # Alpha line, pinned in lockstep with kUML.
+      - dependency-name: "dev.detekt*"
+      # Kotlin moves together with KVision/Kilua/KSP, by hand.
+      - dependency-name: "org.jetbrains.kotlin*"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+    groups:
+      kotlin-toolchain:
+        patterns: ["org.jetbrains.kotlin*", "com.google.devtools.ksp*", "io.kvision*", "dev.kilua*"]
+      ktor:
+        patterns: ["io.ktor*"]
+      database:
+        patterns: ["org.jetbrains.exposed*", "org.flywaydb*", "org.postgresql*", "com.h2database*", "com.zaxxer*"]
+      test:
+        patterns: ["io.kotest*"]
+      other:
+        patterns: ["*"]
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns: ["*"]

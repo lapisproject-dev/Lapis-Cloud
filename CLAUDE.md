@@ -67,6 +67,13 @@ JetBrains) — Details und Architektur-Hintergrund siehe `README.adoc` und `docs
 > dieses Repos sitzt und ein logging-freies Client-Modul anbietet. Begründung ausführlich:
 > `docs/architecture/ai-assistant.adoc`.
 
+## Dependency updates (V1.9.333)
+
+- Dependabot (`.github/dependabot.yml`) is a signal only. Its pull requests are not merged on GitHub; replay the change locally in the squash workflow.
+- There is no `package.json`; `lapis-client/.kotlin-js-store/yarn.lock` is maintained by hand. After a Kotlin or KVision bump run `./gradlew kotlinUpgradeYarnLock`, read the diff and check for empty files. For a vulnerable range: delete its blocks, then `kotlinRestoreYarnLock kotlinNpmInstall kotlinUpgradeYarnLock kotlinStoreYarnLock --rerun-tasks --no-daemon`.
+- Security floors (`guava-floor` in `gradle/libs.versions.toml`, the root `buildscript` constraints, the ktlint logback rule) use `require`, carry a reason, and are removed as soon as the parent library ships that version itself.
+- KVision and Kilua RPC move together: KVision 9.7.0 requires Kilua core 0.0.46, which sends default values on the wire (see CHANGELOG V1.9.333).
+
 ## Postgres-Testspur (V1.9.37)
 
 Die normale Testsuite läuft auf H2. Alles, was von der Datenbank-Engine abhängt (Row-Locks, Isolation, Deadlocks, das Verhalten einer

@@ -1,3 +1,51 @@
+// V1.9.333 security floors for the Gradle PLUGIN classpath (shared by all `apply false` plugins below). These artifacts
+// run only inside the Gradle build, never in the server, but the build is part of the supply chain and the dependency
+// graph reports them as alerts. They arrive through com.gradleup.shadow (via the Kilua RPC plugin) and the Spring Boot
+// buildpack platform. `require`, not `strictly`: a plugin that ships a newer version still wins. Remove an entry as soon
+// as the plugin delivers at least this version itself (check with `./gradlew buildEnvironment`).
+buildscript {
+    dependencies {
+        constraints {
+            classpath("org.apache.logging.log4j:log4j-core") {
+                version { require("2.25.5") }
+                because("log4j-core: fixed from 2.25.5")
+            }
+            classpath("org.apache.logging.log4j:log4j-api") {
+                version { require("2.25.5") }
+                because("keeps log4j-api in step with log4j-core")
+            }
+            classpath("org.codehaus.plexus:plexus-utils") {
+                version { require("4.0.3") }
+                because("plexus-utils: fixed from 4.0.3")
+            }
+            classpath("org.apache.commons:commons-lang3") {
+                version { require("3.18.0") }
+                because("commons-lang3: fixed from 3.18.0 (reached through commons-compress)")
+            }
+            classpath("org.apache.httpcomponents.client5:httpclient5") {
+                version { require("5.6.3") }
+                because("httpclient5: fixed from 5.6.3")
+            }
+            classpath("org.apache.httpcomponents.core5:httpcore5") {
+                version { require("5.4.3") }
+                because("httpcore5: fixed from 5.4.3")
+            }
+            classpath("org.apache.httpcomponents.core5:httpcore5-h2") {
+                version { require("5.4.3") }
+                because("httpcore5-h2: fixed from 5.4.3")
+            }
+            classpath("tools.jackson.core:jackson-core") {
+                version { require("3.1.7") }
+                because("jackson-core 3.x: fixed from 3.1.7")
+            }
+            classpath("tools.jackson.core:jackson-databind") {
+                version { require("3.1.7") }
+                because("jackson-databind 3.x: fixed from 3.1.7")
+            }
+        }
+    }
+}
+
 plugins {
     // `base` gives the root project its own lifecycle `check` task (it has no
     // Kotlin plugin of its own) so `verifyDetektCoverage` below can hang off
@@ -56,6 +104,18 @@ subprojects {
         // not hand-written, are regenerated on every build, and ktlint's
         // implicit-dependency validation otherwise races the KSP task that
         // produces them.
+        // V1.9.333 security floor: the ktlint CLI behind the plugin (1.5.0) drags in logback 1.3.14 (GHSA fix in 1.3.16).
+        // ktlint 1.8.0 would fix it at the source, but it reports ~740 files here (new `when` formatting rules) -- that
+        // reformatting is its own change. Stay on the 1.3 line (the JDK 8/11 line ktlint targets); remove this once ktlint moves.
+        configurations.matching { it.name == "ktlint" || it.name.startsWith("ktlint") }.configureEach {
+            resolutionStrategy.eachDependency {
+                if (requested.group == "ch.qos.logback" && requested.version != null && requested.version!!.startsWith("1.3.")) {
+                    useVersion("1.3.16")
+                    because("GHSA fix in logback 1.3.16 (ktlint CLI 1.5.0 pulls 1.3.14)")
+                }
+            }
+        }
+
         plugins.withId("org.jlleitschuh.gradle.ktlint") {
             extensions.configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
                 filter {

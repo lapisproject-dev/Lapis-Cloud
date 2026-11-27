@@ -99,7 +99,7 @@ kotlin {
                 // regenerated `lapis-client/.kotlin-js-store/yarn.lock` -- skipping that makes
                 // `./gradlew clean check` fail with an opaque `YarnLockMismatch`, not an obviously
                 // related error.
-                implementation(npm("livekit-client", "2.21.0"))
+                implementation(npm("livekit-client", "2.25.0"))
                 // V1.4.16 UI-Schrift Inter (PdV-Branding, siehe CLAUDE.md "PdV-Branding" -- Inter
                 // Bold/SemiBold/Regular/Light-Italic). Variable-Font-Paket, nicht die statische
                 // `@fontsource/inter`-Variante -- dieselbe Wahl, die die PdV-Webseite selbst trifft
@@ -123,15 +123,15 @@ kotlin {
                 // trotzdem schlechter wäre. Externals nach exaktem `LiveKitJs.kt`-Muster in `chart/ChartJs.kt`.
                 // Requires re-running `./gradlew :lapis-client:kotlinUpgradeYarnLock` after adding, siehe die
                 // `livekit-client`-Zeile oben für die Begründung.
-                implementation(npm("chart.js", "4.5.0"))
+                implementation(npm("chart.js", "4.6.2"))
                 // V1.4.23 Videokonferenz-Hintergrundeffekte: dritte hand-deklarierte npm()-Abhängigkeit nach
                 // livekit-client und chart.js. Exakt gepinnt (kein `^`), gleiche Disziplin wie dort. Apache-2.0
-                // (verifiziert im Paket-package.json), Peer `livekit-client ^2.1.0` -- die hier gepinnte 2.21.0
+                // (verifiziert im Paket-package.json), Peer `livekit-client ^2.1.0` -- die hier gepinnte 2.25.0
                 // erfüllt das. Zieht GENAU EINE transitive Abhängigkeit: @mediapipe/tasks-vision, dort selbst
                 // exakt auf 0.10.14 gepinnt (kein Range) und ebenfalls Apache-2.0.
                 // Requires re-running `./gradlew kotlinUpgradeYarnLock` after adding, siehe die
                 // `livekit-client`-Zeile oben für die Begründung (sonst opaker YarnLockMismatch).
-                implementation(npm("@livekit/track-processors", "0.8.1"))
+                implementation(npm("@livekit/track-processors", "0.8.3"))
                 // V1.9.6 Vorstands-Karte (Client-Hälfte): fünfte und sechste hand-deklarierte npm()-Abhängigkeit
                 // nach livekit-client/@fontsource-variable-inter/chart.js/@livekit-track-processors. maplibre-gl
                 // 5.24.0 (letzte UMD-Bundle-Version vor dem ESM-only-Wechsel in 6.x, siehe Q4 in

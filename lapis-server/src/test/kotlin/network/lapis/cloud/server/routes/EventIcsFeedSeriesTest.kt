@@ -175,7 +175,7 @@ class EventIcsFeedSeriesTest :
             val masterUid = "series-$seriesId@example.org"
             vevents.all { it.uid.orElseThrow().value == masterUid } shouldBe true
             val exception = vevents.single { it.getProperty<RecurrenceId<*>>("RECURRENCE-ID").isPresent }
-            exception.summary.value shouldBe "Verschobener Einzeltermin"
+            exception.summary?.value shouldBe "Verschobener Einzeltermin"
             body shouldContain "RECURRENCE-ID;TZID=Europe/Berlin:"
         }
 

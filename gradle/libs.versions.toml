@@ -1,21 +1,21 @@
 [versions]
-kotlin                  = "2.4.20"
+kotlin                  = "2.4.21"
 kvision                 = "9.6.0"
-ktor                    = "3.5.2"
-logback                 = "1.6.3"
-kotlin-logging          = "8.0.4"
-kotest                  = "6.2.4"
+ktor                    = "3.6.2"
+logback                 = "1.6.8"
+kotlin-logging          = "8.0.7"
+kotest                  = "6.2.7"
 ktlint-plugin           = "14.2.0"
-ksp                     = "2.3.11"
+ksp                     = "2.3.14"
 kilua-rpc               = "0.0.45"
-kotlinx-serialization   = "1.11.0"
+kotlinx-serialization   = "1.13.0"
 kotlinx-datetime        = "0.8.0"
-exposed                 = "1.5.0"
-flyway                  = "13.5.0"
-postgresql              = "42.7.13"
-h2                      = "2.5.250"
+exposed                 = "1.6.1"
+flyway                  = "13.13.0"
+postgresql              = "42.7.15"
+h2                      = "2.5.252"
 hikaricp                = "7.1.0"
-kuml                    = "0.53.0"
+kuml                    = "0.58.0"
 pdfbox                  = "3.0.8"
 bcrypt                  = "0.10.2"
 # V0.8.2 OIDC-Gastzugang-Federation: JOSE/JWT sign+verify (ID Tokens, Logout Tokens). Deliberate
@@ -24,7 +24,7 @@ bcrypt                  = "0.10.2"
 # (attacker-controlled `alg` header, industry-wide alg-confusion/none-alg CVE history). Apache-2.0,
 # pure JVM, zero transitive deps -- matches this repo's hard permissive-license/no-native-deps
 # posture (same tier as pdfbox/bcrypt).
-nimbus-jose-jwt         = "10.9.1"
+nimbus-jose-jwt         = "10.10"
 
 # V1.2.3 Echter SMTP-Versand (Passwort-Reset + FRIEND-E-Mail-Verifizierung). Eclipse Angus ist der
 # direkte JavaMail-/Jakarta-Mail-Nachfolger und die Referenzimplementierung, auf der jeder
@@ -52,22 +52,22 @@ angus-mail              = "2.0.5"
 # codebase already knows from evaluating simple-java-mail (see jakarta-mail-api's own comment
 # above, "simple-java-mail ... würde ... jsoup u.a. mitbringen") -- jsoup alone, not the heavier
 # mail-sending wrapper, is the narrower dependency for exactly the one job needed here.
-jsoup                   = "1.23.2"
+jsoup                   = "1.24.1"
 
 # V1.4.14 Wave 2 FinTS/HBCI-Live-Kontoabruf -- com.github.hbci4j:hbci4j-core, Maven Central
 # (verifiziert 2026-09-13 gegen search.maven.org/repo1.maven.org: numFound=1, repositoryId=central,
-# latestVersion 4.0.0, KEIN JitPack, letztes Release 2023-03-13). Einzige realistische
+# latestVersion 4.1.17 (Stand 2026-11-27, Update von 4.0.0), KEIN JitPack). Einzige realistische
 # Java-FinTS-Implementierung.
 # LIZENZ-ABWEICHUNG (Nutzerentscheidung 2026-09-13): hbci4j-core ist LGPL-2.1. Als unveraenderte,
 # dynamisch per Klassenpfad gelinkte Bibliothek (kein Fork, keine Modifikation) uebertraegt
 # LGPL-2.1s datei-basiertes Copyleft keine Pflichten auf eigenen Code -- der JVM-Klassenpfad
 # erfuellt die Relink-/Ersetzbarkeitsanforderung von selbst -- angenommen, analog zur bestehenden
-# jakarta.mail/angus-mail-EPL-2.0-Begruendung oben. Transitiv nur jakarta.xml.bind-api 4.0.0 +
-# jaxb-runtime 4.0.2 (beide permissiv, pure JVM, KEINE nativen Deps -- POM live verifiziert).
+# jakarta.mail/angus-mail-EPL-2.0-Begruendung oben. Transitiv nur jakarta.xml.bind-api + jaxb-runtime
+# (beide permissiv, EDL-1.0/BSD-3, pure JVM, KEINE nativen Deps; V1.9.333: Update 4.0.0 -> 4.1.17, nicht gegen eine echte Bank getestet).
 # Letztes Upstream-Release 2023-03-13 -- deshalb sind FinTsStatementFetcher/FinTsSetupClient die
 # EINZIGE Beruehrungsstelle, kein hbci4j-Typ erscheint in einer oeffentlichen Signatur. Wartbarer
 # Fallback falls noetig: de.adorsys:hbci4j-adorsys (3.5.46).
-hbci4j-core             = "4.0.0"
+hbci4j-core             = "4.1.17"
 
 # ── Detekt (custom ruleset :lapis-detekt-rules — RequireNamedArguments gate) ──
 # Ported from kuml-dev/kUML's gradle/libs.versions.toml (same rule, same reasoning).
@@ -104,7 +104,11 @@ zxing-core              = "3.5.4"
 # editorial article body (never the raw Markdown to any client but the author). Apache-2.0, pure
 # JVM, no transitive deps beyond kotlin-stdlib -- same "permissive license / no native deps" latte
 # as kotlinx-html/zxing-core/nimbus-jose-jwt above. `commonmark-java` (not flexmark -- flexmark's
-# larger surface/plugin graph is unnecessary here) deliberately at the latest stable 0.2x line.
+# larger surface/plugin graph is unnecessary here) deliberately on the 0.2x line.
+# V1.9.333: NOT bumped to 0.33.0. Newer commonmark releases limit block/inline nesting itself, so a text of 40,000 nested quote markers
+# no longer ends in a StackOverflowError and is rendered (depth-limited) instead of refused by renderOrNull -- five specs pin the old
+# refusal (AgreementMarkdownTest, AgreementTextMarkdownServiceTest, TenderDescriptionFormatTest). Taking 0.33.0 needs those contracts
+# decided on purpose (explicit Parser.maxOpenBlockParsers/maxInlineNesting), not a silent test edit.
 commonmark              = "0.22.0"
 
 # V1.9.222 Bildergalerie -- WebP uploads. The JDK's ImageIO has no WebP reader, so a WebP picture could not be decoded on the server at all.
@@ -112,7 +116,7 @@ commonmark              = "0.22.0"
 # name "webp" only; it never touches the JPEG/PNG decoders. WebP is only READ: the picture is re-encoded as JPEG (PNG when it has transparency)
 # and WebP itself is never stored. The decoder is fed attacker-controlled bytes, so it runs behind the same header-dimension guard
 # (8000 px / 40 MP, checked before a pixel is decoded) and under the same process-wide decode semaphore as the other image pipelines.
-twelvemonkeys-imageio   = "3.12.0"
+twelvemonkeys-imageio   = "3.15.3"
 
 # V1.4.35 Wiederkehrende Veranstaltungen (RFC 5545 RRULE) -- org.mnode.ical4j:ical4j 4.3.0,
 # Maven-Metadaten geprüft (Stand 2026-09-28), BSD-3, java.time-basiert, aktiv gepflegt. Genutzt
@@ -120,7 +124,14 @@ twelvemonkeys-imageio   = "3.12.0"
 # Einsatz (siehe RecurrenceExpander KDoc). Transitive Groovy-/jparsec-Abhängigkeiten (ContentBuilder-
 # DSL bzw. Filter-Ausdrücke, beide ungenutzt) werden in lapis-server/build.gradle.kts ausgeschlossen
 # -- Groovy 3 + JDK 25 wäre ein unnötiges Risiko. Siehe docs/architecture/event-series.adoc.
-ical4j                  = "4.3.0"
+ical4j                  = "4.4.0"
+
+# ── Security floors for transitive dependencies (V1.9.333) ──
+# Each floor is a `require` (never `strictly`), so a parent that ships a newer version still wins. Remove a floor
+# as soon as the parent library delivers at least this version itself.
+# guava: GHSA fix since 33.7.2. Reaches lapis-server tests and :docs-render through kuml-layout-elk -> org.eclipse.elk.graph,
+# which declares the dynamic range [15.0,) -- without a floor the result depends on the Gradle cache.
+guava-floor             = "33.8.0-jre"
 
 [plugins]
 kotlin-multiplatform    = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
@@ -221,6 +232,8 @@ zxing-core                       = { module = "com.google.zxing:core", version.r
 # V1.4.34 Nachrichten-/Artikel-Modul -- see [versions] entry above for the library-choice rationale.
 commonmark                       = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
 twelvemonkeys-imageio-webp       = { module = "com.twelvemonkeys.imageio:imageio-webp", version.ref = "twelvemonkeys-imageio" }
+
+guava-floor                      = { module = "com.google.guava:guava", version.ref = "guava-floor" }
 
 # V1.4.35 Wiederkehrende Veranstaltungen -- see the [versions] entry above for the library-choice
 # rationale. lapis-server ONLY.

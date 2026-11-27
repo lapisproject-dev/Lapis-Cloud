@@ -27,6 +27,12 @@ application {
 }
 
 dependencies {
+    // V1.9.333 security floor (test classpath only): guava arrives through the kUML layout engine (ELK, range [15.0,)).
+    constraints {
+        testImplementation(libs.guava.floor) {
+            because("GHSA fix since 33.7.2; ELK declares the open range [15.0,) so the resolved version would depend on the cache")
+        }
+    }
     implementation(project(":lapis-shared"))
 
     implementation(libs.ktor.server.core)

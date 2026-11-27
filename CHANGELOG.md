@@ -6,6 +6,25 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.333 dependency update (Gradle 9.9.2, Kotlin 2.4.21, Ktor 3.6.2, Exposed 1.6.1, kUML 0.58.0, ...)
+
+No migration, no functional change. Only test code changed where a library's API forced it (`EventIcsFeedSeriesTest`: ical4j 4.4 made `Summary` nullable).
+
+- **Build tool:** Gradle 9.7.1 -> **9.9.2** (distribution and wrapper jar checked against services.gradle.org).
+- **Plugins / toolchain:** Kotlin 2.4.20 -> 2.4.21, KSP 2.3.11 -> 2.3.14.
+- **Libraries:** Ktor 3.5.2 -> 3.6.2 (netty 4.2.20, httpclient5 5.6.5), logback 1.6.3 -> 1.6.8, kotlin-logging 8.0.4 -> 8.0.7, kotest 6.2.4 -> 6.2.7, kotlinx-serialization 1.11.0 -> 1.13.0, Exposed 1.5.0 -> 1.6.1, Flyway 13.5.0 -> 13.13.0, PostgreSQL JDBC 42.7.13 -> 42.7.15, H2 2.5.250 -> 2.5.252, kUML 0.53.0 -> 0.58.0 (test and docs-render only), nimbus-jose-jwt 10.9.1 -> 10.10, jsoup 1.23.2 -> 1.24.1, twelvemonkeys-imageio 3.12.0 -> 3.15.3, ical4j 4.3.0 -> 4.4.0, hbci4j-core 4.0.0 -> 4.1.17 (new transitive JAXB, permissive licences; **not tested against a live bank**).
+- **npm (hand-declared):** livekit-client 2.21.0 -> 2.25.0, chart.js 4.5.0 -> 4.6.2, @livekit/track-processors 0.8.1 -> 0.8.3. Built and unit-tested only, **not tried in a browser video conference**.
+- **GitHub Actions** (SHA-pinned, tags dereferenced): checkout v7.0.1, setup-java v6.3.0, upload-artifact v7.0.2, setup-node v7.1.0, docker/setup-buildx v4.4.1, docker/login v4.8.0, docker/build-push v7.4.0, gradle/actions v5.0.2. Not verified on a runner yet (needs a push).
+- **Security (transitive):** netty-codec-http / netty-handler and httpclient5 / httpcore5 are fixed by the Ktor bump (no floor needed). New `require` floors with a reason: guava 33.8.0-jre (lapis-server tests, docs-render; ELK declares the open range `[15.0,)`), logback-core 1.3.16 inside the ktlint configuration, and for the Gradle plugin classpath log4j-core/api 2.25.5, plexus-utils 4.0.3, commons-lang3 3.18.0, httpclient5 5.6.3, httpcore5 / httpcore5-h2 5.4.3, jackson-core/databind 3.1.7 (root `buildscript` constraints).
+- **Dependabot:** `.github/dependabot.yml` (Gradle + GitHub Actions, weekly, grouped). A signal only: pull requests are not merged on GitHub, the change is replayed locally in the squash workflow.
+- **Not updated, and why:**
+  - **KVision 9.7.0 and Kilua RPC 0.0.46:** KVision 9.7.0 pulls Kilua core 0.0.46, which turns `encodeDefaults` on for every RPC payload. That changes the wire format (defaults are sent, `CodedExceptionWireTest`, `LoadTestWireContractTest`, `EncounterWireCompatTest` and others pin the old one). Staying on 9.6.0 / 0.0.45 until that is decided on purpose.
+  - **commonmark 0.33.0:** nesting is limited inside the parser, so absurdly nested text is rendered instead of refused; three spec classes pin the refusal. Stays on 0.22.0.
+  - **ktlint CLI 1.8.0:** would reformat about 740 files; the logback floor above covers the alert.
+  - **Kotlin 2.5.0 / Kilua 0.0.47:** release candidates only. **detekt 2.0.0-alpha.6:** newest of its line, in lockstep with kUML.
+  - **maplibre-gl 6.x:** ESM only, needs an interop rewrite. **glob, minimatch:** pinned by mocha, which the Kotlin Gradle plugin dictates; no mocha release has fixed ranges. **@js-joda/timezone 3.x:** major, tied to kotlinx-datetime.
+- **Not run locally:** the Postgres lane (`postgresTest*`) runs in CI only.
+
 ### V1.9.332 instance mail language for the tender payout mails
 
 Schema **V176** (`organization_settings.mail_language`, default `de`). **A backup taken after V176 cannot be restored onto a server that is still before V176 without the column being added first; a backup from before V176 restores with `de`.**
