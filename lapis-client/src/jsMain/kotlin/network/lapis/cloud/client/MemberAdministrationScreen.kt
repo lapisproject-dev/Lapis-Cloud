@@ -149,6 +149,9 @@ private fun renderPendingApplications(
     root: SimplePanel,
     chapters: List<RegionalChapterRefDto>,
 ) {
+    // V1.9.336: the instance mail language preselects the decision dialogs; loaded once per render, quietly, German until it arrives.
+    var instanceMailLanguage = "de"
+    AppScope.launch { instanceMailLanguage = loadDecisionMailLanguage() }
     root.h2(tr("Offene Anträge")) { addCssClass("h5") }
     // Welle V1.4.25: `dataSection` + `dataTable` replace the hand-built table -- the same density,
     // loading/error/empty grammar and narrow-viewport card list as the roster below, so the two tables of
@@ -169,7 +172,13 @@ private fun renderPendingApplications(
                         actions,
                         application,
                         ->
-                        renderPendingApplicationActions(actions, application, chapters, onChanged = { section.reload() })
+                        renderPendingApplicationActions(
+                            actions,
+                            application,
+                            chapters,
+                            mailLanguage = { instanceMailLanguage },
+                            onChanged = { section.reload() },
+                        )
                     },
                 )
             },
@@ -225,12 +234,13 @@ private fun renderPendingApplicationActions(
     actionsContainer: Container,
     application: MemberDto,
     chapters: List<RegionalChapterRefDto>,
+    mailLanguage: () -> String,
     onChanged: () -> Unit,
 ) {
     val actionsRow = actionsContainer.hPanel(spacing = 8)
     val approveButton = actionsRow.actionButton(ActionIcon.APPROVE, tr("Annehmen"), style = ButtonStyle.SUCCESS)
     approveButton.onClick {
-        approveApplicationDialog(application.displayName) { notify, language ->
+        approveApplicationDialog(application.displayName, mailLanguage()) { notify, language ->
             AppScope.launch {
                 // Welle V1.9.14: RegionalChapterRequiredException is possible here when the enforcement
                 // flag is on and no chapter is assigned yet -- regionalChapterGuarded (not guarded) shows
@@ -250,7 +260,7 @@ private fun renderPendingApplicationActions(
     }
     val rejectButton = actionsRow.actionButton(ActionIcon.REJECT, tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
     rejectButton.onClick {
-        rejectApplicationDialog(application.displayName) { reason, notify, language ->
+        rejectApplicationDialog(application.displayName, mailLanguage()) { reason, notify, language ->
             AppScope.launch {
                 val result = guarded { rpcService<IRegistrationService>().rejectApplication(application.id, reason, notify, language) }
                 if (result != null) {
@@ -387,39 +397,49 @@ private fun showDecisionToast(toast: DecisionToast) =
 internal class DecisionNotifyControls(
     private val notifyField: LapisField,
     private val languageField: LapisField,
+    private val fallbackLanguage: String,
 ) {
     /** Whether the person is to be told by e-mail. */
     val notify: Boolean get() = notifyField.value == "true"
 
-    /** The language of the first mail block; `de` (the default) when nothing is chosen. */
-    val language: String get() = languageField.value.ifBlank { "de" }
+    /** The language of the first mail block; the preselected one when nothing is chosen. */
+    val language: String get() = languageField.value.ifBlank { fallbackLanguage }
 }
 
 /**
  * V1.9.118 -- adds the notification fields to the decision [form]: a tick box (on by default, shown for every decision) with the
- * one-line [help] text, and below it the language choice (only while ticked, default German -- members have no stored language).
+ * one-line [help] text, and below it the language choice (only while ticked, preselected with the instance mail language, German if unknown).
  * The language names are shown in their own language and never translated, like the language switcher.
  */
-internal fun LapisForm.addDecisionNotifyControls(help: String): DecisionNotifyControls {
+internal fun LapisForm.addDecisionNotifyControls(
+    help: String,
+    defaultMailLanguage: String = "de",
+): DecisionNotifyControls {
+    val preselected = decisionMailLanguageOf(defaultMailLanguage)
     var languageSelect: Select? = null
     val notifyField =
         checkField(label = tr("Person per E-Mail benachrichtigen"), value = true, hint = help) { box ->
             box.subscribe { checked -> if (checked) languageSelect?.show() else languageSelect?.hide() }
         }
     val languageField =
-        selectField(label = tr("Sprache der E-Mail"), options = SUPPORTED_LANGUAGES, value = "de") { languageSelect = it }
-    return DecisionNotifyControls(notifyField = notifyField, languageField = languageField)
+        selectField(label = tr("Sprache der E-Mail"), options = MAIL_LANGUAGES, value = preselected) { languageSelect = it }
+    return DecisionNotifyControls(notifyField = notifyField, languageField = languageField, fallbackLanguage = preselected)
 }
 
 /** V1.9.118 -- approving asks whether (and in which language) to tell the person; the decision itself needs no further input. */
 internal fun approveApplicationDialog(
     applicantName: String,
+    defaultMailLanguage: String = "de",
     onConfirm: (notify: Boolean, language: String) -> Unit,
 ) {
     // applicantName is a member display name, free text -- sanitize the composed caption like rejectApplicationDialog does.
     val modal = Modal(caption = sanitizeUntrustedI18nText(gettext("Antrag von %1 annehmen", applicantName)))
     val form = modal.lapisForm()
-    val controls = form.addDecisionNotifyControls(help = tr("Die Person erhält eine kurze Standardnachricht mit Anmeldelink."))
+    val controls =
+        form.addDecisionNotifyControls(
+            help = tr("Die Person erhält eine kurze Standardnachricht mit Anmeldelink."),
+            defaultMailLanguage = defaultMailLanguage,
+        )
     form.finish()
     val approveButton = newActionButton(ActionIcon.APPROVE, tr("Annehmen"), ButtonStyle.SUCCESS)
     approveButton.onClick {
@@ -436,6 +456,7 @@ internal fun approveApplicationDialog(
  * V1.9.118: also asks whether the person is told (a neutral mail without the reason) and in which language. */
 internal fun rejectApplicationDialog(
     applicantName: String,
+    defaultMailLanguage: String = "de",
     onConfirm: (reason: String, notify: Boolean, language: String) -> Unit,
 ) {
     // Security audit follow-up (untrusted-text sanitization gaps): applicantName is a member display name, free
@@ -452,7 +473,11 @@ internal fun rejectApplicationDialog(
             required = true,
             requiredMessage = gettext("Bitte einen Grund angeben."),
         )
-    val controls = form.addDecisionNotifyControls(help = tr("Die Person erhält eine kurze, neutrale Nachricht ohne Begründung."))
+    val controls =
+        form.addDecisionNotifyControls(
+            help = tr("Die Person erhält eine kurze, neutrale Nachricht ohne Begründung."),
+            defaultMailLanguage = defaultMailLanguage,
+        )
     form.finish()
     val rejectButton = newActionButton(ActionIcon.REJECT, tr("Ablehnen"), ButtonStyle.DANGER)
     rejectButton.onClick {

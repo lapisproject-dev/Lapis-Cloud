@@ -162,6 +162,121 @@ class MembershipDecisionDialogDomTest {
             }
         }
 
+    private fun fillReason(modal: HTMLElement) {
+        val reason = modal.all("textarea").first() as HTMLTextAreaElement
+        reason.value = "Grund"
+        reason.dispatchEvent(Event("input"))
+        reason.dispatchEvent(Event("blur"))
+    }
+
+    private fun HTMLSelectElement.choose(code: String) {
+        value = code
+        dispatchEvent(Event("change"))
+    }
+
+    @Test
+    fun approveDialog_preselectsTheInstanceLanguage(): Promise<Unit> =
+        test {
+            withMountedRoot("decision-approve-pl") { _, _ ->
+                var got: Pair<Boolean, String>? = null
+                approveApplicationDialog("Kofi", "pl") { notify, language -> got = notify to language }
+                val modal = lastModal()
+                assertEquals("pl", modal.languageSelect().value)
+                modal.button("Annehmen").click()
+                assertEquals(true to "pl", got)
+                closeOpenModals(timeoutMs = 1000)
+            }
+        }
+
+    @Test
+    fun approveDialog_preselectedLanguageCanBeChanged(): Promise<Unit> =
+        test {
+            withMountedRoot("decision-approve-pl-en") { _, _ ->
+                var got: Pair<Boolean, String>? = null
+                approveApplicationDialog("Kofi", "pl") { notify, language -> got = notify to language }
+                val modal = lastModal()
+                modal.languageSelect().choose("en")
+                modal.button("Annehmen").click()
+                assertEquals(true to "en", got)
+                closeOpenModals(timeoutMs = 1000)
+            }
+        }
+
+    @Test
+    fun approveDialog_unknownOrEmptyDefaultFallsBackToGerman(): Promise<Unit> =
+        test {
+            for (bad in listOf("xx", "")) {
+                withMountedRoot("decision-approve-bad-$bad") { _, _ ->
+                    var got: Pair<Boolean, String>? = null
+                    approveApplicationDialog("Kofi", bad) { notify, language -> got = notify to language }
+                    val modal = lastModal()
+                    assertEquals("de", modal.languageSelect().value)
+                    modal.button("Annehmen").click()
+                    assertEquals(true to "de", got)
+                    closeOpenModals(timeoutMs = 1000)
+                }
+            }
+        }
+
+    @Test
+    fun rejectDialog_preselectsTheInstanceLanguage(): Promise<Unit> =
+        test {
+            withMountedRoot("decision-reject-pl") { _, _ ->
+                var got: Triple<String, Boolean, String>? = null
+                rejectApplicationDialog("Kofi", "pl") { reason, notify, language -> got = Triple(reason, notify, language) }
+                val modal = lastModal()
+                assertEquals("pl", modal.languageSelect().value)
+                fillReason(modal)
+                modal.button("Ablehnen").click()
+                assertEquals(Triple("Grund", true, "pl"), got)
+                closeOpenModals(timeoutMs = 1000)
+            }
+        }
+
+    @Test
+    fun rejectDialog_preselectedLanguageCanBeChanged(): Promise<Unit> =
+        test {
+            withMountedRoot("decision-reject-pl-en") { _, _ ->
+                var got: Triple<String, Boolean, String>? = null
+                rejectApplicationDialog("Kofi", "pl") { reason, notify, language -> got = Triple(reason, notify, language) }
+                val modal = lastModal()
+                modal.languageSelect().choose("en")
+                fillReason(modal)
+                modal.button("Ablehnen").click()
+                assertEquals(Triple("Grund", true, "en"), got)
+                closeOpenModals(timeoutMs = 1000)
+            }
+        }
+
+    @Test
+    fun rejectDialog_unknownOrEmptyDefaultFallsBackToGerman(): Promise<Unit> =
+        test {
+            for (bad in listOf("xx", "")) {
+                withMountedRoot("decision-reject-bad-$bad") { _, _ ->
+                    var got: Triple<String, Boolean, String>? = null
+                    rejectApplicationDialog("Kofi", bad) { reason, notify, language -> got = Triple(reason, notify, language) }
+                    val modal = lastModal()
+                    assertEquals("de", modal.languageSelect().value)
+                    fillReason(modal)
+                    modal.button("Ablehnen").click()
+                    assertEquals(Triple("Grund", true, "de"), got)
+                    closeOpenModals(timeoutMs = 1000)
+                }
+            }
+        }
+
+    @Test
+    fun languageOptions_followMailLanguagesInOrder(): Promise<Unit> =
+        test {
+            withMountedRoot("decision-options") { _, _ ->
+                approveApplicationDialog("Kofi") { _, _ -> }
+                val select = lastModal().languageSelect()
+                val values = (0 until select.options.length).map { (select.options.item(it) as org.w3c.dom.HTMLOptionElement).value }
+                assertEquals(MAIL_LANGUAGES.map { it.first }, values)
+                closeOpenModals(timeoutMs = 1000)
+            }
+        }
+
     @Test
     fun toastText_perOutcome(): Promise<Unit> =
         test {

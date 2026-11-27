@@ -32,6 +32,17 @@ internal val MAIL_LANGUAGES: List<Pair<String, String>> =
 /** The endonym of [code], or `null` for a code this client does not know. */
 internal fun mailLanguageEndonym(code: String): String? = MAIL_LANGUAGES.firstOrNull { it.first == code }?.second
 
+/** V1.9.336 -- [code] if it is one of [MAIL_LANGUAGES] (after trimming), else German. No lowercasing: the server compares exactly. */
+internal fun decisionMailLanguageOf(code: String?): String = code?.trim()?.takeIf { c -> MAIL_LANGUAGES.any { it.first == c } } ?: "de"
+
+/**
+ * V1.9.336 -- the instance mail language for preselecting the decision dialogs. Reads quietly (no toast): German when the
+ * setting cannot be loaded or is unknown.
+ */
+internal suspend fun loadDecisionMailLanguage(
+    load: suspend () -> OrganizationSettingsDto = { rpcService<IOrganizationSettingsService>().getOrganizationSettings() },
+): String = decisionMailLanguageOf(quietly { load() }?.mailLanguage)
+
 /** Renders the setting into [panel]; [onChanged] lets the page refresh its summary line. */
 internal fun renderOrganizationMailLanguageSettings(
     panel: SimplePanel,

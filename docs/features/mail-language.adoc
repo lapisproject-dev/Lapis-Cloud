@@ -51,7 +51,7 @@ Not single-language in the instance language, on purpose:
 
 * the membership decision mails (approved/rejected): the language chosen in the board dialog (`mailLanguage`) plus a de/en second block
   (V1.9.118). Since V1.9.335 an empty or unknown code falls back to the instance language instead of `de` (only API/MCP callers can send
-  one; the dialog always sends a code, default `de`);
+  one; the dialog always sends a code). Since V1.9.336 the setting also preselects the language in the decision dialogs (German if it cannot be loaded or is unknown); the board may change it per decision. A change made while the page is open applies after a reload;
 * newsletters and mailings: they carry their own language.
 
 Event mails: members have no stored language and the language of a guest is not reliably known (the public page learns the visitor

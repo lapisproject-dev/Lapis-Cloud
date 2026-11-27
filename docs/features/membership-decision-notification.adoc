@@ -13,10 +13,10 @@ language the board chooses per decision, and never contains the rejection reason
   access stays in place and links to the login. Both variants have the same subject.
 * The mail goes to the address stored on the application, and only to it.
 * The dialogs of the pending applications show a tick box "Person per E-Mail benachrichtigen", **on by default for every decision**, and a
-  language choice (default German). Members have no stored language, so the language is chosen per decision. The mail has the chosen language
-  first, followed by German (or by English when German was chosen). The subject is in the chosen language. An unknown language code is
-  treated as German.
-* Since V1.9.335 an empty or unknown language code (API/MCP callers) falls back to the instance mail language instead of `de`; a valid code always wins.
+  language choice, preselected with the instance mail language (setting `mail_language`), German if it cannot be loaded or is unknown. The
+  board may change it per decision; the choice is not stored. The options are in the same order as on the settings page. The mail has the
+  chosen language first, followed by German (or by English when German was chosen). The subject is in the chosen language.
+* Since V1.9.335 an empty or unknown language code (API/MCP callers) falls back to the instance mail language instead of `de`; a valid code always wins. This stays as a safety net behind the preselection (V1.9.336).
 * The contact line is "reply to this e-mail" when a reply-to address is configured (`LAPIS_SMTP_REPLY_TO`), otherwise "contact the board".
   The sender address is never named as a contact.
 
@@ -64,7 +64,7 @@ warning (not a success) whenever the person was not told.
 
 == Limitations
 
-* The language is chosen per decision and not stored.
+* The language is chosen per decision and not stored. The instance language is read once when the page is rendered; a change made while the page is open applies after a reload.
 * The translations (de, en, es, fr, it, nl, pl, ru) were written by the model and have **not** been reviewed by native speakers.
 * No persistent record of the outcome: neither the audit log nor the status history carries it (`member_status_history` has no note column
   and the approve/reject paths write no audit entry). The outcome is in the RPC result and in the one log line only.

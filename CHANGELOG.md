@@ -6,6 +6,15 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.336 decision dialog preselects the instance mail language
+
+**No migration, no new RPC, no text change.** Client and docs only.
+
+- The approve and reject dialogs of the pending applications now preselect the instance mail language (`OrganizationSettingsDto.mailLanguage`, read once per
+  page render through the existing `getOrganizationSettings`, quietly: no toast). German when it cannot be loaded or is unknown. The board may still change it
+  per decision; the choice is not stored. An already open dialog is never changed afterwards.
+- The language options now follow `MAIL_LANGUAGES` (es before fr), the same order as on the settings page.
+
 ### V1.9.335 event mails single-language in the instance mail language
 
 **No migration.** No new setting, no new mail purpose.
