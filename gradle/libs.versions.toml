@@ -109,7 +109,7 @@ zxing-core              = "3.5.4"
 # no longer ends in a StackOverflowError and is rendered (depth-limited) instead of refused by renderOrNull -- five specs pin the old
 # refusal (AgreementMarkdownTest, AgreementTextMarkdownServiceTest, TenderDescriptionFormatTest). Taking 0.33.0 needs those contracts
 # decided on purpose (explicit Parser.maxOpenBlockParsers/maxInlineNesting), not a silent test edit.
-commonmark              = "0.22.0"
+commonmark              = "0.33.0"
 
 # V1.9.222 Bildergalerie -- WebP uploads. The JDK's ImageIO has no WebP reader, so a WebP picture could not be decoded on the server at all.
 # com.twelvemonkeys.imageio:imageio-webp (BSD-3-Clause, pure Java, no native code) adds ONE reader, registered by ServiceLoader for the format
