@@ -2,143 +2,48 @@ package network.lapis.cloud.client
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 /**
- * Review-Fund 2026-09-12 (Welle V1.4.10.1 "Beitragsvergünstigungen: Bedienoberfläche"): covers
- * [reliefSidebarLabel], the one pure, DOM-independent function `Sidebar.kt` gained this wave --
- * its own KDoc already pointed at a "SidebarLabelsTest" that did not exist yet. Same scope
- * posture as [ContributionReliefLabelsTest] (no rendering harness needed, `TestI18nSetup`'s
- * `I18nCatalogManager(emptyMap())` backs `tr()`/`gettext()`).
- *
- * `tr(key)` and `gettext(key, *args)` behave differently here (live-verified, NOT symmetric the
- * way [ContributionReliefLabelsTest]'s all-`gettext()` functions are): `gettext` resolves through
- * [I18nCatalogManager] immediately and substitutes `%N` placeholders, but `tr` unconditionally
- * prefixes its result with KVision's own `"###KvI18nS###"` dynamic-retranslation marker regardless
- * of which manager is installed (same marker [SidebarStructureTest] already strips off `Button.text`
- * and `ConferenceScreen.kt`'s `resolvedA11yText` strips off ARIA text -- see either KDoc). That is
- * correct here, not a bug: `reliefSidebarLabel(null)`'s return value is only ever used as the
- * INITIAL label argument to `sidebarLink(...)` (i.e. a widget constructor param, never a bare
- * rendered string), exactly like every other flat/group-header label in this file (`tr("Dashboard")`
- * etc.) -- it needs the marker so KVision can re-translate the live widget on a language switch.
+ * V1.9.339 -- the pure parts of the sidebar approval counters (Artikel, Beitragsvergünstigungen, Reisekosten-Freigaben,
+ * Ehrenamtspauschalen-Freigaben): [approvalCountText] and [approvalAccessibleName]. The counter is a suffix span, never part of the
+ * label; the DOM side is covered by [SidebarApprovalCountDomTest]. `TestI18nSetup`'s `I18nCatalogManager(emptyMap())` backs `gettext()`.
  */
 class SidebarLabelsTest {
-    // KVision's internal marker `tr(key)` unconditionally prefixes its result with, regardless of
-    // the installed `I18nManager` -- see this class's own KDoc and [SidebarStructureTest].
+    // KVision's marker that `tr(key)` unconditionally prefixes -- `approvalAccessibleName` strips it via `plainMenuText`.
     private val kvI18nMarker = "###KvI18nS###"
 
     @Test
-    fun reliefSidebarLabel_null_isThePlainLabelWithNoBadge() {
-        assertEquals("${kvI18nMarker}Beitragsvergünstigungen", reliefSidebarLabel(null))
+    fun approvalCountText_unknownEmptyOrNegative_isNull() {
+        assertNull(approvalCountText(null))
+        assertNull(approvalCountText(0))
+        assertNull(approvalCountText(-1))
     }
 
     @Test
-    fun reliefSidebarLabel_zero_isThePlainLabelWithNoBadge() {
-        // Distinct from `null` at the call site (`AppScope.launch`'s own `openCount != null &&
-        // openCount > 0` guard never overwrites the label for a resolved 0), but `reliefSidebarLabel`
-        // itself is defensive and folds both into the same branch.
-        assertEquals("${kvI18nMarker}Beitragsvergünstigungen", reliefSidebarLabel(0))
+    fun approvalCountText_belowCap_isTheExactCount() {
+        assertEquals("1", approvalCountText(1))
+        assertEquals("199", approvalCountText(199))
     }
 
     @Test
-    fun reliefSidebarLabel_belowCap_showsTheExactCount() {
-        assertEquals("Beitragsvergünstigungen (1)", reliefSidebarLabel(1))
-        assertEquals("Beitragsvergünstigungen (199)", reliefSidebarLabel(199))
+    fun approvalCountText_atOrAboveCap_isTwoHundredPlus() {
+        assertEquals("200+", approvalCountText(200))
+        assertEquals("200+", approvalCountText(201))
+        assertEquals("200+", approvalCountText(500))
+        assertEquals("200+", approvalCountText(9999))
     }
 
     @Test
-    fun reliefSidebarLabel_atCap_showsTwoHundredPlusNotTheExactCount() {
-        // `listReliefRequests`' own `MAX_LIST_RESULTS = 200` page-size cap -- 200 is the first value
-        // this sidebar counter can never have actually verified as exact (a >=200 comparison, not
-        // >200 -- off-by-one here would silently claim an exact count of "200" the capped RPC call
-        // never actually confirmed).
-        assertEquals("Beitragsvergünstigungen (200+)", reliefSidebarLabel(200))
+    fun approvalAccessibleName_namesTheLabelAndTheCount() {
+        assertEquals("Artikel, 3 offen", approvalAccessibleName("${kvI18nMarker}Artikel", 3))
+        assertEquals("Artikel, 200+ offen", approvalAccessibleName("${kvI18nMarker}Artikel", 200))
+        assertEquals("Reisekosten-Freigaben, 1 offen", approvalAccessibleName("Reisekosten-Freigaben", 1))
     }
 
     @Test
-    fun reliefSidebarLabel_aboveCap_stillShowsTwoHundredPlus() {
-        assertEquals("Beitragsvergünstigungen (200+)", reliefSidebarLabel(201))
-        assertEquals("Beitragsvergünstigungen (200+)", reliefSidebarLabel(9999))
-    }
-
-    // Welle V1.4.11 "Reisekostenabrechnung" -- travelExpenseSidebarLabel mirrors reliefSidebarLabel's
-    // grammar exactly, same reasoning for every case above.
-    @Test
-    fun travelExpenseSidebarLabel_null_isThePlainLabelWithNoBadge() {
-        assertEquals("${kvI18nMarker}Reisekosten-Freigaben", travelExpenseSidebarLabel(null))
-    }
-
-    @Test
-    fun travelExpenseSidebarLabel_zero_isThePlainLabelWithNoBadge() {
-        assertEquals("${kvI18nMarker}Reisekosten-Freigaben", travelExpenseSidebarLabel(0))
-    }
-
-    @Test
-    fun travelExpenseSidebarLabel_belowCap_showsTheExactCount() {
-        assertEquals("Reisekosten-Freigaben (1)", travelExpenseSidebarLabel(1))
-        assertEquals("Reisekosten-Freigaben (199)", travelExpenseSidebarLabel(199))
-    }
-
-    @Test
-    fun travelExpenseSidebarLabel_atCap_showsTwoHundredPlusNotTheExactCount() {
-        assertEquals("Reisekosten-Freigaben (200+)", travelExpenseSidebarLabel(200))
-    }
-
-    @Test
-    fun travelExpenseSidebarLabel_aboveCap_stillShowsTwoHundredPlus() {
-        assertEquals("Reisekosten-Freigaben (200+)", travelExpenseSidebarLabel(201))
-        assertEquals("Reisekosten-Freigaben (200+)", travelExpenseSidebarLabel(9999))
-    }
-
-    // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- volunteerAllowanceSidebarLabel mirrors
-    // travelExpenseSidebarLabel's grammar exactly, same reasoning for every case above.
-    @Test
-    fun volunteerAllowanceSidebarLabel_null_isThePlainLabelWithNoBadge() {
-        assertEquals("${kvI18nMarker}Ehrenamtspauschalen-Freigaben", volunteerAllowanceSidebarLabel(null))
-    }
-
-    @Test
-    fun volunteerAllowanceSidebarLabel_zero_isThePlainLabelWithNoBadge() {
-        assertEquals("${kvI18nMarker}Ehrenamtspauschalen-Freigaben", volunteerAllowanceSidebarLabel(0))
-    }
-
-    @Test
-    fun volunteerAllowanceSidebarLabel_belowCap_showsTheExactCount() {
-        assertEquals("Ehrenamtspauschalen-Freigaben (1)", volunteerAllowanceSidebarLabel(1))
-        assertEquals("Ehrenamtspauschalen-Freigaben (199)", volunteerAllowanceSidebarLabel(199))
-    }
-
-    @Test
-    fun volunteerAllowanceSidebarLabel_atCap_showsTwoHundredPlusNotTheExactCount() {
-        assertEquals("Ehrenamtspauschalen-Freigaben (200+)", volunteerAllowanceSidebarLabel(200))
-    }
-
-    @Test
-    fun volunteerAllowanceSidebarLabel_aboveCap_stillShowsTwoHundredPlus() {
-        assertEquals("Ehrenamtspauschalen-Freigaben (200+)", volunteerAllowanceSidebarLabel(201))
-        assertEquals("Ehrenamtspauschalen-Freigaben (200+)", volunteerAllowanceSidebarLabel(9999))
-    }
-
-    // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- articlesSidebarLabel mirrors the
-    // same grammar (ArticleStore.MAX_PAGE_SIZE = 200), same reasoning as every other case above.
-    @Test
-    fun articlesSidebarLabel_null_isThePlainLabelWithNoBadge() {
-        assertEquals("${kvI18nMarker}Artikel", articlesSidebarLabel(null))
-    }
-
-    @Test
-    fun articlesSidebarLabel_zero_isThePlainLabelWithNoBadge() {
-        assertEquals("${kvI18nMarker}Artikel", articlesSidebarLabel(0))
-    }
-
-    @Test
-    fun articlesSidebarLabel_belowCap_showsTheExactCount() {
-        assertEquals("Artikel (3)", articlesSidebarLabel(3))
-        assertEquals("Artikel (199)", articlesSidebarLabel(199))
-    }
-
-    @Test
-    fun articlesSidebarLabel_atOrAboveCap_showsTwoHundredPlus() {
-        assertEquals("Artikel (200+)", articlesSidebarLabel(200))
-        assertEquals("Artikel (200+)", articlesSidebarLabel(9999))
+    fun approvalAccessibleName_nothingToAnnounce_isNull() {
+        assertNull(approvalAccessibleName("${kvI18nMarker}Artikel", 0))
+        assertNull(approvalAccessibleName("${kvI18nMarker}Artikel", null))
     }
 }

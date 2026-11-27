@@ -11860,10 +11860,6 @@ msgstr "Naar het bijdrageoverzicht"
 msgid "Beitragsvergünstigungen"
 msgstr "Bijdragekortingen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
-msgid "Beitragsvergünstigungen (%1)"
-msgstr "Bijdragekortingen (%1)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
 msgid "Beitragsbefreit ab %1"
 msgstr "Vrijgesteld van bijdrage vanaf %1"
@@ -12107,10 +12103,6 @@ msgstr "Doel van de reis"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
 msgid "Reisekosten-Aufwandskonto"
 msgstr "Reiskostenrekening"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
-msgid "Reisekosten-Freigaben (%1)"
-msgstr "Reiskostengoedkeuringen (%1)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
 msgid "Catering"
@@ -16321,10 +16313,6 @@ msgstr "Ruimtebeheer"
 msgid "Ehrenamtspauschalen-Freigaben"
 msgstr "Goedkeuringen vrijwilligersvergoedingen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:1
-msgid "Ehrenamtspauschalen-Freigaben (%1)"
-msgstr "Goedkeuringen vrijwilligersvergoedingen (%1)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/ThemeToggle.kt:1
 msgid "Dunklen/hellen Modus umschalten"
 msgstr "Donkere/lichte modus wisselen"
@@ -17089,10 +17077,6 @@ msgstr "Ingediend ter goedkeuring"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleLabels.kt
 msgid "Depubliziert"
 msgstr "Gedepubliceerd"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleLabels.kt
-msgid "Artikel (%1)"
-msgstr "Artikelen (%1)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
 msgid "Vorschau vorübergehend nicht verfügbar – bitte kurz warten."
@@ -34896,3 +34880,7 @@ msgstr "Vind ik leuk"
 
 msgid "Gefällt mir nicht"
 msgstr "Vind ik niet leuk"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
+msgid "%1, %2 offen"
+msgstr "%1, %2 open"

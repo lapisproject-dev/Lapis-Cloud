@@ -8,7 +8,6 @@ import io.kvision.html.Span
 import io.kvision.html.button
 import io.kvision.html.link
 import io.kvision.i18n.gettext
-import io.kvision.i18n.tr
 import io.kvision.navbar.Nav
 import io.kvision.panel.SimplePanel
 import kotlinx.browser.localStorage
@@ -282,7 +281,7 @@ fun buildSidebar(
 
     // Welle V1.4.10.1 "Beitragsvergünstigungen: Bedienoberfläche" -- returns the [Link] widget
     // (previously `Unit`) so the FINANCE group's new relief entry can update its own label once the
-    // open-request count has loaded (see [reliefSidebarLabel]'s call site below). Every existing
+    // open-request count has loaded (see `bindSidebarApprovalCount`'s call sites below). Every existing
     // call site ignores the return value, so this is source-compatible.
     fun SimplePanel.sidebarLink(
         route: String,
@@ -410,8 +409,8 @@ private fun enhance(
     link: Link,
     session: SessionInfoDto,
 ) {
-    // V1.9.224: "(aktiv/gesamt)" as a child of the link, never part of its label (the menu search indexes the label; the counters of the
-    // approval links below overwrite the label). Hidden until the first figures arrive.
+    // V1.9.224: "(aktiv/gesamt)" as a child of the link, never part of its label (the menu search indexes the label; the approval
+    // counters below are suffixes too). Hidden until the first figures arrive.
     entry.liveSuffix?.let { suffix ->
         val span = Span(className = "nav-live-suffix")
         span.setAttribute("aria-hidden", "true")
@@ -429,42 +428,22 @@ private fun enhance(
             MemberFinderNav.onChange { offered -> link.visible = NavVisibility.showsMemberFinder(session.status, offered) }
             MemberFinderNav.ensureLoaded(session)
         }
-        // Welle V1.4.36 -- BOARD/ADMIN see the size of the approval queue in the label (every member sees the entry itself).
+        // V1.9.339 -- the approval counters (BOARD/ADMIN see the queue size) are a child span like the other live suffixes, never part of the
+        // label (the menu search indexes the label). One load when the sidebar is built; `runCatching`, NOT `guarded{}`: a failure must never
+        // raise a toast, the link then simply stays without a number.
         Routes.ARTICLES ->
-            if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
-                AppScope.launch {
-                    val openCount = runCatching { rpcService<IArticleService>().listSubmittedArticles().size }.getOrNull()
-                    if (openCount != null && openCount > 0) link.label = articlesSidebarLabel(openCount)
-                }
-            }
-        // Counters: `runCatching`, NOT `guarded{}` -- a failure while building the sidebar must never raise a toast. The label is overwritten
-        // afterwards by a coroutine (the build is not `suspend`); the link first renders without a number like every other entry.
+            bindArticlesApprovalCount(link = link, label = entry.label)
         Routes.CONTRIBUTION_RELIEF ->
-            AppScope.launch {
-                val openCount =
-                    runCatching {
-                        rpcService<IContributionReliefService>().listReliefRequests(status = ContributionReliefStatus.REQUESTED).size
-                    }.getOrNull()
-                if (openCount != null && openCount > 0) link.label = reliefSidebarLabel(openCount)
+            bindSidebarApprovalCount(link = link, label = entry.label) {
+                rpcService<IContributionReliefService>().listReliefRequests(status = ContributionReliefStatus.REQUESTED).size
             }
         Routes.TRAVEL_EXPENSE_APPROVALS ->
-            AppScope.launch {
-                val openCount =
-                    runCatching {
-                        rpcService<ITravelExpenseService>()
-                            .listReports(
-                                status = TravelExpenseReportStatus.REQUESTED,
-                            ).size
-                    }.getOrNull()
-                if (openCount != null && openCount > 0) link.label = travelExpenseSidebarLabel(openCount)
+            bindSidebarApprovalCount(link = link, label = entry.label) {
+                rpcService<ITravelExpenseService>().listReports(status = TravelExpenseReportStatus.REQUESTED).size
             }
         Routes.VOLUNTEER_ALLOWANCE_APPROVALS ->
-            AppScope.launch {
-                val openCount =
-                    runCatching {
-                        rpcService<IVolunteerAllowanceService>().listPayments(status = VolunteerAllowancePaymentStatus.REQUESTED).size
-                    }.getOrNull()
-                if (openCount != null && openCount > 0) link.label = volunteerAllowanceSidebarLabel(openCount)
+            bindSidebarApprovalCount(link = link, label = entry.label) {
+                rpcService<IVolunteerAllowanceService>().listPayments(status = VolunteerAllowancePaymentStatus.REQUESTED).size
             }
     }
 }
@@ -479,37 +458,83 @@ internal fun plainMenuText(label: String): String =
 private const val KVISION_TR_MARKER = "###KvI18nS###"
 
 /**
- * Welle V1.4.10.1 -- `null`/`0` renders the plain label (no badge), `>= 200` shows "200+" rather
- * than the exact count (the sidebar counter mirrors `listReliefRequests`'s own
- * `MAX_LIST_RESULTS = 200` page-size cap -- an exact count above that would silently imply a total
- * this one capped call never actually saw). Pure -- see `SidebarLabelsTest`.
+ * V1.9.339 -- upper bound of the approval counters: the list calls behind them are page-capped (MAX_LIST_RESULTS /
+ * ArticleStore.MAX_PAGE_SIZE = 200), so an exact figure above that would imply a total the capped call never saw.
  */
-internal fun reliefSidebarLabel(openCount: Int?): String =
+internal const val APPROVAL_COUNT_CAP = 200
+
+/** The text of an approval counter: `null` for an unknown or empty queue, `"200+"` from the cap on, otherwise the number. Pure. */
+internal fun approvalCountText(openCount: Int?): String? =
     when {
-        openCount == null || openCount == 0 -> tr("Beitragsvergünstigungen")
-        openCount >= 200 -> gettext("Beitragsvergünstigungen (%1)", "200+")
-        else -> gettext("Beitragsvergünstigungen (%1)", openCount)
+        openCount == null || openCount <= 0 -> null
+        openCount >= APPROVAL_COUNT_CAP -> "$APPROVAL_COUNT_CAP+"
+        else -> openCount.toString()
     }
+
+/** The accessible name of an approval link ("Artikel, 3 offen"); `null` when there is nothing to announce. Pure. */
+internal fun approvalAccessibleName(
+    label: String,
+    openCount: Int?,
+): String? = approvalCountText(openCount)?.let { gettext("%1, %2 offen", plainMenuText(label), it) }
 
 /**
- * Welle V1.4.11 -- gleiche Grammatik wie [reliefSidebarLabel]: `null`/`0` rendert das reine Label
- * (kein Badge), `>= 200` zeigt "200+" statt der exakten Zahl (spiegelt
- * `TravelExpenseService.MAX_LIST_RESULTS`). Pure -- see `SidebarLabelsTest`.
+ * Shows or hides the count [suffix] in [span] and keeps the accessible name of [link] in step: `null` hides the span and removes the
+ * aria-label/title again, otherwise the span reads " (suffix)" and the link carries [accessibleName].
  */
-internal fun travelExpenseSidebarLabel(openCount: Int?): String =
-    when {
-        openCount == null || openCount == 0 -> tr("Reisekosten-Freigaben")
-        openCount >= 200 -> gettext("Reisekosten-Freigaben (%1)", "200+")
-        else -> gettext("Reisekosten-Freigaben (%1)", openCount)
+internal fun applyCountSuffix(
+    span: Span,
+    link: Link,
+    suffix: String?,
+    accessibleName: String?,
+) {
+    if (suffix == null) {
+        span.content = ""
+        span.visible = false
+        link.removeAttribute("aria-label")
+        link.removeAttribute("title")
+    } else {
+        span.content = " ($suffix)"
+        span.visible = true
+        if (accessibleName != null) {
+            link.setAttribute("aria-label", accessibleName)
+            link.setAttribute("title", accessibleName)
+        }
     }
+}
 
-/** Welle V1.4.12 -- gleiche Grammatik wie [travelExpenseSidebarLabel]. */
-internal fun volunteerAllowanceSidebarLabel(openCount: Int?): String =
-    when {
-        openCount == null || openCount == 0 -> tr("Ehrenamtspauschalen-Freigaben")
-        openCount >= 200 -> gettext("Ehrenamtspauschalen-Freigaben (%1)", "200+")
-        else -> gettext("Ehrenamtspauschalen-Freigaben (%1)", openCount)
+/** The "Artikel" approval counter: only BOARD/ADMIN get the span and the call at all (everybody else sees the plain entry). */
+internal fun bindArticlesApprovalCount(
+    link: Link,
+    label: String,
+    load: suspend () -> Int? = { rpcService<IArticleService>().listSubmittedArticles().size },
+) {
+    if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) bindSidebarApprovalCount(link = link, label = label, load = load)
+}
+
+/**
+ * V1.9.339 -- the open-request counter on an approval entry: a child span (`aria-hidden`, never part of the label, so the menu search stays
+ * clean and the number is not read twice), the link's accessible name carries it ("Reisekosten-Freigaben, 3 offen"). [load] runs once; a
+ * failure (`runCatching`, no toast) or an empty queue leaves the link without a number.
+ */
+internal fun bindSidebarApprovalCount(
+    link: Link,
+    label: String,
+    load: suspend () -> Int?,
+) {
+    val span = Span(className = "nav-live-suffix")
+    span.setAttribute("aria-hidden", "true")
+    span.visible = false
+    link.add(span)
+    AppScope.launch {
+        val count = runCatching { load() }.getOrNull()
+        applyCountSuffix(
+            span = span,
+            link = link,
+            suffix = approvalCountText(count),
+            accessibleName = approvalAccessibleName(label, count),
+        )
     }
+}
 
 /** The key under which the "Nachrichten" sidebar entry registers with [UnreadMessages] (the navbar envelope uses its own key). */
 internal const val SIDEBAR_UNREAD_DISPLAY_KEY = "sidebar-messages"
@@ -529,17 +554,11 @@ internal fun bindSidebarUnread(
     link.add(span)
     UnreadMessages.register(key) { count ->
         val text = unreadPillText(count)
-        if (text == null) {
-            span.content = ""
-            span.visible = false
-            link.removeAttribute("aria-label")
-            link.removeAttribute("title")
-        } else {
-            span.content = " ($text)"
-            span.visible = true
-            val name = navbarUnreadAccessibleName(count)
-            link.setAttribute("aria-label", name)
-            link.setAttribute("title", name)
-        }
+        applyCountSuffix(
+            span = span,
+            link = link,
+            suffix = text,
+            accessibleName = text?.let { navbarUnreadAccessibleName(count) },
+        )
     }
 }

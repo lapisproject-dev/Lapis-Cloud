@@ -6,6 +6,17 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.339 Approval counters on the suffix mechanism
+
+**No migration, no server change.** The counters of "Artikel", "Beitragsvergünstigungen", "Reisekosten-Freigaben" and "Ehrenamtspauschalen-Freigaben" in the sidebar now use the same suffix mechanism as "Nachrichten", "Videokonferenz" and "Begegnungsräume": a child span (`aria-hidden`) inside the link, never part of the label. The link carries the accessible name "<label>, <n> offen". The figures, the cap ("200+"), the permissions (articles only for BOARD/ADMIN, the other three entries only for BOARD/ADMIN through the navigation registry) and the server calls are unchanged; the counter is still loaded once when the sidebar is built (no live update). A failure to load still raises no toast and leaves the entry without a number.
+
+- **Menu search:** the label is no longer overwritten by "Label (n)", so the search index never contains the number and the number is not read twice.
+- **Visible change:** the number is now shown in the muted suffix style (like Videokonferenz, Begegnungsräume and Nachrichten) instead of as part of the label text.
+- **Code:** `bindSidebarApprovalCount`, `approvalCountText`, `approvalAccessibleName`, `applyCountSuffix` (also used by the unread pill, behaviour identical); `reliefSidebarLabel`, `travelExpenseSidebarLabel`, `volunteerAllowanceSidebarLabel` and `articlesSidebarLabel` removed.
+- **Catalogs:** new message "%1, %2 offen" in `messages.pot` and the seven `.po` files; the four obsolete "... (%1)" messages removed.
+- **Tests:** pure tests for the count text and the accessible name, a DOM test (count, zero, load failure, cap, name contains the count once, articles gate for BOARD/ADMIN with no call otherwise, approval entries absent for a member, menu index without numbers).
+- **Open item:** the carpool entry still appends its counter to the label (different content, cap 99).
+
 ### V1.9.338 Crowdfunding reactions as thumb toggles
 
 **No migration, no server change.** The crowdfunding cards replace the text buttons "Like"/"Dislike" with two thumb toggles (same component as the politician view since V1.9.301): each shows its count, carries `aria-pressed` for the member's own reaction, and has an accessible name with the project title and count; both sit in a labelled group. The retract button is now a responsive "Reaktion zurückziehen" button (icon only on narrow screens, name with the project title). The "Ihre Reaktion" badge says "Gefällt mir"/"Gefällt mir nicht". Behaviour is unchanged: same RPCs, a click on the already pressed thumb casts again (it does not retract), counts come from the reloaded project list, no extra request.
@@ -1957,7 +1968,7 @@ Checked with unit, DOM (headless Chrome) and PostgreSQL tests (including an `EXP
 #### Not done on purpose
 
 - No signal for messages, carpool or the approval queues (the menu already shows a counter), none for deadlines of elections / consensus / votes (no such column), none for "settlement open" (no such auction state).
-- The approval counters in the sidebar (`enhance`) are not moved onto the new suffix mechanism yet (open point).
+- The approval counters in the sidebar (`enhance`) are not moved onto the new suffix mechanism yet (open point) (closed in V1.9.339).
 
 ### V1.9.223 -- Images in social posts
 

@@ -540,11 +540,12 @@ html body .lapis-navbar .lapis-brand-logo .lapis-brand-mark--dark { display: var
      the 8 supported locales" (bug report: German "Ehrenamtspauschalen-Freigaben"/"Reisekosten-
      Freigaben" wrapped to 2-3 lines). Measured in a real browser (Inter, real Font Awesome glyphs)
      across every sidebar label in every locale, including the "(NNN)"/"(200+)" dynamic-count
-     suffix `Sidebar.kt`'s `reliefSidebarLabel`/`travelExpenseSidebarLabel`/`volunteerAllowance
-     SidebarLabel` append: the worst case is Spanish "Aprobaciones de compensaciones de
-     voluntariado (200+)" (the ES translation of "Ehrenamtspauschalen-Freigaben (%1)"), a
-     sub-item (`.lapis-sidebar-group-body`'s extra 1.75rem left padding), which needs ~351px at
-     0.8125rem. 368px keeps a safety margin over that measurement instead of cutting it exactly
+     suffix (the `.nav-live-suffix` span `Sidebar.kt`'s `bindSidebarApprovalCount` appends
+     inline to the same link, same inline run as the Nachrichten suffix, no own margin or border):
+     the worst case is Spanish "Aprobaciones de compensaciones de
+     voluntariado (200+)" (the ES translation of "Ehrenamtspauschalen-Freigaben" plus the
+     suffix), a sub-item (`.lapis-sidebar-group-body`'s extra 1.75rem left padding), which needs
+     ~351px at 0.8125rem. 368px keeps a safety margin over that measurement instead of cutting it exactly
      at the edge. */
   --lapis-sidebar-width: 368px;
 }

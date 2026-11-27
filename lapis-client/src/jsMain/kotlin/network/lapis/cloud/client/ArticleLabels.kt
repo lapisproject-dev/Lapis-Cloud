@@ -1,6 +1,5 @@
 package network.lapis.cloud.client
 
-import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.ArticleDto
@@ -54,15 +53,3 @@ object ArticleLabels {
             ArticleDisplayStatus.REJECTED, ArticleDisplayStatus.UNPUBLISHED -> "#DC2626"
         }
 }
-
-/**
- * Sidebar badge label for the board's "Freigabe"-queue count -- same "null/0 -> plain label,
- * >=200 -> '200+'" grammar `reliefSidebarLabel`/`travelExpenseSidebarLabel` already establish
- * (mirrors `ArticleStore.MAX_PAGE_SIZE`). Pure -- see `SidebarLabelsTest`.
- */
-internal fun articlesSidebarLabel(openCount: Int?): String =
-    when {
-        openCount == null || openCount == 0 -> tr("Artikel")
-        openCount >= 200 -> gettext("Artikel (%1)", "200+")
-        else -> gettext("Artikel (%1)", openCount)
-    }

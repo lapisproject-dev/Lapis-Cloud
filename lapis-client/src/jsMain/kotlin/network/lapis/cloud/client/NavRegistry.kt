@@ -220,9 +220,9 @@ internal object NavRegistry {
                 },
             )
             // BOARD/ADMIN only (NOT TREASURER). The start labels are the label functions, so the sidebar counter and the dashboard say the same.
-            add(entry(Routes.CONTRIBUTION_RELIEF, reliefSidebarLabel(null), "fas fa-percent", f, boardAdmin))
-            add(entry(Routes.TRAVEL_EXPENSE_APPROVALS, travelExpenseSidebarLabel(null), "fas fa-route", f, boardAdmin))
-            add(entry(Routes.VOLUNTEER_ALLOWANCE_APPROVALS, volunteerAllowanceSidebarLabel(null), "fas fa-people-carry-box", f, boardAdmin))
+            add(entry(Routes.CONTRIBUTION_RELIEF, tr("Beitragsvergünstigungen"), "fas fa-percent", f, boardAdmin))
+            add(entry(Routes.TRAVEL_EXPENSE_APPROVALS, tr("Reisekosten-Freigaben"), "fas fa-route", f, boardAdmin))
+            add(entry(Routes.VOLUNTEER_ALLOWANCE_APPROVALS, tr("Ehrenamtspauschalen-Freigaben"), "fas fa-people-carry-box", f, boardAdmin))
 
             // ── Verwaltung ───
             val a = SidebarGroupId.ADMINISTRATION

@@ -11748,10 +11748,6 @@ msgstr "Al riepilogo contributi"
 msgid "Beitragsvergünstigungen"
 msgstr "Agevolazioni sul contributo"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
-msgid "Beitragsvergünstigungen (%1)"
-msgstr "Agevolazioni sul contributo (%1)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
 msgid "Beitragsbefreit ab %1"
 msgstr "Esente dal contributo dal %1"
@@ -11995,10 +11991,6 @@ msgstr "Scopo del viaggio"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
 msgid "Reisekosten-Aufwandskonto"
 msgstr "Conto spese di viaggio"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
-msgid "Reisekosten-Freigaben (%1)"
-msgstr "Approvazioni spese di viaggio (%1)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
 msgid "Catering"
@@ -16209,10 +16201,6 @@ msgstr "Gestione delle sale"
 msgid "Ehrenamtspauschalen-Freigaben"
 msgstr "Approvazioni delle indennità di volontariato"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:1
-msgid "Ehrenamtspauschalen-Freigaben (%1)"
-msgstr "Approvazioni delle indennità di volontariato (%1)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/ThemeToggle.kt:1
 msgid "Dunklen/hellen Modus umschalten"
 msgstr "Passa dalla modalità scura a quella chiara"
@@ -16977,10 +16965,6 @@ msgstr "Inviato per l'approvazione"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleLabels.kt
 msgid "Depubliziert"
 msgstr "Pubblicazione annullata"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleLabels.kt
-msgid "Artikel (%1)"
-msgstr "Articoli (%1)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
 msgid "Vorschau vorübergehend nicht verfügbar – bitte kurz warten."
@@ -34784,3 +34768,7 @@ msgstr "Mi piace"
 
 msgid "Gefällt mir nicht"
 msgstr "Non mi piace"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
+msgid "%1, %2 offen"
+msgstr "%1, in attesa: %2"

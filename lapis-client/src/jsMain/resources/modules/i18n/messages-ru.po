@@ -11696,10 +11696,6 @@ msgstr "К обзору взносов"
 msgid "Beitragsvergünstigungen"
 msgstr "Льготы по взносам"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
-msgid "Beitragsvergünstigungen (%1)"
-msgstr "Льготы по взносам (%1)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt
 msgid "Beitragsbefreit ab %1"
 msgstr "Освобождён от взноса с %1"
@@ -11943,10 +11939,6 @@ msgstr "Цель поездки"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
 msgid "Reisekosten-Aufwandskonto"
 msgstr "Счёт командировочных расходов"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
-msgid "Reisekosten-Freigaben (%1)"
-msgstr "Согласование командировочных расходов (%1)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
 msgid "Catering"
@@ -16157,10 +16149,6 @@ msgstr "Управление помещениями"
 msgid "Ehrenamtspauschalen-Freigaben"
 msgstr "Утверждения выплат волонтёрам"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:1
-msgid "Ehrenamtspauschalen-Freigaben (%1)"
-msgstr "Утверждения выплат волонтёрам (%1)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/ThemeToggle.kt:1
 msgid "Dunklen/hellen Modus umschalten"
 msgstr "Переключить тёмный/светлый режим"
@@ -16925,10 +16913,6 @@ msgstr "Отправлено на одобрение"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleLabels.kt
 msgid "Depubliziert"
 msgstr "Снято с публикации"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleLabels.kt
-msgid "Artikel (%1)"
-msgstr "Статьи (%1)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
 msgid "Vorschau vorübergehend nicht verfügbar – bitte kurz warten."
@@ -34755,3 +34739,7 @@ msgstr "Нравится"
 
 msgid "Gefällt mir nicht"
 msgstr "Не нравится"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt
+msgid "%1, %2 offen"
+msgstr "%1, ожидают: %2"
