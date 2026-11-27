@@ -14,6 +14,14 @@ updates:
     ignore:
       # Alpha line, pinned in lockstep with kUML.
       - dependency-name: "dev.detekt*"
+      # Deferred 2026-11-27 (V1.9.333): KVision 9.7 / Kilua RPC 0.0.46 switch on encodeDefaults, which changes the RPC
+      # wire format (CodedExceptionWireTest, LoadTestWireContractTest fail). Needs its own wave.
+      - dependency-name: "io.kvision*"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "dev.kilua*"
+      # Deferred: commonmark 0.33 changes the nesting-refusal contract of the Markdown sanitizer (five tests fail).
+      - dependency-name: "org.commonmark*"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
       # Kotlin moves together with KVision/Kilua/KSP, by hand.
       - dependency-name: "org.jetbrains.kotlin*"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
