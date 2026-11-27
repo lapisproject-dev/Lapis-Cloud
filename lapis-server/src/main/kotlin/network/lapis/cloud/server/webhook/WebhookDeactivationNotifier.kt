@@ -6,6 +6,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.mail.MailBranding
 import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.mail.MailLanguage
 import network.lapis.cloud.server.mail.MailTemplates
 import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.shared.domain.AccountRole
@@ -56,6 +57,8 @@ internal fun boardAndAdminMemberEmails(): List<String> =
 internal class WebhookDeactivationNotifier(
     private val mailDispatcher: MailDispatcher,
     private val branding: MailBranding,
+    /** V1.9.334 -- the instance mail language, read at SEND time (a setting change needs no restart). Never throws, see [MailLanguage.instance]. */
+    private val mailLanguage: () -> String = { "de" },
 ) {
     /**
      * [recipients] is the SAME list [WebhookEndpointDeactivation.deactivate] already computed
@@ -71,7 +74,7 @@ internal class WebhookDeactivationNotifier(
         recipients: List<String>,
     ) {
         try {
-            val urlHost = runCatching { Url(endpoint.url).host }.getOrDefault("(unbekannt)")
+            val urlHost = runCatching { Url(endpoint.url).host }.getOrNull()
             val rendered =
                 MailTemplates.webhookEndpointDeactivated(
                     apiKeyLabel = endpoint.apiKeyLabel,
@@ -80,6 +83,7 @@ internal class WebhookDeactivationNotifier(
                     attemptCount = delivery.attemptCount,
                     lastHttpStatus = httpStatus,
                     branding = branding,
+                    language = MailLanguage.instance(mailLanguage),
                 )
             val notified = recipients.take(WEBHOOK_NOTIFICATION_MAX_RECIPIENTS)
             notified.forEach { email ->

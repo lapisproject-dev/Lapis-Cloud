@@ -34744,8 +34744,8 @@ msgstr "E-maile"
 msgid "Sprache der E-Mails"
 msgstr "Język e-maili"
 
-msgid "Die Sprache, in der die Instanz E-Mails einsprachig versendet. Heute gilt sie für die Quittung an den Gewinner einer Ausschreibung und den Hinweis an den Vorstand bei einer fehlgeschlagenen Auszahlung. Alle übrigen E-Mails bleiben zweisprachig."
-msgstr "Język, w którym instancja wysyła e-maile w jednym języku. Obecnie dotyczy to potwierdzenia dla zwycięzcy przetargu oraz powiadomienia zarządu o nieudanej wypłacie. Wszystkie pozostałe e-maile pozostają dwujęzyczne."
+msgid "Die Sprache, in der die Instanz ihre E-Mails versendet, jeweils in einer einzigen Sprache. Ausgenommen sind die Mitteilungen zu Mitgliedsanträgen (in der Sprache des Antrags), Rundschreiben mit eigener Sprache und die Veranstaltungs-E-Mails, die derzeit nur auf Deutsch versendet werden."
+msgstr "Język, w którym instancja wysyła swoje e-maile, każdy w jednym języku. Wyjątkiem są powiadomienia o wnioskach członkowskich (w języku wniosku), mailingi z własnym językiem oraz e-maile dotyczące wydarzeń, które obecnie są wysyłane tylko po niemiecku."
 
 msgid "Unbekannte Sprache"
 msgstr "Nieznany język"

@@ -214,7 +214,8 @@ class MailTemplatesTest :
             mail.subject.any { it == '\r' || it == '\n' || it == '\u2028' || it == '\u0085' || it.isISOControl() } shouldBe false
             val quoted = mail.subject.substringAfter("„").substringBefore("“")
             (quoted.length <= 80) shouldBe true
-            mail.subject shouldContain "jemand ist eingetroffen / someone has arrived"
+            mail.subject shouldContain "jemand ist eingetroffen"
+            mail.subject.shouldNotContain(" / ")
         }
 
         test("encounterEntryNotice -- the window mail names the number and the grid bounds, never single entry times") {
@@ -223,20 +224,23 @@ class MailTemplatesTest :
                     notice = entryNotice(kind = EncounterEntryNotice.Kind.WINDOW, entries = 4),
                     branding = testBranding(),
                 )
-            mail.subject shouldContain "4 Personen sind eingetroffen / 4 people have arrived"
+            mail.subject shouldContain "4 Personen sind eingetroffen"
             mail.plainText shouldContain "zwischen 10:00 und 10:05 Uhr"
-            mail.plainText shouldContain "between 10:00 and 10:05"
+            mail.plainText.shouldNotContain("between 10:00 and 10:05")
             mail.plainText shouldContain "7 Personen"
             mail.plainText shouldContain "Diese Nachricht nennt bewusst keine Namen"
         }
 
-        test("encounterEntryNotice -- German before English, no link anywhere, the room title is HTML-escaped") {
+        test("encounterEntryNotice -- one language only, no link anywhere, the room title is HTML-escaped") {
             val mail =
                 MailTemplates.encounterEntryNotice(
                     notice = entryNotice(title = "<script>alert(1)</script>"),
                     branding = testBranding(replyTo = "kontakt@example.org"),
                 )
-            (mail.plainText.indexOf("Im Begegnungsraum") < mail.plainText.indexOf("Someone has arrived")) shouldBe true
+            mail.plainText shouldContain "Im Begegnungsraum"
+            mail.plainText.shouldNotContain("Someone has arrived")
+            mail.plainText.shouldNotContain("----")
+            mail.html.shouldNotContain("<hr")
             mail.html.shouldNotContain("href")
             mail.plainText.shouldNotContain("http")
             mail.html.shouldNotContain("<script>")

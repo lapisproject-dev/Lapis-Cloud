@@ -15,6 +15,8 @@ import network.lapis.cloud.shared.domain.DeliveryStatus
 class SmtpFinTsReauthNotificationMailer(
     private val dispatcher: MailDispatcher,
     private val branding: MailBranding,
+    /** V1.9.334 -- the instance mail language, read at SEND time (a setting change needs no restart). Never throws, see [MailLanguage.instance]. */
+    private val mailLanguage: () -> String = { "de" },
 ) : FinTsReauthNotificationMailer {
     override fun send(
         recipients: List<String>,
@@ -28,6 +30,7 @@ class SmtpFinTsReauthNotificationMailer(
                 ibanMasked = ibanMasked,
                 occurredAt = occurredAt,
                 branding = branding,
+                language = MailLanguage.instance(mailLanguage),
             )
         recipients.forEach { email ->
             dispatcher.enqueue(

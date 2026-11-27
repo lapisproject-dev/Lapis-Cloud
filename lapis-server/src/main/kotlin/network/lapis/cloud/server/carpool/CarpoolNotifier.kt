@@ -6,6 +6,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.mail.CARPOOL_NOTICE_PURPOSE
 import network.lapis.cloud.server.mail.MailBranding
 import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.mail.MailLanguage
 import network.lapis.cloud.server.mail.MailTemplates
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
@@ -52,6 +53,8 @@ class SmtpCarpoolNoticeMailer(
     private val dispatcher: MailDispatcher,
     private val branding: MailBranding,
     private val smtpConfigured: Boolean,
+    /** V1.9.334 -- the instance mail language, read at SEND time (a setting change needs no restart). Never throws, see [MailLanguage.instance]. */
+    private val mailLanguage: () -> String = { "de" },
 ) : CarpoolNoticeMailer {
     override val enabled: Boolean get() = smtpConfigured
 
@@ -67,6 +70,7 @@ class SmtpCarpoolNoticeMailer(
                 fromPlace = notice.fromPlace,
                 toPlace = notice.toPlace,
                 branding = branding,
+                language = MailLanguage.instance(mailLanguage),
             )
         dispatcher.enqueue(
             to = to,

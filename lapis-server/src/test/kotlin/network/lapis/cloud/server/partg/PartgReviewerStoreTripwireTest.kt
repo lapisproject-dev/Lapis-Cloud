@@ -98,4 +98,11 @@ class PartgReviewerStoreTripwireTest :
             body.contains("href") shouldBe false
             body.contains("http") shouldBe false
         }
+
+        test("V1.9.334 the wording of the code mail (all eight languages) carries no link either") {
+            val texts = files.single { it.name == "AccountSecurityTexts.kt" }.readText()
+            val section = texts.substring(texts.indexOf("internal object PartgReviewerCodeTexts"))
+            section.contains("http") shouldBe false
+            section.contains("href") shouldBe false
+        }
     })

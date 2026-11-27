@@ -188,7 +188,7 @@ class TenderPayoutMailTemplatesTest :
             en.plainText shouldContain "12,50 LTR"
         }
 
-        test("V1.9.332 a mail that is still bilingual keeps its two-language layout") {
+        test("V1.9.334 the e-mail change mail is single-language like all other system mails") {
             val mail =
                 MailTemplates.emailChangeConfirm(
                     rawToken = "tok",
@@ -196,6 +196,7 @@ class TenderPayoutMailTemplatesTest :
                     effectiveAt = null,
                     branding = branding(),
                 )
-            mail.plainText shouldContain "----"
+            mail.plainText.shouldNotContain("----")
+            mail.html.shouldNotContain("<hr")
         }
     })

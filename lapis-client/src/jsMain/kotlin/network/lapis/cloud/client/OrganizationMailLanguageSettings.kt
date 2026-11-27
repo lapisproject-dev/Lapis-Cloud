@@ -39,7 +39,7 @@ internal fun renderOrganizationMailLanguageSettings(
 ) {
     panel.p(
         tr(
-            "Die Sprache, in der die Instanz E-Mails einsprachig versendet. Heute gilt sie für die Quittung an den Gewinner einer Ausschreibung und den Hinweis an den Vorstand bei einer fehlgeschlagenen Auszahlung. Alle übrigen E-Mails bleiben zweisprachig.",
+            "Die Sprache, in der die Instanz ihre E-Mails versendet, jeweils in einer einzigen Sprache. Ausgenommen sind die Mitteilungen zu Mitgliedsanträgen (in der Sprache des Antrags), Rundschreiben mit eigener Sprache und die Veranstaltungs-E-Mails, die derzeit nur auf Deutsch versendet werden.",
         ),
         className = "text-muted small",
     )

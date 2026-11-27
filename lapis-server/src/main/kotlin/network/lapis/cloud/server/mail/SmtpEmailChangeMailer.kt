@@ -8,7 +8,11 @@ import network.lapis.cloud.shared.domain.EmailChangeKind
 class SmtpEmailChangeMailer(
     private val dispatcher: MailDispatcher,
     private val branding: MailBranding,
+    /** V1.9.334 -- the instance mail language, read at SEND time (a setting change needs no restart). Never throws, see [MailLanguage.instance]. */
+    private val mailLanguage: () -> String = { "de" },
 ) : EmailChangeMailer {
+    private fun lang(): String = MailLanguage.instance(mailLanguage)
+
     override fun sendConfirmToNewAddress(
         email: String,
         rawToken: String,
@@ -17,7 +21,14 @@ class SmtpEmailChangeMailer(
     ): DeliveryStatus =
         enqueue(
             to = email,
-            mail = MailTemplates.emailChangeConfirm(rawToken = rawToken, kind = kind, effectiveAt = effectiveAt, branding = branding),
+            mail =
+                MailTemplates.emailChangeConfirm(
+                    rawToken = rawToken,
+                    kind = kind,
+                    effectiveAt = effectiveAt,
+                    branding = branding,
+                    language = lang(),
+                ),
             purpose = "email-change-confirm",
         )
 
@@ -37,6 +48,7 @@ class SmtpEmailChangeMailer(
                     maskedNewEmail = maskedNewEmail,
                     effectiveAt = effectiveAt,
                     branding = branding,
+                    language = lang(),
                 ),
             purpose = "email-change-warning",
         )
@@ -47,7 +59,7 @@ class SmtpEmailChangeMailer(
     ): DeliveryStatus =
         enqueue(
             to = email,
-            mail = MailTemplates.emailChangeSelfInfo(maskedNewEmail = maskedNewEmail, branding = branding),
+            mail = MailTemplates.emailChangeSelfInfo(maskedNewEmail = maskedNewEmail, branding = branding, language = lang()),
             purpose = "email-change-self-info",
         )
 
@@ -57,7 +69,7 @@ class SmtpEmailChangeMailer(
     ): DeliveryStatus =
         enqueue(
             to = email,
-            mail = MailTemplates.emailChangeAppliedInfo(maskedNewEmail = maskedNewEmail, branding = branding),
+            mail = MailTemplates.emailChangeAppliedInfo(maskedNewEmail = maskedNewEmail, branding = branding, language = lang()),
             purpose = "email-change-applied-info",
         )
 

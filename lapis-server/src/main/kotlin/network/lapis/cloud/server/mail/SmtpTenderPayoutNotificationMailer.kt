@@ -16,11 +16,7 @@ class SmtpTenderPayoutNotificationMailer(
     /** V1.9.332 -- the instance mail language, read at SEND time (a setting change needs no restart). Must not throw; see [lang]. */
     private val mailLanguage: () -> String = { "de" },
 ) : TenderPayoutNotificationMailer {
-    private fun lang(): String =
-        MailLanguage.resolve(
-            recipient = null,
-            instance = runCatching { mailLanguage() }.getOrDefault(MembershipDecisionTexts.DEFAULT_LANGUAGE),
-        )
+    private fun lang(): String = MailLanguage.instance(mailLanguage)
 
     override fun sendPaidForWinner(notification: TenderPayoutPaidNotification) {
         if (!smtpConfigured) {

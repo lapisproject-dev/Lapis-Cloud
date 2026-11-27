@@ -34780,8 +34780,8 @@ msgstr "E-mails"
 msgid "Sprache der E-Mails"
 msgstr "Langue des e-mails"
 
-msgid "Die Sprache, in der die Instanz E-Mails einsprachig versendet. Heute gilt sie für die Quittung an den Gewinner einer Ausschreibung und den Hinweis an den Vorstand bei einer fehlgeschlagenen Auszahlung. Alle übrigen E-Mails bleiben zweisprachig."
-msgstr "La langue dans laquelle l'instance envoie les e-mails en une seule langue. Aujourd'hui, elle s'applique au reçu adressé au gagnant d'un appel d'offres et à l'avis adressé au conseil d'administration en cas d'échec d'un versement. Tous les autres e-mails restent bilingues."
+msgid "Die Sprache, in der die Instanz ihre E-Mails versendet, jeweils in einer einzigen Sprache. Ausgenommen sind die Mitteilungen zu Mitgliedsanträgen (in der Sprache des Antrags), Rundschreiben mit eigener Sprache und die Veranstaltungs-E-Mails, die derzeit nur auf Deutsch versendet werden."
+msgstr "La langue dans laquelle l'instance envoie ses e-mails, chacun dans une seule langue. Sont exclus les avis relatifs aux demandes d'adhésion (dans la langue de la demande), les envois groupés avec leur propre langue et les e-mails d'événements, qui ne sont actuellement envoyés qu'en allemand."
 
 msgid "Unbekannte Sprache"
 msgstr "Langue inconnue"

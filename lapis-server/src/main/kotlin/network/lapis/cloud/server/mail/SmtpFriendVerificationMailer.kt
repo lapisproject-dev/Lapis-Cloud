@@ -11,12 +11,19 @@ import network.lapis.cloud.shared.domain.DeliveryStatus
 class SmtpFriendVerificationMailer(
     private val dispatcher: MailDispatcher,
     private val branding: MailBranding,
+    /** V1.9.334 -- the instance mail language, read at SEND time (a setting change needs no restart). Never throws, see [MailLanguage.instance]. */
+    private val mailLanguage: () -> String = { "de" },
 ) : FriendVerificationMailer {
     override fun send(
         email: String,
         rawToken: String,
     ): DeliveryStatus {
-        val mail = MailTemplates.friendVerification(rawToken = rawToken, branding = branding)
+        val mail =
+            MailTemplates.friendVerification(
+                rawToken = rawToken,
+                branding = branding,
+                language = MailLanguage.instance(mailLanguage),
+            )
         dispatcher.enqueue(
             to = email,
             subject = mail.subject,

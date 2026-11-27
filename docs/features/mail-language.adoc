@@ -24,23 +24,48 @@ restart. A setting that cannot be read never blocks a mail: it falls back to `de
 
 == Scope today
 
-Single-language in the instance language:
+Since V1.9.334 every system mail below is written in ONE language, the instance language (no member has a
+language of their own, so the recipient language is always empty for them):
 
-* the receipt to the winner of a tender after an LTR payout (V1.9.330);
-* the notice to the board about a failed payout (V1.9.331; before V1.9.332 German and English in one mail).
+[cols="2,2,3",options="header"]
+|===
+| Mail | Recipient | Note
+| Password reset | member | link + code, TTL with plural form
+| Auditor code (`partgReviewerCode`) | external auditor without account | fixed wording, no link
+| Friend e-mail verification | friend/guest address |
+| Webhook endpoint deactivated | board/administrators | unknown host is written in the mail language
+| FinTS re-authentication | board/administrators | raw timestamp
+| Password reset by an administrator | member | raw timestamp, no password
+| Keycloak link changed (linked/unlinked) | member | no Keycloak subject, no actor
+| Keycloak member provisioned / e-mail synced | administrators / old address |
+| Article review (published/rejected/unpublished) | author | title only sanitised in the subject
+| E-mail change (confirm, warning, self info, applied info) | new/old address | links and tokens unchanged
+| Encounter entry notice | office holders | person counts number-neutral outside de/en
+| Carpool notice (8 kinds) | driver/rider | no names, no content
+| Peer protection (request, approval needed, executed, reset triggered, protected data, new administrator) | target/administrators | the operator console writes the actor name in the mail language
+| Tender payout receipt / failure notice (V1.9.330-332) | winner / board | footer localised since V1.9.334
+|===
 
-All other mails stay bilingual German/English. Candidates for later waves: `keycloakMemberProvisioned`,
-`keycloakEmailSyncedNotice`, `emailChange*`, `passwordResetByAdmin`, `peer*`, `encounterEntryNotice`, `carpoolNotice`,
-`finTsReauthRequired`, `webhookEndpointDeactivated`, `friendVerification`, `articleReview`, and the fallback of the
-membership-decision mails (still fixed `de` when the applicant has no stored language).
+Not single-language in the instance language, on purpose:
+
+* the membership decision mails (approved/rejected): the applicant's own language plus a de/en second block (V1.9.118); their
+  fallback without a stored language is still `de`;
+* newsletters and mailings: they carry their own language.
+
+Not yet translated (German only): the event mails (registration confirmation, waitlist spot, ticket, reissue, cancellation,
+payment confirmation, message to the organiser). The help text of the setting names this.
+
+The footer ("Questions? ...") and the "unknown" time are localised in all of them.
 
 == Translations
 
 The German texts are the original wording. The translations into the other seven languages were written by the
-model and are *not reviewed by native speakers*.
+model and are *not reviewed by native speakers*. Each wording is one `MailText` with eight languages side by side; a
+completeness test checks that all eight exist and carry the same placeholders.
 
 == Known limits
 
-* Amounts keep the decimal comma and timestamps the `yyyy-MM-dd HH:mm UTC` form in every language.
+* Amounts keep the decimal comma and timestamps the `yyyy-MM-dd HH:mm UTC` form in every language; the FinTS and administrator-reset mails keep a raw `yyyy-MM-ddTHH:mm` timestamp.
+* Plural forms: hours follow one/few/many for `pl` and `ru`; the person counts of the encounter notice are phrased number-neutrally in es/fr/it/nl/pl/ru.
 * The language list exists twice (server and client); a test keeps both in step.
 * Backup restore: a bundle without the column gets `de`; a value outside the list is refused.

@@ -6,6 +6,20 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.334 all system mails single-language in the instance mail language
+
+**No migration** (the column `organization_settings.mail_language` exists since V176). No new setting, no new mail purpose.
+
+- **Behaviour change (visible):** 22 system mails that were German-only or German/English in one message are now written in ONE language, the instance mail language (V1.9.332), read when the mail is sent. Subjects lose their English half (`... / ...`). The mails: password reset, auditor code (`partgReviewerCode`), friend e-mail verification, webhook endpoint deactivated, FinTS re-authentication, password reset by an administrator, Keycloak link changed, Keycloak member provisioned, Keycloak e-mail synced, article review (3 outcomes), e-mail change (confirm, warning, self info, applied info), encounter entry notice, carpool notice (8 kinds), and the six administrator peer-protection mails (including the one the operator console sends, whose actor name is now `Betreiberkonsole` / `operator console` / ... in that language).
+- **Also changes:** the footer ("Questions? Reply to this e-mail ...") and the "unknown" time of the two tender payout mails (V1.9.330/331) are now localised too (they were German before). Hour plurals in the password-reset / verification TTL follow one/few/many for `pl` and `ru`.
+- **Unchanged on purpose:** the membership decision mails (approved / rejected) keep their own recipient language plus a de/en second block (V1.9.118); newsletters and mailings keep their own language; the auction offer `noticeLang` is a UI hint, not a mail. The fallback of the membership decision mails is still fixed `de`.
+- **Not part of this wave (German only for now):** the event mails (registration confirmation, waitlist, ticket, cancellation, payment confirmation, message to the organiser). The help text of the setting now says so.
+- **Texts:** one `MailText` per wording (eight languages side by side) in `AccountSecurityTexts.kt`, `AdminNoticeTexts.kt`, `EmailChangeTexts.kt`, `PeerNotificationTexts.kt`, `SystemNoticeTexts.kt`, `CommunityNoticeTexts.kt`, `MailCommonTexts.kt`. Placeholders only through `fillMail` (ONE pass: a title containing `{reason}` is never expanded). **The translations other than German were written by the model and are not reviewed by native speakers.** `bilingual()` is gone from `MailTemplates`.
+- **Wiring:** every mailer takes `mailLanguage: () -> String` (default `{ "de" }`) and calls `MailLanguage.instance(...)` per mail (never throws, unknown or failing means `de`); `WebhookDeactivationNotifier` reads it once per notice, not per recipient. Header-injection protection (`sanitizeSubjectFragment` / `safeName`), links and tokens are unchanged.
+- **Client:** the help text of the setting changed (new msgid in `messages.pot` and the seven `.po` files).
+- **Known limits:** dates stay `yyyy-MM-dd HH:mm UTC`, FinTS and admin-reset mails keep their raw timestamp, person counts in the encounter notice are phrased number-neutrally in es/fr/it/nl/pl/ru.
+- **Tests:** `MailLanguageCoverageTest` (every mail x eight languages), `MailTextsCompletenessTest`, `NoBilingualMailTripwireTest`, `MailLanguageSecurityTest`, `SmtpMailersLanguageTest`, `MailLanguageInstanceTest`; adjusted: `MailTemplatesTest`, `TenderPayoutMailTemplatesTest`, `CarpoolNotifierTest`, `PartgReviewerStoreTripwireTest`.
+
 ### V1.9.333 dependency update (Gradle 9.9.2, Kotlin 2.4.21, Ktor 3.6.2, Exposed 1.6.1, kUML 0.58.0, ...)
 
 No migration, no functional change. Only test code changed where a library's API forced it (`EventIcsFeedSeriesTest`: ical4j 4.4 made `Summary` nullable).

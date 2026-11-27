@@ -202,6 +202,7 @@ import network.lapis.cloud.server.mail.KeycloakLinkNotificationMailer
 import network.lapis.cloud.server.mail.MailBranding
 import network.lapis.cloud.server.mail.MailBudgetConfig
 import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.mail.MailLanguage
 import network.lapis.cloud.server.mail.MailTemplates
 import network.lapis.cloud.server.mail.MailTransport
 import network.lapis.cloud.server.mail.MembershipDecisionMailer
@@ -989,6 +990,7 @@ internal fun Application.module(
             branding = mailBranding,
             smtpConfigured = smtpConfigState is SmtpConfigState.Configured,
             brandTitle = resolvedBranding.title,
+            mailLanguage = { MailLanguageStore.loadOrDefault() },
         )
 
     // Welle V1.9.7 "SuperMailer" -- LAPIS_MAILING_DELIVERY (default "log"), fail-fast on an
@@ -1029,7 +1031,7 @@ internal fun Application.module(
     val registrationRateLimiter = LoginRateLimiter()
     val passwordResetRateLimiter = LoginRateLimiter()
     val passwordResetMailer: PasswordResetMailer =
-        SmtpPasswordResetMailer(dispatcher = mailDispatcher, branding = mailBranding)
+        SmtpPasswordResetMailer(dispatcher = mailDispatcher, branding = mailBranding, mailLanguage = { MailLanguageStore.loadOrDefault() })
 
     // V0.11.0 FRIEND self-registration -- constructed once here, same lifecycle as
     // registrationRateLimiter above. TWO SEPARATE limiter instances (failure-window +
@@ -1044,7 +1046,11 @@ internal fun Application.module(
     val friendSignupIpRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 60.minutes)
     val friendEmailVerifyRateLimiter = LoginRateLimiter()
     val friendVerificationMailer: FriendVerificationMailer =
-        SmtpFriendVerificationMailer(dispatcher = mailDispatcher, branding = mailBranding)
+        SmtpFriendVerificationMailer(
+            dispatcher = mailDispatcher,
+            branding = mailBranding,
+            mailLanguage = { MailLanguageStore.loadOrDefault() },
+        )
 
     // V1.9.118 -- "application approved / not approved" mail; same dispatcher. Without SMTP the no-op mailer reports MAIL_DISABLED.
     val membershipDecisionMailer: MembershipDecisionMailer =
@@ -1068,7 +1074,8 @@ internal fun Application.module(
     val emailChangeProposalActorRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 24.hours)
     val emailChangePasswordAttemptRateLimiter = LoginRateLimiter()
     val emailChangeLinkIpRateLimiter = LoginRateLimiter(maxFailures = 20, window = 60.minutes)
-    val emailChangeMailer = SmtpEmailChangeMailer(dispatcher = mailDispatcher, branding = mailBranding)
+    val emailChangeMailer =
+        SmtpEmailChangeMailer(dispatcher = mailDispatcher, branding = mailBranding, mailLanguage = { MailLanguageStore.loadOrDefault() })
     val emailChangeService =
         EmailChangeService(
             smtpConfigState = smtpConfigState,
@@ -1085,7 +1092,12 @@ internal fun Application.module(
     // Welle V1.9.57 "Admin-Peer-Schutz" -- singletons (the RPC facades are rebuilt per call, a per-call limiter would limit nothing):
     // at most 10 new four-eyes requests per requester and hour, 3 per target in 24 hours, 20 objection-link requests per IP and
     // hour, and 5 attempts at the current password per member and 15 minutes in AuthService.changePassword.
-    val peerNotificationMailer = SmtpPeerNotificationMailer(dispatcher = mailDispatcher, branding = mailBranding)
+    val peerNotificationMailer =
+        SmtpPeerNotificationMailer(
+            dispatcher = mailDispatcher,
+            branding = mailBranding,
+            mailLanguage = { MailLanguageStore.loadOrDefault() },
+        )
     val privilegedActionActorRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 60.minutes)
     val privilegedActionTargetRateLimiter = FederationInboxRateLimiter(maxRequests = 3, window = 24.hours)
     val privilegedActionLinkIpRateLimiter = LoginRateLimiter(maxFailures = 20, window = 60.minutes)
@@ -1122,17 +1134,24 @@ internal fun Application.module(
 
     // Welle V1.4.9 -- SAME mailDispatcher/mailBranding as passwordResetMailer/friendVerificationMailer above.
     val adminPasswordResetNotificationMailer: AdminPasswordResetNotificationMailer =
-        SmtpAdminPasswordResetNotificationMailer(dispatcher = mailDispatcher, branding = mailBranding)
+        SmtpAdminPasswordResetNotificationMailer(dispatcher = mailDispatcher, branding = mailBranding, mailLanguage = {
+            MailLanguageStore.loadOrDefault()
+        })
 
     // V1.7.2 security-audit fix -- member-facing notice on every manual Keycloak link/unlink, see
     // KeycloakLinkNotificationMailer KDoc. SAME mailDispatcher/mailBranding as above.
     val keycloakLinkNotificationMailer: KeycloakLinkNotificationMailer =
-        SmtpKeycloakLinkNotificationMailer(dispatcher = mailDispatcher, branding = mailBranding)
+        SmtpKeycloakLinkNotificationMailer(dispatcher = mailDispatcher, branding = mailBranding, mailLanguage = {
+            MailLanguageStore.loadOrDefault()
+        })
     // Welle V1.9.73 -- Keycloak just-in-time provisioning + opt-in profile sync. Both are null while their option is off, so
     // the default behaviour is exactly the one before this wave. The notifier only mails when SMTP is configured.
     val keycloakProvisioningNotifier =
         KeycloakProvisioningNotifier(
-            mailer = SmtpKeycloakProvisioningMailer(dispatcher = mailDispatcher, branding = mailBranding),
+            mailer =
+                SmtpKeycloakProvisioningMailer(dispatcher = mailDispatcher, branding = mailBranding, mailLanguage = {
+                    MailLanguageStore.loadOrDefault()
+                }),
             smtpConfigState = smtpConfigState,
         )
     val keycloakMemberProvisioner: KeycloakMemberProvisioner? =
@@ -1369,6 +1388,7 @@ internal fun Application.module(
                     dispatcher = mailDispatcher,
                     branding = mailBranding,
                     smtpConfigured = smtpConfigState is SmtpConfigState.Configured,
+                    mailLanguage = { MailLanguageStore.loadOrDefault() },
                 ),
         )
     encounterEntryNotifier.start()
@@ -1382,6 +1402,7 @@ internal fun Application.module(
                         dispatcher = mailDispatcher,
                         branding = mailBranding,
                         smtpConfigured = smtpConfigState is SmtpConfigState.Configured,
+                        mailLanguage = { MailLanguageStore.loadOrDefault() },
                     ),
                 ),
         )
@@ -1618,7 +1639,10 @@ internal fun Application.module(
     // level (see FinTsClient.kt KDoc "why TWO interfaces").
     val finTsConfig = FinTsConfig.load()
     val finTsClient = Hbci4jFinTsClient(config = finTsConfig)
-    val finTsReauthMailer = SmtpFinTsReauthNotificationMailer(dispatcher = mailDispatcher, branding = mailBranding)
+    val finTsReauthMailer =
+        SmtpFinTsReauthNotificationMailer(dispatcher = mailDispatcher, branding = mailBranding, mailLanguage = {
+            MailLanguageStore.loadOrDefault()
+        })
     val finTsPoller =
         FinTsPoller(
             config = finTsConfig,
@@ -1923,7 +1947,12 @@ internal fun Application.module(
     val webhookConfig = WebhookConfig.load()
     val webhookSecretBox: SecretBox? = webhookConfig.secretEncryptionKey?.let { SecretBox(it) }
     WebhookEventPublisher.install(webhookConfig)
-    val webhookDeactivationNotifier = WebhookDeactivationNotifier(mailDispatcher = mailDispatcher, branding = mailBranding)
+    val webhookDeactivationNotifier =
+        WebhookDeactivationNotifier(
+            mailDispatcher = mailDispatcher,
+            branding = mailBranding,
+            mailLanguage = { MailLanguageStore.loadOrDefault() },
+        )
     val webhookDeliveryPoller =
         WebhookDeliveryPoller(
             config = webhookConfig,
@@ -2163,7 +2192,12 @@ internal fun Application.module(
     val partgReviewerAccess =
         PartgReviewerAccess(
             sendCode = { email, code ->
-                val mail = MailTemplates.partgReviewerCode(code = code, branding = mailBranding)
+                val mail =
+                    MailTemplates.partgReviewerCode(
+                        code = code,
+                        branding = mailBranding,
+                        language = MailLanguage.instance { MailLanguageStore.loadOrDefault() },
+                    )
                 mailDispatcher.enqueue(
                     to = email,
                     subject = mail.subject,

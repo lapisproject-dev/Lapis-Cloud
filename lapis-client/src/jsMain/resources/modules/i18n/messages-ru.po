@@ -34736,8 +34736,8 @@ msgstr "Электронные письма"
 msgid "Sprache der E-Mails"
 msgstr "Язык писем"
 
-msgid "Die Sprache, in der die Instanz E-Mails einsprachig versendet. Heute gilt sie für die Quittung an den Gewinner einer Ausschreibung und den Hinweis an den Vorstand bei einer fehlgeschlagenen Auszahlung. Alle übrigen E-Mails bleiben zweisprachig."
-msgstr "Язык, на котором экземпляр отправляет письма на одном языке. Сегодня это относится к квитанции победителю тендера и уведомлению правления о неудавшейся выплате. Все остальные письма остаются двуязычными."
+msgid "Die Sprache, in der die Instanz ihre E-Mails versendet, jeweils in einer einzigen Sprache. Ausgenommen sind die Mitteilungen zu Mitgliedsanträgen (in der Sprache des Antrags), Rundschreiben mit eigener Sprache und die Veranstaltungs-E-Mails, die derzeit nur auf Deutsch versendet werden."
+msgstr "Язык, на котором экземпляр отправляет свои письма, каждое на одном языке. Исключения: уведомления о заявлениях на членство (на языке заявления), рассылки с собственным языком и письма о мероприятиях, которые пока отправляются только на немецком."
 
 msgid "Unbekannte Sprache"
 msgstr "Неизвестный язык"

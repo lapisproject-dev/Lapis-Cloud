@@ -35,3 +35,23 @@ class MailLanguageTest :
             MembershipDecisionTexts.SUPPORTED shouldBe setOf("de", "en", "es", "fr", "it", "nl", "pl", "ru")
         }
     })
+
+class MailLanguageInstanceTest :
+    FunSpec({
+        test("instance() reads the source and normalises it") {
+            MailLanguage.instance { "pl" } shouldBe "pl"
+            MailLanguage.instance { " FR " } shouldBe "fr"
+        }
+
+        test("instance() never throws: a failing or unknown source means German") {
+            MailLanguage.instance { error("boom") } shouldBe "de"
+            MailLanguage.instance { "xx" } shouldBe "de"
+            MailLanguage.instance { "" } shouldBe "de"
+        }
+
+        test("the recipient language wins over the instance language, an unknown one falls through") {
+            MailLanguage.resolve(recipient = "pl", instance = "fr") shouldBe "pl"
+            MailLanguage.resolve(recipient = "xx", instance = "fr") shouldBe "fr"
+            MailLanguage.resolve(recipient = null, instance = null) shouldBe "de"
+        }
+    })

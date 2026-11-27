@@ -34765,8 +34765,8 @@ msgstr "E-mail"
 msgid "Sprache der E-Mails"
 msgstr "Lingua delle e-mail"
 
-msgid "Die Sprache, in der die Instanz E-Mails einsprachig versendet. Heute gilt sie für die Quittung an den Gewinner einer Ausschreibung und den Hinweis an den Vorstand bei einer fehlgeschlagenen Auszahlung. Alle übrigen E-Mails bleiben zweisprachig."
-msgstr "La lingua in cui l'istanza invia le e-mail in una sola lingua. Oggi vale per la ricevuta al vincitore di un bando e per l'avviso al consiglio direttivo in caso di pagamento non riuscito. Tutte le altre e-mail restano bilingui."
+msgid "Die Sprache, in der die Instanz ihre E-Mails versendet, jeweils in einer einzigen Sprache. Ausgenommen sind die Mitteilungen zu Mitgliedsanträgen (in der Sprache des Antrags), Rundschreiben mit eigener Sprache und die Veranstaltungs-E-Mails, die derzeit nur auf Deutsch versendet werden."
+msgstr "La lingua in cui l'istanza invia le proprie e-mail, ciascuna in una sola lingua. Sono escluse le comunicazioni sulle domande di adesione (nella lingua della domanda), le circolari con una lingua propria e le e-mail degli eventi, che per ora vengono inviate solo in tedesco."
 
 msgid "Unbekannte Sprache"
 msgstr "Lingua sconosciuta"

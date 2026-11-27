@@ -17,11 +17,13 @@ import network.lapis.cloud.server.mail.MailSendOutcome
 import network.lapis.cloud.server.mail.MailTemplates
 import network.lapis.cloud.server.mail.MailTransport
 import network.lapis.cloud.server.mail.PeerExecutedEvent
+import network.lapis.cloud.server.mail.PeerNotificationTexts
 import network.lapis.cloud.server.mail.SmtpConfig
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.member.MemberRoleStatusMutations
 import network.lapis.cloud.server.member.MemberStatusHistory
 import network.lapis.cloud.server.member.MemberStatusHistorySource
+import network.lapis.cloud.server.rpc.MailLanguageStore
 import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.PasswordHasher
@@ -462,12 +464,16 @@ object AdminBootstrap {
                     MailBranding(fromDisplayName = smtpConfigState.config.fromDisplayName, replyTo = smtpConfigState.config.replyTo)
                 else -> MailBranding.notConfigured()
             }
+        // V1.9.334: the mail is written in the instance mail language, the actor name too. The console runs against an open database; a failing
+        // read means German (MailLanguageStore.loadOrDefault never throws).
+        val language = MailLanguageStore.loadOrDefault()
         val mail =
             MailTemplates.peerExecutedForTarget(
                 event = change.event,
-                actorName = "Betreiberkonsole / operator console",
+                actorName = PeerNotificationTexts.operatorConsoleActor.forLanguage(language),
                 occurredAt = DbClock.nowLocalDateTime(),
                 branding = branding,
+                language = language,
             )
         val effective =
             transport ?: (smtpConfigState as? SmtpConfigState.Configured)?.let { JakartaMailTransport(config = it.config) }

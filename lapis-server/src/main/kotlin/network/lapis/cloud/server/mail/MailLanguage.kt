@@ -14,4 +14,11 @@ internal object MailLanguage {
         } else {
             MembershipDecisionTexts.normalize(instance)
         }
+
+    /**
+     * V1.9.334 -- the language of a system mail without a recipient language (no member has one): the instance language read from [source]
+     * at SEND time. Never throws; a failing or unknown source means `de`, so a mail is never lost because a setting could not be read.
+     */
+    fun instance(source: () -> String): String =
+        resolve(recipient = null, instance = runCatching { source() }.getOrDefault(MembershipDecisionTexts.DEFAULT_LANGUAGE))
 }

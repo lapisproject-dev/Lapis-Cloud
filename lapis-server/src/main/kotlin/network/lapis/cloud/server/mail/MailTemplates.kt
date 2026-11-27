@@ -45,107 +45,99 @@ object MailTemplates {
     fun passwordReset(
         rawToken: String,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
+        val t = PasswordResetTexts
         val link = "${branding.publicBaseUrl}/app#/password-reset?token=$rawToken"
-        val ttl = formatTtl(PasswordResetTokenStore.RESET_TTL)
-        val subject = "Passwort zurücksetzen – ${branding.fromDisplayName}"
-        val plainText =
-            "Sie haben ein Zurücksetzen Ihres Passworts angefordert.\n\n" +
-                "Öffnen Sie diesen Link, um ein neues Passwort zu vergeben:\n$link\n\n" +
-                "Alternativ können Sie folgenden Code manuell im Anmeldeformular eingeben:\n$rawToken\n\n" +
-                "Dieser Link/Code ist $ttl gültig. Wenn Sie diese Änderung nicht angefordert haben, " +
-                "können Sie diese E-Mail ignorieren – es wurde noch nichts verändert.\n\n" +
-                footer(branding)
-        val html =
-            createHTML().html {
-                head { title { +subject } }
-                body {
-                    h1 { +"Passwort zurücksetzen" }
-                    p { +"Sie haben ein Zurücksetzen Ihres Passworts angefordert." }
-                    p {
-                        +"Öffnen Sie diesen Link, um ein neues Passwort zu vergeben: "
-                        a(href = link) { +"Link zum Zurücksetzen öffnen" }
-                    }
-                    p { +"Alternativ können Sie folgenden Code manuell im Anmeldeformular eingeben: $rawToken" }
-                    p { +"Dieser Link/Code ist $ttl gültig." }
-                    p {
-                        +(
-                            "Wenn Sie diese Änderung nicht angefordert haben, können Sie diese E-Mail ignorieren – " +
-                                "es wurde noch nichts verändert."
-                        )
-                    }
-                    p { +footer(branding) }
-                }
-            }
-        return RenderedMail(subject = subject, plainText = plainText, html = html)
+        val intro = txt(text = t.openLinkIntro, language = language)
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.heading, language = language), branding = branding),
+            heading = txt(text = t.heading, language = language),
+            blocks =
+                listOf(
+                    Block(plain = txt(text = t.requested, language = language)),
+                    Block(plain = "$intro\n$link", html = intro, link = link, linkLabel = txt(text = t.linkLabel, language = language)),
+                    Block(
+                        plain = "${txt(text = t.codeIntro, language = language)}\n$rawToken",
+                        html = "${txt(text = t.codeIntro, language = language)} $rawToken",
+                    ),
+                    Block(
+                        plain =
+                            txt(
+                                text = t.validity,
+                                language = language,
+                                "ttl" to formatTtl(ttl = PasswordResetTokenStore.RESET_TTL, language = language),
+                            ),
+                    ),
+                    Block(plain = txt(text = t.ignoreHint, language = language)),
+                ),
+            branding = branding,
+            language = language,
+        )
     }
 
     /**
      * V1.9.310 (R6b): the code of an auditor's read access. A FIXED subject and body: the code, its life span and a hint; no link, no name, nothing
-     * a person typed. The code is shown as "482 913".
+     * a person typed. The code is shown as "482 913". V1.9.334: in the instance mail language.
      */
     fun partgReviewerCode(
         code: String,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
+        val t = PartgReviewerCodeTexts
         val shown = PartgReviewerRules.formatCode(code)
-        val subject = "Ihr Code für den Lesezugang zur Prüfung"
-        val plainText =
-            "Ihr Code für den Lesezugang zur Prüfung bei ${branding.fromDisplayName}:\n\n" +
-                "$shown\n\n" +
-                "Der Code ist ${PartgReviewerRules.CODE_VALID_MINUTES} Minuten gültig und kann einmal verwendet werden. " +
-                "Wenn Sie keinen Code angefordert haben, können Sie diese E-Mail ignorieren.\n\n" +
-                footer(branding)
-        val html =
-            createHTML().html {
-                head { title { +subject } }
-                body {
-                    h1 { +subject }
-                    p { +"Ihr Code für den Lesezugang zur Prüfung bei ${branding.fromDisplayName}:" }
-                    p { b { +shown } }
-                    p {
-                        +(
-                            "Der Code ist ${PartgReviewerRules.CODE_VALID_MINUTES} Minuten gültig und kann einmal verwendet werden. " +
-                                "Wenn Sie keinen Code angefordert haben, können Sie diese E-Mail ignorieren."
-                        )
-                    }
-                    p { +footer(branding) }
-                }
-            }
-        return RenderedMail(subject = subject, plainText = plainText, html = html)
+        val subject = txt(text = t.subject, language = language)
+        return single(
+            subject = subject,
+            heading = subject,
+            blocks =
+                listOf(
+                    Block(plain = txt(text = t.intro, language = language, "brand" to branding.fromDisplayName)),
+                    Block(plain = shown, bold = true),
+                    Block(
+                        plain =
+                            txt(text = t.validity, language = language, "minutes" to PartgReviewerRules.CODE_VALID_MINUTES.toString()) +
+                                " " + txt(text = t.ignoreHint, language = language),
+                    ),
+                ),
+            branding = branding,
+            language = language,
+        )
     }
 
     fun friendVerification(
         rawToken: String,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
+        val t = FriendVerificationTexts
         val link = "${branding.publicBaseUrl}/app#/verify-email?token=$rawToken"
-        val ttl = formatTtl(FriendEmailVerificationTokenStore.VERIFICATION_TTL)
-        val subject = "E-Mail-Adresse bestätigen – ${branding.fromDisplayName}"
-        val plainText =
-            "Bitte bestätigen Sie Ihre E-Mail-Adresse für Ihr Konto bei ${branding.fromDisplayName}.\n\n" +
-                "Öffnen Sie diesen Link, um die Bestätigung abzuschließen:\n$link\n\n" +
-                "Alternativ können Sie folgenden Code manuell eingeben:\n$rawToken\n\n" +
-                "Dieser Link/Code ist $ttl gültig. Wenn Sie dieses Konto nicht angelegt haben, " +
-                "können Sie diese E-Mail ignorieren.\n\n" +
-                footer(branding)
-        val html =
-            createHTML().html {
-                head { title { +subject } }
-                body {
-                    h1 { +"E-Mail-Adresse bestätigen" }
-                    p { +"Bitte bestätigen Sie Ihre E-Mail-Adresse für Ihr Konto bei ${branding.fromDisplayName}." }
-                    p {
-                        +"Öffnen Sie diesen Link, um die Bestätigung abzuschließen: "
-                        a(href = link) { +"E-Mail-Adresse jetzt bestätigen" }
-                    }
-                    p { +"Alternativ können Sie folgenden Code manuell eingeben: $rawToken" }
-                    p { +"Dieser Link/Code ist $ttl gültig." }
-                    p { +"Wenn Sie dieses Konto nicht angelegt haben, können Sie diese E-Mail ignorieren." }
-                    p { +footer(branding) }
-                }
-            }
-        return RenderedMail(subject = subject, plainText = plainText, html = html)
+        val intro = txt(text = t.openLinkIntro, language = language)
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.heading, language = language), branding = branding),
+            heading = txt(text = t.heading, language = language),
+            blocks =
+                listOf(
+                    Block(plain = txt(text = t.intro, language = language, "brand" to branding.fromDisplayName)),
+                    Block(plain = "$intro\n$link", html = intro, link = link, linkLabel = txt(text = t.linkLabel, language = language)),
+                    Block(
+                        plain = "${txt(text = t.codeIntro, language = language)}\n$rawToken",
+                        html = "${txt(text = t.codeIntro, language = language)} $rawToken",
+                    ),
+                    Block(
+                        plain =
+                            txt(
+                                text = PasswordResetTexts.validity,
+                                language = language,
+                                "ttl" to formatTtl(ttl = FriendEmailVerificationTokenStore.VERIFICATION_TTL, language = language),
+                            ),
+                    ),
+                    Block(plain = txt(text = t.ignoreHint, language = language)),
+                ),
+            branding = branding,
+            language = language,
+        )
     }
 
     /**
@@ -153,48 +145,57 @@ object MailTemplates {
      * .WebhookDeactivationNotifier`'s one mail, sent to every BOARD/ADMIN member (capped, see that
      * class KDoc) after the poller auto-deactivates an endpoint. **Never the signature secret,
      * never the endpoint's full URL** -- only [urlHost] (Design-Team decision, plan §5.6: path/
-     * query segments can carry a receiver-chosen secret token of their own, e.g.
-     * `https://example.com/webhooks/<their-own-secret>`, which this org's mail transport has no
-     * business retaining).
+     * query segments can carry a receiver-chosen secret token of their own). A `null` host is written as "unknown" in [language].
      */
     fun webhookEndpointDeactivated(
         apiKeyLabel: String,
-        urlHost: String,
+        urlHost: String?,
         eventTypeLabel: String,
         attemptCount: Int,
         lastHttpStatus: Int?,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
+        val t = WebhookDeactivatedTexts
         val link = "${branding.publicBaseUrl}/app#/api-keys"
-        val statusLine = if (lastHttpStatus != null) "letzter HTTP-Status: $lastHttpStatus" else "kein HTTP-Status erhalten"
-        val subject = "Webhook deaktiviert – ${branding.fromDisplayName}"
-        val plainText =
-            "Der Webhook für den API-Schlüssel „$apiKeyLabel“ (Ziel-Host: $urlHost) wurde nach " +
-                "wiederholten Zustellfehlern automatisch deaktiviert.\n\n" +
-                "Letztes Ereignis: $eventTypeLabel, Versuch $attemptCount, $statusLine.\n\n" +
-                "Öffnen Sie die API-Schlüssel-Verwaltung, um den Webhook zu prüfen und ggf. wieder zu " +
-                "aktivieren:\n$link\n\n" +
-                footer(branding)
-        val html =
-            createHTML().html {
-                head { title { +subject } }
-                body {
-                    h1 { +"Webhook deaktiviert" }
-                    p {
-                        +(
-                            "Der Webhook für den API-Schlüssel „$apiKeyLabel“ (Ziel-Host: $urlHost) wurde nach " +
-                                "wiederholten Zustellfehlern automatisch deaktiviert."
-                        )
-                    }
-                    p { +"Letztes Ereignis: $eventTypeLabel, Versuch $attemptCount, $statusLine." }
-                    p {
-                        +"Öffnen Sie die API-Schlüssel-Verwaltung, um den Webhook zu prüfen und ggf. wieder zu aktivieren: "
-                        a(href = link) { +"API-Schlüssel-Verwaltung öffnen" }
-                    }
-                    p { +footer(branding) }
-                }
+        val status =
+            if (lastHttpStatus !=
+                null
+            ) {
+                txt(text = t.statusLine, language = language, "code" to lastHttpStatus.toString())
+            } else {
+                txt(text = t.noStatus, language = language)
             }
-        return RenderedMail(subject = subject, plainText = plainText, html = html)
+        val intro = txt(text = t.linkIntro, language = language)
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.heading, language = language), branding = branding),
+            heading = txt(text = t.heading, language = language),
+            blocks =
+                listOf(
+                    Block(
+                        plain =
+                            txt(
+                                text = t.body,
+                                language = language,
+                                "key" to apiKeyLabel,
+                                "host" to (urlHost ?: txt(text = t.unknownHost, language = language)),
+                            ),
+                    ),
+                    Block(
+                        plain =
+                            txt(
+                                text = t.lastEvent,
+                                language = language,
+                                "event" to eventTypeLabel,
+                                "attempt" to attemptCount.toString(),
+                                "status" to status,
+                            ),
+                    ),
+                    Block(plain = "$intro\n$link", html = intro, link = link, linkLabel = txt(text = t.linkLabel, language = language)),
+                ),
+            branding = branding,
+            language = language,
+        )
     }
 
     /**
@@ -202,42 +203,38 @@ object MailTemplates {
      * Live-Abruf-Status auf `REAUTH_REQUIRED` wechselt (siehe
      * `network.lapis.cloud.server.payment.fints.FinTsPoller` KDoc "Benachrichtigung nur beim
      * Übergang"). **Enthält niemals PIN, Benutzerkennung oder eine rohe Bank-Meldung** -- nur
-     * [accountLabel]/[ibanMasked]/[occurredAt] und ein Link zur Bankkonten-Verwaltung.
+     * [accountLabel]/[ibanMasked]/[occurredAt] und ein Link zur Bankkonten-Verwaltung. The timestamp stays in its raw form.
      */
     fun finTsReauthRequired(
         accountLabel: String,
         ibanMasked: String,
         occurredAt: LocalDateTime,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
+        val t = FinTsReauthTexts
         val link = "${branding.publicBaseUrl}/app#/bank-accounts"
-        val subject = "FinTS-Live-Abruf muss neu angemeldet werden – ${branding.fromDisplayName}"
-        val plainText =
-            "Der Live-Abruf für das Bankkonto „$accountLabel“ ($ibanMasked) benötigt eine erneute " +
-                "Anmeldung (Datum/Uhrzeit: $occurredAt). Bis dahin werden keine neuen Kontoumsätze " +
-                "mehr automatisch abgerufen.\n\n" +
-                "Öffnen Sie die Bankkonten-Verwaltung, um sich erneut anzumelden:\n$link\n\n" +
-                footer(branding)
-        val html =
-            createHTML().html {
-                head { title { +subject } }
-                body {
-                    h1 { +"FinTS-Live-Abruf: erneute Anmeldung erforderlich" }
-                    p {
-                        +(
-                            "Der Live-Abruf für das Bankkonto „$accountLabel“ ($ibanMasked) benötigt eine " +
-                                "erneute Anmeldung (Datum/Uhrzeit: $occurredAt). Bis dahin werden keine neuen " +
-                                "Kontoumsätze mehr automatisch abgerufen."
-                        )
-                    }
-                    p {
-                        +"Öffnen Sie die Bankkonten-Verwaltung, um sich erneut anzumelden: "
-                        a(href = link) { +"Bankkonten-Verwaltung öffnen" }
-                    }
-                    p { +footer(branding) }
-                }
-            }
-        return RenderedMail(subject = subject, plainText = plainText, html = html)
+        val intro = txt(text = t.linkIntro, language = language)
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.subjectLead, language = language), branding = branding),
+            heading = txt(text = t.heading, language = language),
+            blocks =
+                listOf(
+                    Block(
+                        plain =
+                            txt(
+                                text = t.body,
+                                language = language,
+                                "account" to accountLabel,
+                                "iban" to ibanMasked,
+                                "when" to occurredAt.toString(),
+                            ),
+                    ),
+                    Block(plain = "$intro\n$link", html = intro, link = link, linkLabel = txt(text = t.linkLabel, language = language)),
+                ),
+            branding = branding,
+            language = language,
+        )
     }
 
     /**
@@ -251,37 +248,28 @@ object MailTemplates {
     fun passwordResetByAdmin(
         occurredAt: LocalDateTime,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
-        val subject = "Ihr Passwort wurde zurückgesetzt – ${branding.fromDisplayName}"
-        val plainText =
-            "Ihr Passwort bei ${branding.fromDisplayName} wurde am $occurredAt von einer " +
-                "administrativen Person zurückgesetzt.\n\n" +
-                "Wenn Sie das erwartet haben (z. B. weil Sie telefonisch um Hilfe gebeten haben), " +
-                "müssen Sie nichts weiter tun. Wenn Sie das NICHT erwartet haben, melden Sie sich " +
-                "bitte umgehend bei uns.\n\n" +
-                footer(branding)
-        val html =
-            createHTML().html {
-                head { title { +subject } }
-                body {
-                    h1 { +"Passwort zurückgesetzt" }
-                    p {
-                        +(
-                            "Ihr Passwort bei ${branding.fromDisplayName} wurde am $occurredAt von einer " +
-                                "administrativen Person zurückgesetzt."
-                        )
-                    }
-                    p {
-                        +(
-                            "Wenn Sie das erwartet haben (z. B. weil Sie telefonisch um Hilfe gebeten haben), " +
-                                "müssen Sie nichts weiter tun. Wenn Sie das NICHT erwartet haben, melden Sie " +
-                                "sich bitte umgehend bei uns."
-                        )
-                    }
-                    p { +footer(branding) }
-                }
-            }
-        return RenderedMail(subject = subject, plainText = plainText, html = html)
+        val t = AdminPasswordResetTexts
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.subjectLead, language = language), branding = branding),
+            heading = txt(text = t.heading, language = language),
+            blocks =
+                listOf(
+                    Block(
+                        plain =
+                            txt(
+                                text = t.sentence,
+                                language = language,
+                                "brand" to branding.fromDisplayName,
+                                "when" to occurredAt.toString(),
+                            ),
+                    ),
+                    Block(plain = txt(text = t.advice, language = language)),
+                ),
+            branding = branding,
+            language = language,
+        )
     }
 
     /**
@@ -294,36 +282,33 @@ object MailTemplates {
         change: KeycloakLinkChange,
         occurredAt: LocalDateTime,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
+        val t = KeycloakLinkTexts
         val (heading, sentence) =
             when (change) {
-                KeycloakLinkChange.LINKED ->
-                    "Anmeldekonto verknüpft" to
-                        "Ihr Mitgliedskonto bei ${branding.fromDisplayName} wurde am $occurredAt von einer " +
-                        "administrativen Person mit einem Keycloak-Anmeldekonto verknüpft. Wer sich mit " +
-                        "diesem Keycloak-Konto anmeldet, handelt ab sofort in Ihrem Namen."
-                KeycloakLinkChange.UNLINKED ->
-                    "Anmeldekonto-Verknüpfung entfernt" to
-                        "Die Verknüpfung Ihres Mitgliedskontos bei ${branding.fromDisplayName} mit einem " +
-                        "Keycloak-Anmeldekonto wurde am $occurredAt von einer administrativen Person entfernt; " +
-                        "bestehende Sitzungen wurden beendet."
+                KeycloakLinkChange.LINKED -> t.linkedHeading to t.linkedSentence
+                KeycloakLinkChange.UNLINKED -> t.unlinkedHeading to t.unlinkedSentence
             }
-        val subject = "$heading – ${branding.fromDisplayName}"
-        val advice =
-            "Wenn Sie das erwartet haben, müssen Sie nichts weiter tun. Wenn Sie das NICHT erwartet " +
-                "haben, melden Sie sich bitte umgehend bei uns."
-        val plainText = "$sentence\n\n$advice\n\n" + footer(branding)
-        val html =
-            createHTML().html {
-                head { title { +subject } }
-                body {
-                    h1 { +heading }
-                    p { +sentence }
-                    p { +advice }
-                    p { +footer(branding) }
-                }
-            }
-        return RenderedMail(subject = subject, plainText = plainText, html = html)
+        return single(
+            subject = subjectWithBrand(lead = txt(text = heading, language = language), branding = branding),
+            heading = txt(text = heading, language = language),
+            blocks =
+                listOf(
+                    Block(
+                        plain =
+                            txt(
+                                text = sentence,
+                                language = language,
+                                "brand" to branding.fromDisplayName,
+                                "when" to occurredAt.toString(),
+                            ),
+                    ),
+                    Block(plain = txt(text = t.advice, language = language)),
+                ),
+            branding = branding,
+            language = language,
+        )
     }
 
     /**
@@ -335,35 +320,28 @@ object MailTemplates {
         newMemberName: String,
         occurredAt: LocalDateTime,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
-        val name = safeName(newMemberName)
-        return bilingual(
-            subject = "Mitglied automatisch angelegt / Member created automatically – ${branding.fromDisplayName}",
-            de =
-                MailSection(
-                    heading = "Mitglied automatisch angelegt",
-                    paragraphs =
-                        listOf(
-                            "$name wurde am ${formatUtc(occurredAt)} beim ersten Login über den externen Anmeldedienst (Keycloak) " +
-                                "automatisch als aktives Mitglied bei ${branding.fromDisplayName} angelegt.",
-                            "Wenn Sie das nicht erwartet haben, prüfen Sie bitte die Mitgliederverwaltung und das Änderungsprotokoll.",
-                        ),
-                    linkLabel = null,
-                    link = null,
-                ),
-            en =
-                MailSection(
-                    heading = "Member created automatically",
-                    paragraphs =
-                        listOf(
-                            "$name was created as an active member at ${branding.fromDisplayName} on ${formatUtc(occurredAt)}, " +
-                                "on their first login through the external sign-in service (Keycloak).",
-                            "If you did not expect this, please review the member administration and the change log.",
-                        ),
-                    linkLabel = null,
-                    link = null,
+        val t = KeycloakProvisioningTexts
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.provisionedHeading, language = language), branding = branding),
+            heading = txt(text = t.provisionedHeading, language = language),
+            blocks =
+                listOf(
+                    Block(
+                        plain =
+                            txt(
+                                text = t.provisionedSentence,
+                                language = language,
+                                "name" to safeName(newMemberName),
+                                "when" to formatUtc(at = occurredAt, language = language),
+                                "brand" to branding.fromDisplayName,
+                            ),
+                    ),
+                    Block(plain = txt(text = MailCommonTexts.notExpectedReview, language = language)),
                 ),
             branding = branding,
+            language = language,
         )
     }
 
@@ -372,37 +350,30 @@ object MailTemplates {
         maskedNewEmail: String,
         occurredAt: LocalDateTime,
         branding: MailBranding,
-    ): RenderedMail =
-        bilingual(
-            subject = "E-Mail-Adresse übernommen / Email address taken over – ${branding.fromDisplayName}",
-            de =
-                MailSection(
-                    heading = "E-Mail-Adresse aus dem Anmeldedienst übernommen",
-                    paragraphs =
-                        listOf(
-                            "Die E-Mail-Adresse Ihres Kontos bei ${branding.fromDisplayName} wurde am ${formatUtc(occurredAt)} aus dem " +
-                                "externen Anmeldedienst (Keycloak) übernommen und lautet jetzt $maskedNewEmail. Alle anderen " +
-                                "Sitzungen wurden beendet.",
-                            "Wenn Sie das nicht erwartet haben, melden Sie sich bitte umgehend bei uns.",
-                        ),
-                    linkLabel = null,
-                    link = null,
-                ),
-            en =
-                MailSection(
-                    heading = "Email address taken over from the sign-in service",
-                    paragraphs =
-                        listOf(
-                            "The email address of your account at ${branding.fromDisplayName} was taken over from the external " +
-                                "sign-in service (Keycloak) on ${formatUtc(occurredAt)} and is now $maskedNewEmail. All other " +
-                                "sessions were ended.",
-                            "If you did not expect this, please contact us immediately.",
-                        ),
-                    linkLabel = null,
-                    link = null,
+        language: String = "de",
+    ): RenderedMail {
+        val t = KeycloakProvisioningTexts
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.syncedSubjectLead, language = language), branding = branding),
+            heading = txt(text = t.syncedHeading, language = language),
+            blocks =
+                listOf(
+                    Block(
+                        plain =
+                            txt(
+                                text = t.syncedSentence,
+                                language = language,
+                                "brand" to branding.fromDisplayName,
+                                "when" to formatUtc(at = occurredAt, language = language),
+                                "masked" to maskedNewEmail,
+                            ),
+                    ),
+                    Block(plain = txt(text = MailCommonTexts.notExpectedContact, language = language)),
                 ),
             branding = branding,
+            language = language,
         )
+    }
 
     /**
      * Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- author-facing notification for the
@@ -417,62 +388,43 @@ object MailTemplates {
         notification: ArticleReviewNotification,
         brandTitle: String,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
+        val t = ArticleReviewTexts
         val safeTitle = sanitizeSubjectFragment(notification.title)
-        val (heading, subjectVerb) =
+        val (subjectText, heading, intro) =
             when (notification.outcome) {
-                ArticleReviewOutcome.APPROVED -> "Ihr Artikel wurde veröffentlicht" to "veröffentlicht"
-                ArticleReviewOutcome.REJECTED -> "Ihr Artikel wurde abgelehnt" to "abgelehnt"
-                ArticleReviewOutcome.UNPUBLISHED -> "Ihr Artikel wurde depubliziert" to "depubliziert"
+                ArticleReviewOutcome.APPROVED -> Triple(t.approvedSubject, t.approvedHeading, t.approvedIntro)
+                ArticleReviewOutcome.REJECTED -> Triple(t.rejectedSubject, t.rejectedHeading, t.rejectedIntro)
+                ArticleReviewOutcome.UNPUBLISHED -> Triple(t.unpublishedSubject, t.unpublishedHeading, t.unpublishedIntro)
             }
-        val subject = "Artikel „$safeTitle“ $subjectVerb – $brandTitle"
         val reasonSentence =
             when (notification.outcome) {
                 ArticleReviewOutcome.APPROVED -> null
                 ArticleReviewOutcome.REJECTED, ArticleReviewOutcome.UNPUBLISHED ->
-                    notification.reason?.let { "Begründung: $it" }
-                        ?: "Der Vorstand hat keine Begründung angegeben."
+                    notification.reason?.let { txt(text = t.reasonLine, language = language, "reason" to it) }
+                        ?: txt(text = t.noReason, language = language)
             }
-        val introSentence =
-            when (notification.outcome) {
-                ArticleReviewOutcome.APPROVED -> "Ihr Artikel „${notification.title}“ wurde vom Vorstand geprüft und veröffentlicht."
-                ArticleReviewOutcome.REJECTED -> "Ihr Artikel „${notification.title}“ wurde vom Vorstand geprüft und nicht veröffentlicht."
-                ArticleReviewOutcome.UNPUBLISHED -> "Ihr Artikel „${notification.title}“ wurde vom Vorstand von der Webseite genommen."
-            }
-        val plainText =
-            buildString {
-                append(introSentence)
-                if (reasonSentence != null) {
-                    append("\n\n")
-                    append(reasonSentence)
-                }
-                if (notification.publicUrl != null) {
-                    append("\n\nSie finden Ihren Artikel hier:\n")
-                    append(notification.publicUrl)
-                }
-                append("\n\n")
-                append(brandTitle)
-                append("\n\n")
-                append(footer(branding))
-            }
-        val html =
-            createHTML().html {
-                head { title { +subject } }
-                body {
-                    h1 { +heading }
-                    p { +introSentence }
-                    if (reasonSentence != null) p { +reasonSentence }
-                    if (notification.publicUrl != null) {
-                        p {
-                            +"Sie finden Ihren Artikel hier: "
-                            a(href = notification.publicUrl) { +"Artikel öffnen" }
-                        }
-                    }
-                    p { +brandTitle }
-                    p { +footer(branding) }
-                }
-            }
-        return RenderedMail(subject = subject, plainText = plainText, html = html)
+        val blocks = mutableListOf(Block(plain = txt(text = intro, language = language, "title" to notification.title)))
+        if (reasonSentence != null) blocks += Block(plain = reasonSentence)
+        if (notification.publicUrl != null) {
+            val findHere = txt(text = t.findHere, language = language)
+            blocks +=
+                Block(
+                    plain = "$findHere\n${notification.publicUrl}",
+                    html = findHere,
+                    link = notification.publicUrl,
+                    linkLabel = txt(text = t.linkLabel, language = language),
+                )
+        }
+        blocks += Block(plain = brandTitle)
+        return single(
+            subject = "${txt(text = subjectText, language = language, "title" to safeTitle)} – $brandTitle",
+            heading = txt(text = heading, language = language),
+            blocks = blocks,
+            branding = branding,
+            language = language,
+        )
     }
 
     /**
@@ -502,7 +454,7 @@ object MailTemplates {
                     mapOf(
                         "amount" to amount,
                         "title" to safeTenderTitle(notification.tenderTitle),
-                        "when" to formatUtc(notification.executedAt),
+                        "when" to formatUtc(at = notification.executedAt, language = language),
                     ),
             )
         val plainText =
@@ -513,7 +465,7 @@ object MailTemplates {
                 append("\n\n")
                 append(brandTitle)
                 append("\n\n")
-                append(footer(branding))
+                append(footer(branding = branding, language = language))
             }
         val html =
             createHTML().html {
@@ -526,7 +478,7 @@ object MailTemplates {
                         a(href = link) { +texts.linkLabel }
                     }
                     p { +brandTitle }
-                    p { +footer(branding) }
+                    p { +footer(branding = branding, language = language) }
                 }
             }
         return RenderedMail(subject = subject, plainText = plainText, html = html)
@@ -554,7 +506,7 @@ object MailTemplates {
                 append(heading).append("\n\n")
                 paragraphs.forEach { append(it).append("\n\n") }
                 append(texts.linkLabel).append(":\n").append(link).append("\n\n")
-                append(footer(branding))
+                append(footer(branding = branding, language = language))
             }
         val html =
             createHTML().html {
@@ -563,7 +515,7 @@ object MailTemplates {
                     h1 { +heading }
                     paragraphs.forEach { paragraph -> p { +paragraph } }
                     p { a(href = link) { +texts.linkLabel } }
-                    p { +footer(branding) }
+                    p { +footer(branding = branding, language = language) }
                 }
             }
         return RenderedMail(subject = subject, plainText = plainText, html = html)
@@ -578,81 +530,51 @@ object MailTemplates {
     /**
      * Welle V1.9.56 "E-Mail-Änderung absichern" -- link to the NEW address. [EmailChangeKind.PROPOSAL]: accept with the
      * password (`/app#/confirm-email?token=...`); the other proposal kinds: prove the address (`/app#/verify-new-email`),
-     * effective no earlier than [effectiveAt]. German first, English second, one message (members have no language
-     * preference). The mail names no member and no initiator.
+     * effective no earlier than [effectiveAt]. One language ([language], the instance mail language since V1.9.334). The mail names no
+     * member and no initiator.
      */
     fun emailChangeConfirm(
         rawToken: String,
         kind: EmailChangeKind,
         effectiveAt: LocalDateTime?,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
+        val t = EmailChangeTexts
         val needsPassword = kind == EmailChangeKind.PROPOSAL
         val route = if (needsPassword) "confirm-email" else "verify-new-email"
         val link = "${branding.publicBaseUrl}/app#/$route?token=$rawToken"
-        val de =
+        val brand = "brand" to branding.fromDisplayName
+        val heading = txt(text = if (needsPassword) t.proposalHeading else t.verifyHeading, language = language)
+        val paragraphs =
             if (needsPassword) {
-                MailSection(
-                    heading = "Neue Anmeldeadresse annehmen",
-                    paragraphs =
-                        listOf(
-                            "Für ein Konto bei ${branding.fromDisplayName} wurde vorgeschlagen, diese E-Mail-Adresse als Anmeldeadresse zu verwenden.",
-                            "Wenn das Ihr Konto ist, öffnen Sie den Link und bestätigen Sie mit Ihrem Passwort. Der Link ist 7 Tage gültig.",
-                            "Wenn Sie das nicht erwartet haben, können Sie diese E-Mail ignorieren – es wurde nichts verändert.",
-                        ),
-                    linkLabel = "Neue Adresse annehmen",
-                    link = link,
+                listOf(
+                    txt(text = t.proposalIntro, language = language, brand),
+                    txt(text = t.proposalAction, language = language),
+                    txt(text = MailCommonTexts.ignoreNothingChanged, language = language),
                 )
             } else {
-                MailSection(
-                    heading = "E-Mail-Adresse bestätigen",
-                    paragraphs =
-                        listOf(
-                            "Für ein Konto bei ${branding.fromDisplayName} wurde beantragt, diese E-Mail-Adresse als Anmeldeadresse zu verwenden.",
-                            "Bitte bestätigen Sie, dass diese Adresse Ihnen gehört. Die Änderung wird frühestens ${formatUtc(
-                                effectiveAt,
-                            )} " +
-                                "wirksam; bis dahin kann sie über die bisherige Adresse abgelehnt werden. Der Link ist 7 Tage gültig.",
-                            "Wenn Sie das nicht erwartet haben, können Sie diese E-Mail ignorieren – es wurde nichts verändert.",
-                        ),
-                    linkLabel = "Adresse bestätigen",
-                    link = link,
+                listOf(
+                    txt(text = t.verifyIntro, language = language, brand),
+                    txt(text = t.verifyAction, language = language, "when" to formatUtc(at = effectiveAt, language = language)),
+                    txt(text = MailCommonTexts.ignoreNothingChanged, language = language),
                 )
             }
-        val en =
-            if (needsPassword) {
-                MailSection(
-                    heading = "Accept the new sign-in address",
-                    paragraphs =
-                        listOf(
-                            "Using this e-mail address as the sign-in address of an account at ${branding.fromDisplayName} was proposed.",
-                            "If this is your account, open the link and confirm with your password. The link is valid for 7 days.",
-                            "If you did not expect this, you can ignore this e-mail – nothing has been changed.",
-                        ),
-                    linkLabel = "Accept the new address",
-                    link = link,
-                )
-            } else {
-                MailSection(
-                    heading = "Confirm your e-mail address",
-                    paragraphs =
-                        listOf(
-                            "Using this e-mail address as the sign-in address of an account at ${branding.fromDisplayName} was requested.",
-                            "Please confirm that this address is yours. The change takes effect no earlier than ${formatUtc(
-                                effectiveAt,
-                            )}; " +
-                                "until then it can be rejected through the previous address. The link is valid for 7 days.",
-                            "If you did not expect this, you can ignore this e-mail – nothing has been changed.",
-                        ),
-                    linkLabel = "Confirm the address",
-                    link = link,
-                )
-            }
-        return bilingual(
-            subject = "E-Mail-Adresse ändern / Change e-mail address – ${branding.fromDisplayName}",
-            de = de,
-            en = en,
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.subjectLead, language = language), branding = branding),
+            heading = heading,
+            blocks =
+                paragraphs.map {
+                    Block(
+                        plain = it,
+                    )
+                } +
+                    linkBlock(
+                        label = txt(text = if (needsPassword) t.proposalLinkLabel else t.verifyLinkLabel, language = language),
+                        link = link,
+                    ),
             branding = branding,
+            language = language,
         )
     }
 
@@ -666,54 +588,36 @@ object MailTemplates {
         maskedNewEmail: String,
         effectiveAt: LocalDateTime?,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
+        val t = EmailChangeTexts
         val link = "${branding.publicBaseUrl}/app#/revoke-email-change?token=$rawRevokeToken"
-        val needsPassword = kind == EmailChangeKind.PROPOSAL
-        val deEffect =
-            if (needsPassword) {
-                "Die Änderung wird nur wirksam, wenn Sie sie mit Ihrem Passwort annehmen."
+        val effect =
+            if (kind == EmailChangeKind.PROPOSAL) {
+                txt(text = t.effectPassword, language = language)
             } else {
-                "Die Änderung wird frühestens ${formatUtc(
-                    effectiveAt,
-                )} wirksam, sofern die neue Adresse bestätigt wurde und Sie nicht ablehnen."
+                txt(text = t.effectTimed, language = language, "when" to formatUtc(at = effectiveAt, language = language))
             }
-        val enEffect =
-            if (needsPassword) {
-                "The change only takes effect if you accept it with your password."
-            } else {
-                "The change takes effect no earlier than ${formatUtc(
-                    effectiveAt,
-                )}, provided the new address has been confirmed and you do not reject it."
-            }
-        return bilingual(
-            subject = "Änderung Ihrer Anmeldeadresse / Change of your sign-in address – ${branding.fromDisplayName}",
-            de =
-                MailSection(
-                    heading = "Änderung Ihrer Anmeldeadresse beantragt",
-                    paragraphs =
-                        listOf(
-                            "Für Ihr Konto bei ${branding.fromDisplayName} hat eine administrative Person beantragt, die Anmeldeadresse " +
-                                "auf $maskedNewEmail zu ändern.",
-                            deEffect,
-                            "Wenn Sie das NICHT erwartet haben, lehnen Sie die Änderung jetzt ab und melden Sie sich bitte umgehend bei uns.",
-                        ),
-                    linkLabel = "Änderung ablehnen",
-                    link = link,
-                ),
-            en =
-                MailSection(
-                    heading = "Change of your sign-in address requested",
-                    paragraphs =
-                        listOf(
-                            "For your account at ${branding.fromDisplayName}, an administrative person requested to change the sign-in " +
-                                "address to $maskedNewEmail.",
-                            enEffect,
-                            "If you did NOT expect this, reject the change now and please contact us immediately.",
-                        ),
-                    linkLabel = "Reject the change",
-                    link = link,
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.warningSubjectLead, language = language), branding = branding),
+            heading = txt(text = t.warningHeading, language = language),
+            blocks =
+                listOf(
+                    Block(
+                        plain =
+                            txt(
+                                text = t.warningIntro,
+                                language = language,
+                                "brand" to branding.fromDisplayName,
+                                "masked" to maskedNewEmail,
+                            ),
+                    ),
+                    Block(plain = effect),
+                    Block(plain = txt(text = t.warningAdvice, language = language)),
+                    linkBlock(label = txt(text = t.warningLinkLabel, language = language), link = link),
                 ),
             branding = branding,
+            language = language,
         )
     }
 
@@ -721,143 +625,97 @@ object MailTemplates {
     fun emailChangeSelfInfo(
         maskedNewEmail: String,
         branding: MailBranding,
-    ): RenderedMail =
-        bilingual(
-            subject = "Ihre Anmeldeadresse wurde geändert / Your sign-in address was changed – ${branding.fromDisplayName}",
-            de =
-                MailSection(
-                    heading = "Anmeldeadresse geändert",
-                    paragraphs =
-                        listOf(
-                            "Die Anmeldeadresse Ihres Kontos bei ${branding.fromDisplayName} wurde soeben auf $maskedNewEmail geändert. " +
-                                "Alle anderen Sitzungen wurden beendet.",
-                            "Wenn Sie das NICHT selbst getan haben, melden Sie sich bitte umgehend bei uns.",
-                        ),
-                    linkLabel = null,
-                    link = null,
-                ),
-            en =
-                MailSection(
-                    heading = "Sign-in address changed",
-                    paragraphs =
-                        listOf(
-                            "The sign-in address of your account at ${branding.fromDisplayName} was just changed to $maskedNewEmail. " +
-                                "All other sessions were ended.",
-                            "If you did NOT do this yourself, please contact us immediately.",
-                        ),
-                    linkLabel = null,
-                    link = null,
+        language: String = "de",
+    ): RenderedMail {
+        val t = EmailChangeTexts
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.changedSubjectLead, language = language), branding = branding),
+            heading = txt(text = t.changedHeading, language = language),
+            blocks =
+                listOf(
+                    Block(
+                        plain =
+                            txt(
+                                text = t.selfChanged,
+                                language = language,
+                                "brand" to branding.fromDisplayName,
+                                "masked" to maskedNewEmail,
+                            ),
+                    ),
+                    Block(plain = txt(text = t.selfAdvice, language = language)),
                 ),
             branding = branding,
+            language = language,
         )
+    }
 
     /** Welle V1.9.56 -- info to the OLD address after a third-party change became effective (warning period elapsed). */
     fun emailChangeAppliedInfo(
         maskedNewEmail: String,
         branding: MailBranding,
-    ): RenderedMail =
-        bilingual(
-            subject = "Ihre Anmeldeadresse wurde geändert / Your sign-in address was changed – ${branding.fromDisplayName}",
-            de =
-                MailSection(
-                    heading = "Anmeldeadresse geändert",
-                    paragraphs =
-                        listOf(
-                            "Die Anmeldeadresse Ihres Kontos bei ${branding.fromDisplayName} wurde nach Ablauf der Warnfrist auf " +
-                                "$maskedNewEmail geändert. Alle Sitzungen wurden beendet.",
-                            "Wenn Sie das nicht erwartet haben, melden Sie sich bitte umgehend bei uns.",
-                        ),
-                    linkLabel = null,
-                    link = null,
-                ),
-            en =
-                MailSection(
-                    heading = "Sign-in address changed",
-                    paragraphs =
-                        listOf(
-                            "The sign-in address of your account at ${branding.fromDisplayName} was changed to $maskedNewEmail after the " +
-                                "warning period elapsed. All sessions were ended.",
-                            "If you did not expect this, please contact us immediately.",
-                        ),
-                    linkLabel = null,
-                    link = null,
+        language: String = "de",
+    ): RenderedMail {
+        val t = EmailChangeTexts
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.changedSubjectLead, language = language), branding = branding),
+            heading = txt(text = t.changedHeading, language = language),
+            blocks =
+                listOf(
+                    Block(
+                        plain =
+                            txt(
+                                text = t.appliedChanged,
+                                language = language,
+                                "brand" to branding.fromDisplayName,
+                                "masked" to maskedNewEmail,
+                            ),
+                    ),
+                    Block(plain = txt(text = MailCommonTexts.notExpectedContact, language = language)),
                 ),
             branding = branding,
+            language = language,
         )
+    }
 
     /**
      * Welle V1.9.76 -- anonymous entry notice to the office holders of an encounter space. Names nobody (see [EncounterEntryNotice]):
      * room title, time, number of persons without an office, number of people present. No link, no logo. The room title is
      * sanitised and cut before it reaches the `Subject:` header (header injection); the HTML part is an unformatted mirror of the plain
-     * text (the transport always sends multipart/alternative).
+     * text (the transport always sends multipart/alternative). V1.9.334: one language ([language]).
      */
     fun encounterEntryNotice(
         notice: EncounterEntryNotice,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
+        val t = EncounterEntryTexts
         val title = sanitizeSubjectFragment(notice.spaceTitle).take(80).ifBlank { "?" }
 
         fun clock(at: LocalDateTime): String = "${at.hour.toString().padStart(2, '0')}:${at.minute.toString().padStart(2, '0')}"
-        val single = notice.kind == EncounterEntryNotice.Kind.FIRST_GUEST
-        val whenDe =
-            if (single || notice.windowEnd == null) {
-                "um ${clock(notice.at)} Uhr"
+        val isSingle = notice.kind == EncounterEntryNotice.Kind.FIRST_GUEST
+        val whenText =
+            if (isSingle || notice.windowEnd == null) {
+                txt(text = t.whenAt, language = language, "at" to clock(notice.at))
             } else {
-                "zwischen ${clock(notice.at)} und ${clock(notice.windowEnd)} Uhr"
+                txt(text = t.whenBetween, language = language, "at" to clock(notice.at), "end" to clock(notice.windowEnd))
             }
-        val whenEn =
-            if (single || notice.windowEnd == null) {
-                "at ${clock(notice.at)}"
-            } else {
-                "between ${clock(notice.at)} and ${clock(notice.windowEnd)}"
-            }
-        val subject =
-            if (single) {
-                "Begegnungsraum „$title“: jemand ist eingetroffen / someone has arrived"
-            } else {
-                "Begegnungsraum „$title“: ${notice.entries} Personen sind eingetroffen / ${notice.entries} people have arrived"
-            }
-        val headingDe =
-            if (single) "Im Begegnungsraum „$title“ ist jemand eingetroffen." else "Im Begegnungsraum „$title“ sind Personen eingetroffen."
-        val headingEn =
-            if (single) "Someone has arrived in the gathering room “$title”." else "People have arrived in the gathering room “$title”."
-        val detailDe =
-            if (single) {
-                "Eine Person ohne Amt ist $whenDe eingetroffen. Aktuell sind ${notice.presentCount} Personen im Raum."
-            } else {
-                "${notice.entries} Personen ohne Amt sind $whenDe eingetroffen. Aktuell sind ${notice.presentCount} Personen im Raum."
-            }
-        val detailEn =
-            if (single) {
-                "One person without an office arrived $whenEn. ${notice.presentCount} people are in the room now."
-            } else {
-                "${notice.entries} people without an office arrived $whenEn. ${notice.presentCount} people are in the room now."
-            }
-        return bilingual(
-            subject = subject,
-            de =
-                MailSection(
-                    heading = headingDe,
-                    paragraphs =
-                        listOf(
-                            detailDe,
-                            "Diese Nachricht nennt bewusst keine Namen, um die Vertraulichkeit der Teilnahme zu wahren.",
-                        ),
-                    linkLabel = null,
-                    link = null,
-                ),
-            en =
-                MailSection(
-                    heading = headingEn,
-                    paragraphs =
-                        listOf(
-                            detailEn,
-                            "This message deliberately names nobody, to keep attendance confidential.",
-                        ),
-                    linkLabel = null,
-                    link = null,
+        val values =
+            arrayOf(
+                "title" to title,
+                "entries" to notice.entries.toString(),
+                "when" to whenText,
+                "present" to notice.presentCount.toString(),
+            )
+        return single(
+            subject = txt(text = if (isSingle) t.subjectSingle else t.subjectWindow, language = language, *values),
+            heading = txt(text = if (isSingle) t.headingSingle else t.headingWindow, language = language, *values),
+            blocks =
+                listOf(
+                    Block(plain = txt(text = if (isSingle) t.detailSingle else t.detailWindow, language = language, *values)),
+                    Block(plain = txt(text = t.confidentiality, language = language)),
                 ),
             branding = branding,
+            language = language,
         )
     }
 
@@ -872,60 +730,47 @@ object MailTemplates {
         fromPlace: String,
         toPlace: String,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
-        val from = safeName(fromPlace)
-        val to = safeName(toPlace)
-        val (headingDe, headingEn) =
-            when (kind) {
-                CarpoolNoticeKind.REQUESTED -> "Neue Mitfahranfrage zu Ihrer Fahrt" to "New request to ride along on your trip"
-                CarpoolNoticeKind.INVITED -> "Einladung zu einer Mitfahrt" to "Invitation to ride along"
-                CarpoolNoticeKind.CONFIRMED -> "Eine Mitfahrt wurde bestätigt" to "A ride was confirmed"
-                CarpoolNoticeKind.DECLINED -> "Eine Mitfahrt wurde abgelehnt" to "A ride was declined"
-                CarpoolNoticeKind.WITHDRAWN -> "Eine Mitfahrt wurde zurückgezogen" to "A ride was withdrawn"
-                CarpoolNoticeKind.POSTING_CHANGED -> "Eine Fahrt wurde geändert" to "A trip was changed"
-                CarpoolNoticeKind.POSTING_DELETED -> "Eine Fahrt wurde gelöscht" to "A trip was deleted"
-                CarpoolNoticeKind.MESSAGE -> "Neue Nachricht zu Ihrer Mitfahrt" to "New message about your ride"
-            }
+        val t = CarpoolNoticeTexts
+        val heading =
+            txt(
+                text =
+                    when (kind) {
+                        CarpoolNoticeKind.REQUESTED -> t.requested
+                        CarpoolNoticeKind.INVITED -> t.invited
+                        CarpoolNoticeKind.CONFIRMED -> t.confirmed
+                        CarpoolNoticeKind.DECLINED -> t.declined
+                        CarpoolNoticeKind.WITHDRAWN -> t.withdrawn
+                        CarpoolNoticeKind.POSTING_CHANGED -> t.postingChanged
+                        CarpoolNoticeKind.POSTING_DELETED -> t.postingDeleted
+                        CarpoolNoticeKind.MESSAGE -> t.message
+                    },
+                language = language,
+            )
         // V1.9.139: the message mail names no date, no place, no person and none of the text -- it only says that there is something to read.
-        val (paragraphsDe, paragraphsEn) =
+        val paragraphs =
             if (kind == CarpoolNoticeKind.MESSAGE) {
-                listOf(
-                    "Sie haben eine neue Nachricht zu einer Ihrer Mitfahrten. Öffnen Sie die Mitfahrzentrale, um sie zu lesen.",
-                    "Aus Datenschutzgründen nennt diese Nachricht keine Namen und keinen Inhalt.",
-                ) to
-                    listOf(
-                        "You have a new message about one of your rides. Open the carpool centre to read it.",
-                        "For privacy reasons this message names nobody and quotes nothing.",
-                    )
+                listOf(txt(text = t.messageLine, language = language), txt(text = t.messagePrivacy, language = language))
             } else {
                 listOf(
-                    "Es gibt eine Neuigkeit zu der Fahrt am $date von $from nach $to.",
-                    "Aus Datenschutzgründen nennt diese Nachricht keine Namen. Die Einzelheiten sehen Sie nach der Anmeldung.",
-                ) to
-                    listOf(
-                        "There is news about the trip on $date from $from to $to.",
-                        "For privacy reasons this message names nobody. Sign in to see the details.",
-                    )
+                    txt(
+                        text = t.newsLine,
+                        language = language,
+                        "date" to date.toString(),
+                        "from" to safeName(fromPlace),
+                        "to" to safeName(toPlace),
+                    ),
+                    txt(text = t.newsPrivacy, language = language),
+                )
             }
-        val subject = "Mitfahrzentrale: $headingDe / $headingEn".take(CARPOOL_SUBJECT_MAX)
         val link = branding.publicBaseUrl.trimEnd('/') + "/app#/carpool"
-        return bilingual(
-            subject = subject,
-            de =
-                MailSection(
-                    heading = headingDe,
-                    paragraphs = paragraphsDe,
-                    linkLabel = "Mitfahrzentrale öffnen",
-                    link = link,
-                ),
-            en =
-                MailSection(
-                    heading = headingEn,
-                    paragraphs = paragraphsEn,
-                    linkLabel = "Open the carpool centre",
-                    link = link,
-                ),
+        return single(
+            subject = "${txt(text = t.subjectPrefix, language = language)}: $heading".take(CARPOOL_SUBJECT_MAX),
+            heading = heading,
+            blocks = paragraphs.map { Block(plain = it) } + linkBlock(label = txt(text = t.linkLabel, language = language), link = link),
             branding = branding,
+            language = language,
         )
     }
 
@@ -944,49 +789,32 @@ object MailTemplates {
         actorName: String,
         notBefore: LocalDateTime?,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
+        val t = PeerNotificationTexts
         val link = "${branding.publicBaseUrl}/app#/privileged-action-veto?token=$rawVetoToken"
-        val actor = safeName(actorName)
-        return bilingual(
-            subject =
-                "Passwortvergabe für Ihr Konto beantragt / Temporary password requested for your account" +
-                    " – ${branding.fromDisplayName}",
-            de =
-                MailSection(
-                    heading = "Passwortvergabe für Ihr Administratorkonto beantragt",
-                    paragraphs =
-                        listOf(
-                            "$actor hat beantragt, für Ihr Konto bei ${branding.fromDisplayName} ein temporäres Passwort zu vergeben. " +
-                                "Dafür muss ein weiterer Administrator zustimmen; frühestens 24 Stunden danach " +
-                                "(voraussichtlich ab ${formatUtc(notBefore)} bei sofortiger Zustimmung) kann das Passwort erzeugt werden.",
-                            "Wenn Sie das nicht erwartet haben, widersprechen Sie bitte über den Link. Der Antrag wird dann beendet.",
-                        ),
-                    linkLabel = "Widerspruch einlegen",
-                    link = link,
-                ),
-            en =
-                MailSection(
-                    heading = "Temporary password requested for your administrator account",
-                    paragraphs =
-                        listOf(
-                            "$actor requested a temporary password for your account at ${branding.fromDisplayName}. " +
-                                "A second administrator must approve; the password can be generated no earlier than 24 hours after " +
-                                "approval (earliest ${formatUtc(notBefore)} if approved at once).",
-                            "If you did not expect this, please object using the link. The request is then ended.",
-                        ),
-                    linkLabel = "Object to the request",
-                    link = link,
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.requestSubjectLead, language = language), branding = branding),
+            heading = txt(text = t.requestHeading, language = language),
+            blocks =
+                listOf(
+                    Block(
+                        plain =
+                            txt(
+                                text = t.requestBody,
+                                language = language,
+                                "actor" to safeName(actorName),
+                                "brand" to branding.fromDisplayName,
+                                "when" to formatUtc(at = notBefore, language = language),
+                            ),
+                    ),
+                    Block(plain = txt(text = t.requestAdvice, language = language)),
+                    linkBlock(label = txt(text = t.requestLinkLabel, language = language), link = link),
                 ),
             branding = branding,
+            language = language,
         )
     }
-
-    private fun peerActionLabel(action: PrivilegedActionKind): Pair<String, String> =
-        when (action) {
-            PrivilegedActionKind.TEMP_PASSWORD -> "ein temporäres Passwort zu vergeben" to "to set a temporary password"
-            PrivilegedActionKind.DEMOTE -> "die Administratorrolle zu entziehen" to "to remove the administrator role"
-            PrivilegedActionKind.SUSPEND -> "den Zugang zu sperren" to "to block the access"
-        }
 
     /** To an eligible approver: a request awaits their decision. */
     fun peerApprovalNeeded(
@@ -995,38 +823,35 @@ object MailTemplates {
         action: PrivilegedActionKind,
         expiresAt: LocalDateTime,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
-        val actor = safeName(actorName)
-        val target = safeName(targetName)
-        val (de, en) = peerActionLabel(action)
-        val link = "${branding.publicBaseUrl}/app"
-        return bilingual(
-            subject = "Freigabe erforderlich / Approval needed – ${branding.fromDisplayName}",
-            de =
-                MailSection(
-                    heading = "Ihre Freigabe ist erforderlich",
-                    paragraphs =
-                        listOf(
-                            "$actor beantragt für das Administratorkonto von $target, $de. Ohne Ihre Freigabe geschieht nichts. " +
-                                "Der Antrag verfällt am ${formatUtc(expiresAt)}.",
-                            "Sie finden ihn in der Mitgliederverwaltung unter „Ausstehende Freigaben“.",
-                        ),
-                    linkLabel = "Zur Anwendung",
-                    link = link,
-                ),
-            en =
-                MailSection(
-                    heading = "Your approval is needed",
-                    paragraphs =
-                        listOf(
-                            "$actor requests $en for the administrator account of $target. Nothing happens without your approval. " +
-                                "The request expires on ${formatUtc(expiresAt)}.",
-                            "You find it in the member administration under \"Pending approvals\".",
-                        ),
-                    linkLabel = "Open the application",
-                    link = link,
+        val t = PeerNotificationTexts
+        val body =
+            when (action) {
+                PrivilegedActionKind.TEMP_PASSWORD -> t.approvalTempPassword
+                PrivilegedActionKind.DEMOTE -> t.approvalDemote
+                PrivilegedActionKind.SUSPEND -> t.approvalSuspend
+            }
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.approvalSubjectLead, language = language), branding = branding),
+            heading = txt(text = t.approvalHeading, language = language),
+            blocks =
+                listOf(
+                    Block(
+                        plain =
+                            txt(
+                                text = body,
+                                language = language,
+                                "actor" to safeName(actorName),
+                                "target" to safeName(targetName),
+                                "when" to formatUtc(at = expiresAt, language = language),
+                            ),
+                    ),
+                    Block(plain = txt(text = t.approvalWhere, language = language)),
+                    linkBlock(label = txt(text = t.approvalLinkLabel, language = language), link = "${branding.publicBaseUrl}/app"),
                 ),
             branding = branding,
+            language = language,
         )
     }
 
@@ -1036,46 +861,33 @@ object MailTemplates {
         actorName: String,
         occurredAt: LocalDateTime,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
-        val actor = safeName(actorName)
-        val (de, en) =
+        val t = PeerNotificationTexts
+        val sentence =
             when (event) {
-                PeerExecutedEvent.TEMPORARY_PASSWORD_SET ->
-                    "Für Ihr Konto wurde ein temporäres Passwort vergeben. Alle Sitzungen wurden beendet." to
-                        "A temporary password was set for your account. All sessions were ended."
-                PeerExecutedEvent.ROLE_CHANGED ->
-                    "Die Rolle Ihres Kontos wurde geändert." to "The role of your account was changed."
-                PeerExecutedEvent.ACCESS_SUSPENDED ->
-                    "Der Zugang Ihres Kontos wurde gesperrt. Alle Sitzungen wurden beendet." to
-                        "The access of your account was blocked. All sessions were ended."
-                PeerExecutedEvent.STATUS_CHANGED ->
-                    "Der Status Ihrer Mitgliedschaft wurde geändert." to "The status of your membership was changed."
+                PeerExecutedEvent.TEMPORARY_PASSWORD_SET -> t.executedTempPassword
+                PeerExecutedEvent.ROLE_CHANGED -> t.executedRoleChanged
+                PeerExecutedEvent.ACCESS_SUSPENDED -> t.executedSuspended
+                PeerExecutedEvent.STATUS_CHANGED -> t.executedStatusChanged
             }
-        return bilingual(
-            subject = "Änderung an Ihrem Konto / Change to your account – ${branding.fromDisplayName}",
-            de =
-                MailSection(
-                    heading = "Änderung an Ihrem Konto",
-                    paragraphs =
-                        listOf(
-                            "$de Ausgelöst durch $actor am ${formatUtc(occurredAt)}.",
-                            "Wenn Sie das nicht erwartet haben, melden Sie sich bitte umgehend bei uns.",
-                        ),
-                    linkLabel = null,
-                    link = null,
-                ),
-            en =
-                MailSection(
-                    heading = "Change to your account",
-                    paragraphs =
-                        listOf(
-                            "$en Triggered by $actor on ${formatUtc(occurredAt)}.",
-                            "If you did not expect this, please contact us immediately.",
-                        ),
-                    linkLabel = null,
-                    link = null,
+        val trigger =
+            txt(
+                text = t.executedTrigger,
+                language = language,
+                "actor" to safeName(actorName),
+                "when" to formatUtc(at = occurredAt, language = language),
+            )
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.executedSubjectLead, language = language), branding = branding),
+            heading = txt(text = t.executedSubjectLead, language = language),
+            blocks =
+                listOf(
+                    Block(plain = "${txt(text = sentence, language = language)} $trigger"),
+                    Block(plain = txt(text = MailCommonTexts.notExpectedContact, language = language)),
                 ),
             branding = branding,
+            language = language,
         )
     }
 
@@ -1084,39 +896,28 @@ object MailTemplates {
         actorName: String,
         occurredAt: LocalDateTime,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
-        val actor = safeName(actorName)
-        return bilingual(
-            subject = "Passwort-Reset für Ihr Konto ausgelöst / Password reset triggered for your account – ${branding.fromDisplayName}",
-            de =
-                MailSection(
-                    heading = "Passwort-Reset für Ihr Konto ausgelöst",
-                    paragraphs =
-                        listOf(
-                            "$actor hat am ${formatUtc(
-                                occurredAt,
-                            )} eine Passwort-Reset-Mail für Ihr Konto bei ${branding.fromDisplayName} ausgelöst. " +
-                                "Ihr Passwort ist unverändert, solange niemand den Link in dieser Mail verwendet.",
-                            "Wenn Sie das nicht erwartet haben, ändern Sie Ihr Passwort und melden Sie sich bitte umgehend bei uns.",
-                        ),
-                    linkLabel = null,
-                    link = null,
-                ),
-            en =
-                MailSection(
-                    heading = "Password reset triggered for your account",
-                    paragraphs =
-                        listOf(
-                            "$actor triggered a password-reset mail for your account at ${branding.fromDisplayName} on ${formatUtc(
-                                occurredAt,
-                            )}. " +
-                                "Your password is unchanged as long as nobody uses the link in that mail.",
-                            "If you did not expect this, change your password and please contact us immediately.",
-                        ),
-                    linkLabel = null,
-                    link = null,
+        val t = PeerNotificationTexts
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.resetSubjectLead, language = language), branding = branding),
+            heading = txt(text = t.resetSubjectLead, language = language),
+            blocks =
+                listOf(
+                    Block(
+                        plain =
+                            txt(
+                                text = t.resetBody,
+                                language = language,
+                                "actor" to safeName(actorName),
+                                "when" to formatUtc(at = occurredAt, language = language),
+                                "brand" to branding.fromDisplayName,
+                            ),
+                    ),
+                    Block(plain = txt(text = t.resetAdvice, language = language)),
                 ),
             branding = branding,
+            language = language,
         )
     }
 
@@ -1125,36 +926,28 @@ object MailTemplates {
         actorName: String,
         occurredAt: LocalDateTime,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
-        val actor = safeName(actorName)
-        return bilingual(
-            subject = "Ihre Anschrift/Angaben wurden geändert / Your address data was changed – ${branding.fromDisplayName}",
-            de =
-                MailSection(
-                    heading = "Ihre Angaben wurden geändert",
-                    paragraphs =
-                        listOf(
-                            "$actor hat am ${formatUtc(occurredAt)} Ihre Anschrift oder Ihre Angaben zur wirtschaftlichen Berechtigung " +
-                                "bei ${branding.fromDisplayName} geändert.",
-                            "Wenn Sie das nicht erwartet haben, melden Sie sich bitte umgehend bei uns.",
-                        ),
-                    linkLabel = null,
-                    link = null,
-                ),
-            en =
-                MailSection(
-                    heading = "Your data was changed",
-                    paragraphs =
-                        listOf(
-                            "$actor changed your address or your beneficial-owner data at ${branding.fromDisplayName} on ${formatUtc(
-                                occurredAt,
-                            )}.",
-                            "If you did not expect this, please contact us immediately.",
-                        ),
-                    linkLabel = null,
-                    link = null,
+        val t = PeerNotificationTexts
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.protectedSubjectLead, language = language), branding = branding),
+            heading = txt(text = t.protectedHeading, language = language),
+            blocks =
+                listOf(
+                    Block(
+                        plain =
+                            txt(
+                                text = t.protectedBody,
+                                language = language,
+                                "actor" to safeName(actorName),
+                                "when" to formatUtc(at = occurredAt, language = language),
+                                "brand" to branding.fromDisplayName,
+                            ),
+                    ),
+                    Block(plain = txt(text = MailCommonTexts.notExpectedContact, language = language)),
                 ),
             branding = branding,
+            language = language,
         )
     }
 
@@ -1164,34 +957,29 @@ object MailTemplates {
         actorName: String,
         occurredAt: LocalDateTime,
         branding: MailBranding,
+        language: String = "de",
     ): RenderedMail {
-        val newAdmin = safeName(newAdminName)
-        val actor = safeName(actorName)
-        return bilingual(
-            subject = "Neuer Administrator / New administrator – ${branding.fromDisplayName}",
-            de =
-                MailSection(
-                    heading = "Neuer Administrator",
-                    paragraphs =
-                        listOf(
-                            "$actor hat am ${formatUtc(occurredAt)} $newAdmin zum Administrator von ${branding.fromDisplayName} gemacht.",
-                            "Wenn Sie das nicht erwartet haben, prüfen Sie bitte die Mitgliederverwaltung und das Änderungsprotokoll.",
-                        ),
-                    linkLabel = null,
-                    link = null,
-                ),
-            en =
-                MailSection(
-                    heading = "New administrator",
-                    paragraphs =
-                        listOf(
-                            "$actor made $newAdmin an administrator of ${branding.fromDisplayName} on ${formatUtc(occurredAt)}.",
-                            "If you did not expect this, please check the member administration and the audit log.",
-                        ),
-                    linkLabel = null,
-                    link = null,
+        val t = PeerNotificationTexts
+        return single(
+            subject = subjectWithBrand(lead = txt(text = t.newAdminSubjectLead, language = language), branding = branding),
+            heading = txt(text = t.newAdminSubjectLead, language = language),
+            blocks =
+                listOf(
+                    Block(
+                        plain =
+                            txt(
+                                text = t.newAdminBody,
+                                language = language,
+                                "actor" to safeName(actorName),
+                                "newAdmin" to safeName(newAdminName),
+                                "when" to formatUtc(at = occurredAt, language = language),
+                                "brand" to branding.fromDisplayName,
+                            ),
+                    ),
+                    Block(plain = txt(text = MailCommonTexts.notExpectedReview, language = language)),
                 ),
             branding = branding,
+            language = language,
         )
     }
 
@@ -1320,41 +1108,75 @@ object MailTemplates {
         val link: String?,
     )
 
-    /** German block first, English second, ONE footer -- plain text and HTML (kotlinx-html auto-escaping) carry identical content. */
-    private fun bilingual(
-        subject: String,
-        de: MailSection,
-        en: MailSection,
+    /** `{token}` text of [text] in [language], filled in ONE pass ([fillMail]). */
+    private fun txt(
+        text: MailText,
+        language: String,
+        vararg values: Pair<String, String>,
+    ): String = fillMail(template = text.forLanguage(language), values = values.toMap())
+
+    private fun subjectWithBrand(
+        lead: String,
         branding: MailBranding,
+    ): String = "$lead – ${branding.fromDisplayName}"
+
+    /**
+     * One block (paragraph) of a single-language mail: [plain] for the plain-text part, [html] for the HTML part (default: the same text).
+     * With a [link] the HTML block is `html + " " + <a>`; a [bold] block is rendered in `<b>`.
+     */
+    private class Block(
+        val plain: String,
+        val html: String = plain,
+        val link: String? = null,
+        val linkLabel: String? = null,
+        val bold: Boolean = false,
+    )
+
+    private fun linkBlock(
+        label: String,
+        link: String,
+    ): Block = Block(plain = "$label:\n$link", html = "", link = link, linkLabel = label)
+
+    /** ONE language, ONE footer -- plain text and HTML (kotlinx-html auto-escaping) carry identical content. */
+    private fun single(
+        subject: String,
+        heading: String,
+        blocks: List<Block>,
+        branding: MailBranding,
+        language: String,
     ): RenderedMail {
-        fun plain(section: MailSection): String =
-            buildString {
-                append(section.heading).append("\n\n")
-                section.paragraphs.forEach { append(it).append("\n\n") }
-                if (section.link != null) append(section.linkLabel).append(":\n").append(section.link).append("\n\n")
-            }
-        val plainText = plain(de) + "----\n\n" + plain(en) + footer(branding)
+        val footer = footer(branding = branding, language = language)
+        val plainText = heading + "\n\n" + blocks.joinToString("") { it.plain + "\n\n" } + footer
         val html =
             createHTML().html {
                 head { title { +subject } }
                 body {
-                    listOf(de, en).forEachIndexed { index, section ->
-                        if (index > 0) hr()
-                        h1 { +section.heading }
-                        section.paragraphs.forEach { paragraph -> p { +paragraph } }
-                        if (section.link != null) {
-                            p { a(href = section.link) { +(section.linkLabel ?: section.link) } }
+                    h1 { +heading }
+                    blocks.forEach { block ->
+                        p {
+                            if (block.bold) {
+                                b { +block.html }
+                            } else {
+                                +block.html
+                            }
+                            if (block.link != null) {
+                                if (block.html.isNotEmpty()) +" "
+                                a(href = block.link) { +(block.linkLabel ?: block.link) }
+                            }
                         }
                     }
-                    p { +footer(branding) }
+                    p { +footer }
                 }
             }
         return RenderedMail(subject = subject, plainText = plainText, html = html)
     }
 
-    /** `2026-10-08 14:30 UTC` -- class-A system timestamps are UTC, a mail has no viewer zone to convert to. */
-    private fun formatUtc(at: LocalDateTime?): String {
-        if (at == null) return "(unbekannt / unknown)"
+    /** `2026-10-08 14:30 UTC` -- class-A system timestamps are UTC, a mail has no viewer zone to convert to. A `null` is "unknown" in [language]. */
+    private fun formatUtc(
+        at: LocalDateTime?,
+        language: String,
+    ): String {
+        if (at == null) return MailCommonTexts.unknownTime.forLanguage(language)
         return "${at.date} ${at.hour.toString().padStart(2, '0')}:${at.minute.toString().padStart(2, '0')} UTC"
     }
 
@@ -1372,17 +1194,19 @@ object MailTemplates {
             .trim()
 
     /**
-     * Letzte Zeile in beiden Templates, Plaintext UND HTML identisch (V1.2.3 Design-Review, Punkt
-     * 4b: keine Mail ohne Rückweg). Geht im HTML-Zweig durch kotlinx-html's Auto-Escaping ([p]-Block
-     * mit `+`-Operator) -- [MailBranding.replyTo]/[MailBranding.publicBaseUrl] sind beide
-     * deployment-konfigurierbar und werden hier deshalb nicht als vertrauenswürdig behandelt.
+     * Last line of every mail, plain text AND HTML identical (V1.2.3 design review, point 4b: no mail without a way back), in [language]
+     * (V1.9.334). Goes through kotlinx-html's auto-escaping in the HTML part -- [MailBranding.replyTo]/[MailBranding.publicBaseUrl] are both
+     * deployment-configurable and are therefore not trusted here.
      */
-    private fun footer(branding: MailBranding): String =
-        branding.replyTo?.let { "Fragen? Antworten Sie einfach auf diese E-Mail ($it)." }
-            ?: "Diese Adresse wird nicht gelesen. Fragen: ${branding.publicBaseUrl}"
+    private fun footer(
+        branding: MailBranding,
+        language: String,
+    ): String =
+        branding.replyTo?.let { fillMail(template = MailCommonTexts.footerReplyTo.forLanguage(language), values = mapOf("address" to it)) }
+            ?: fillMail(template = MailCommonTexts.footerNoReply.forLanguage(language), values = mapOf("url" to branding.publicBaseUrl))
 
-    private fun formatTtl(ttl: Duration): String {
-        val hours = ttl.inWholeHours
-        return if (hours == 1L) "1 Stunde" else "$hours Stunden"
-    }
+    private fun formatTtl(
+        ttl: Duration,
+        language: String,
+    ): String = hoursText(n = ttl.inWholeHours, language = language)
 }

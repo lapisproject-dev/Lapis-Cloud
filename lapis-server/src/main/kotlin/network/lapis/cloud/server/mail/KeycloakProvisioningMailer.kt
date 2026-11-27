@@ -41,13 +41,21 @@ object NoOpKeycloakProvisioningMailer : KeycloakProvisioningMailer {
 class SmtpKeycloakProvisioningMailer(
     private val dispatcher: MailDispatcher,
     private val branding: MailBranding,
+    /** V1.9.334 -- the instance mail language, read at SEND time (a setting change needs no restart). Never throws, see [MailLanguage.instance]. */
+    private val mailLanguage: () -> String = { "de" },
 ) : KeycloakProvisioningMailer {
     override fun sendMemberProvisioned(
         email: String,
         newMemberName: String,
         occurredAt: LocalDateTime,
     ) {
-        val mail = MailTemplates.keycloakMemberProvisioned(newMemberName = newMemberName, occurredAt = occurredAt, branding = branding)
+        val mail =
+            MailTemplates.keycloakMemberProvisioned(
+                newMemberName = newMemberName,
+                occurredAt = occurredAt,
+                branding = branding,
+                language = MailLanguage.instance(mailLanguage),
+            )
         dispatcher.enqueue(
             to = email,
             subject = mail.subject,
@@ -62,7 +70,13 @@ class SmtpKeycloakProvisioningMailer(
         maskedNewEmail: String,
         occurredAt: LocalDateTime,
     ) {
-        val mail = MailTemplates.keycloakEmailSyncedNotice(maskedNewEmail = maskedNewEmail, occurredAt = occurredAt, branding = branding)
+        val mail =
+            MailTemplates.keycloakEmailSyncedNotice(
+                maskedNewEmail = maskedNewEmail,
+                occurredAt = occurredAt,
+                branding = branding,
+                language = MailLanguage.instance(mailLanguage),
+            )
         dispatcher.enqueue(
             to = email,
             subject = mail.subject,

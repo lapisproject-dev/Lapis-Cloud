@@ -20,6 +20,8 @@ class SmtpArticleReviewNotificationMailer(
     private val branding: MailBranding,
     private val smtpConfigured: Boolean,
     private val brandTitle: String,
+    /** V1.9.334 -- the instance mail language, read at SEND time (a setting change needs no restart). Never throws, see [MailLanguage.instance]. */
+    private val mailLanguage: () -> String = { "de" },
 ) : ArticleReviewNotificationMailer {
     override fun send(notification: ArticleReviewNotification) {
         if (!smtpConfigured) {
@@ -28,7 +30,13 @@ class SmtpArticleReviewNotificationMailer(
             }
             return
         }
-        val mail = MailTemplates.articleReview(notification = notification, brandTitle = brandTitle, branding = branding)
+        val mail =
+            MailTemplates.articleReview(
+                notification = notification,
+                brandTitle = brandTitle,
+                branding = branding,
+                language = MailLanguage.instance(mailLanguage),
+            )
         dispatcher.enqueue(
             to = notification.authorEmail,
             subject = mail.subject,

@@ -124,7 +124,7 @@ class CarpoolNotifierTest :
             }
         }
 
-        test("the mail names nobody, carries no meeting note, is bilingual and goes through the registered BULK purpose") {
+        test("the mail names nobody, carries no meeting note, is single-language and goes through the registered BULK purpose") {
             val branding = MailBranding(fromDisplayName = "Lapis Test", replyTo = null, publicBaseUrl = "https://lapis.example.org")
             CarpoolNoticeKind.entries.filter { it != CarpoolNoticeKind.MESSAGE }.forEach { kind ->
                 val mail =
@@ -139,7 +139,7 @@ class CarpoolNotifierTest :
                 mail.subject shouldNotContain "\r"
                 mail.plainText shouldContain "2026-11-01"
                 mail.plainText shouldContain "https://lapis.example.org/app#/carpool"
-                mail.plainText shouldContain "names nobody"
+                mail.plainText shouldContain "nennt diese Nachricht keine Namen"
                 mail.html shouldContain "Hannover"
             }
             // V1.9.139: the message mail names no date, no place, no person and none of the text.

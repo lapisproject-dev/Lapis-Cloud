@@ -34388,8 +34388,8 @@ msgstr "Correos electrónicos"
 msgid "Sprache der E-Mails"
 msgstr "Idioma de los correos electrónicos"
 
-msgid "Die Sprache, in der die Instanz E-Mails einsprachig versendet. Heute gilt sie für die Quittung an den Gewinner einer Ausschreibung und den Hinweis an den Vorstand bei einer fehlgeschlagenen Auszahlung. Alle übrigen E-Mails bleiben zweisprachig."
-msgstr "El idioma en el que la instancia envía correos electrónicos en un solo idioma. Hoy se aplica al recibo para el ganador de una licitación y al aviso a la junta directiva sobre un pago fallido. Todos los demás correos siguen siendo bilingües."
+msgid "Die Sprache, in der die Instanz ihre E-Mails versendet, jeweils in einer einzigen Sprache. Ausgenommen sind die Mitteilungen zu Mitgliedsanträgen (in der Sprache des Antrags), Rundschreiben mit eigener Sprache und die Veranstaltungs-E-Mails, die derzeit nur auf Deutsch versendet werden."
+msgstr "El idioma en el que la instancia envía sus correos electrónicos, cada uno en un único idioma. Quedan exceptuados los avisos sobre solicitudes de membresía (en el idioma de la solicitud), los envíos masivos con idioma propio y los correos de eventos, que por ahora se envían solo en alemán."
 
 msgid "Unbekannte Sprache"
 msgstr "Idioma desconocido"

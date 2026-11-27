@@ -8,7 +8,11 @@ import network.lapis.cloud.shared.domain.PrivilegedActionKind
 class SmtpPeerNotificationMailer(
     private val dispatcher: MailDispatcher,
     private val branding: MailBranding,
+    /** V1.9.334 -- the instance mail language, read at SEND time (a setting change needs no restart). Never throws, see [MailLanguage.instance]. */
+    private val mailLanguage: () -> String = { "de" },
 ) : PeerNotificationMailer {
+    private fun lang(): String = MailLanguage.instance(mailLanguage)
+
     override fun sendRequestForTarget(
         email: String,
         rawVetoToken: String,
@@ -23,6 +27,7 @@ class SmtpPeerNotificationMailer(
                     actorName = actorName,
                     notBefore = notBefore,
                     branding = branding,
+                    language = lang(),
                 ),
             purpose = "peer-request-target",
         )
@@ -43,6 +48,7 @@ class SmtpPeerNotificationMailer(
                     action = action,
                     expiresAt = expiresAt,
                     branding = branding,
+                    language = lang(),
                 ),
             purpose = "peer-approval-needed",
         )
@@ -55,7 +61,14 @@ class SmtpPeerNotificationMailer(
     ): DeliveryStatus =
         enqueue(
             to = email,
-            mail = MailTemplates.peerExecutedForTarget(event = event, actorName = actorName, occurredAt = occurredAt, branding = branding),
+            mail =
+                MailTemplates.peerExecutedForTarget(
+                    event = event,
+                    actorName = actorName,
+                    occurredAt = occurredAt,
+                    branding = branding,
+                    language = lang(),
+                ),
             purpose = "peer-executed-target",
         )
 
@@ -66,7 +79,13 @@ class SmtpPeerNotificationMailer(
     ): DeliveryStatus =
         enqueue(
             to = email,
-            mail = MailTemplates.peerResetMailTriggered(actorName = actorName, occurredAt = occurredAt, branding = branding),
+            mail =
+                MailTemplates.peerResetMailTriggered(
+                    actorName = actorName,
+                    occurredAt = occurredAt,
+                    branding = branding,
+                    language = lang(),
+                ),
             purpose = "peer-reset-mail-triggered",
         )
 
@@ -77,7 +96,13 @@ class SmtpPeerNotificationMailer(
     ): DeliveryStatus =
         enqueue(
             to = email,
-            mail = MailTemplates.peerProtectedDataChanged(actorName = actorName, occurredAt = occurredAt, branding = branding),
+            mail =
+                MailTemplates.peerProtectedDataChanged(
+                    actorName = actorName,
+                    occurredAt = occurredAt,
+                    branding = branding,
+                    language = lang(),
+                ),
             purpose = "peer-protected-data-changed",
         )
 
@@ -95,6 +120,7 @@ class SmtpPeerNotificationMailer(
                     actorName = actorName,
                     occurredAt = occurredAt,
                     branding = branding,
+                    language = lang(),
                 ),
             purpose = "peer-new-administrator",
         )

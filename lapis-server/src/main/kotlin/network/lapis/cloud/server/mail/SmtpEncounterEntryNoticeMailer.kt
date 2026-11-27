@@ -11,12 +11,14 @@ class SmtpEncounterEntryNoticeMailer(
     private val dispatcher: MailDispatcher,
     private val branding: MailBranding,
     private val smtpConfigured: Boolean,
+    /** V1.9.334 -- the instance mail language, read at SEND time (a setting change needs no restart). Never throws, see [MailLanguage.instance]. */
+    private val mailLanguage: () -> String = { "de" },
 ) : EncounterEntryNoticeMailer {
     override val enabled: Boolean get() = smtpConfigured
 
     override fun send(notice: EncounterEntryNotice) {
         if (!smtpConfigured) return
-        val mail = MailTemplates.encounterEntryNotice(notice = notice, branding = branding)
+        val mail = MailTemplates.encounterEntryNotice(notice = notice, branding = branding, language = MailLanguage.instance(mailLanguage))
         notice.recipients.forEach { recipient ->
             dispatcher.enqueue(
                 to = recipient,
