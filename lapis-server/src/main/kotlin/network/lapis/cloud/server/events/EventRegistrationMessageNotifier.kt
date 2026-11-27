@@ -7,8 +7,9 @@ import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.EVENT_REGISTRATION_MESSAGE_PURPOSE
+import network.lapis.cloud.server.mail.EventMailTemplates
 import network.lapis.cloud.server.mail.MailDispatcher
-import network.lapis.cloud.server.mail.htmlEscape
+import network.lapis.cloud.server.mail.MailLanguage
 import network.lapis.cloud.server.rpc.insertDirectMessage
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
@@ -32,6 +33,8 @@ class EventRegistrationMessageNotifier(
     private val mailDispatcher: MailDispatcher?,
     private val baseUrl: String,
     private val perEventLimiter: FederationInboxRateLimiter?,
+    // V1.9.335 -- the instance mail language, read at SEND time; fails to `de`, never throws.
+    private val mailLanguage: () -> String = { MailLanguage.instanceLanguage() },
 ) {
     internal suspend fun notify(
         registrationId: Uuid,
@@ -53,22 +56,17 @@ class EventRegistrationMessageNotifier(
             val to = context.creatorEmail
             if (to != null) {
                 val link = "${baseUrl.trimEnd('/')}/app#/events/$eventId"
-                val subject = "Neue Anmeldung mit Nachricht: ${context.title}".take(SUBJECT_MAX)
-                val plain =
-                    "Zu der Veranstaltung \"${context.title}\" ist eine Anmeldung mit einer Nachricht eingegangen.\n\n" +
-                        "Die Nachricht sehen Sie in der Anmeldungsübersicht: $link\n\n" +
-                        "Aus Datenschutzgründen enthält diese E-Mail den Text der Nachricht nicht.\n"
-                val html =
-                    "<p>Zu der Veranstaltung &quot;${htmlEscape(
-                        context.title,
-                    )}&quot; ist eine Anmeldung mit einer Nachricht eingegangen.</p>" +
-                        "<p><a href=\"${htmlEscape(link)}\">Anmeldungsübersicht öffnen</a></p>" +
-                        "<p>Aus Datenschutzgründen enthält diese E-Mail den Text der Nachricht nicht.</p>"
+                val mail =
+                    EventMailTemplates.registrationMessageNotice(
+                        eventTitle = context.title,
+                        overviewUrl = link,
+                        language = MailLanguage.instance(mailLanguage),
+                    )
                 dispatcher.enqueue(
                     to = to,
-                    subject = subject,
-                    plainTextBody = plain,
-                    htmlBody = html,
+                    subject = mail.subject,
+                    plainTextBody = mail.plainText,
+                    htmlBody = mail.html,
                     purpose = EVENT_REGISTRATION_MESSAGE_PURPOSE,
                     logRecipient = false,
                 )
@@ -159,7 +157,6 @@ class EventRegistrationMessageNotifier(
 
     companion object {
         const val LIMIT = 30
-        private const val SUBJECT_MAX = 150
 
         /** No-op notifier for tests and callers that never carry a message. */
         val DISABLED: EventRegistrationMessageNotifier =

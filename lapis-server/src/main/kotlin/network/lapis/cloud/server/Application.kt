@@ -1055,7 +1055,11 @@ internal fun Application.module(
     // V1.9.118 -- "application approved / not approved" mail; same dispatcher. Without SMTP the no-op mailer reports MAIL_DISABLED.
     val membershipDecisionMailer: MembershipDecisionMailer =
         if (smtpConfigState is SmtpConfigState.Configured) {
-            SmtpMembershipDecisionMailer(dispatcher = mailDispatcher, branding = mailBranding)
+            SmtpMembershipDecisionMailer(
+                dispatcher = mailDispatcher,
+                branding = mailBranding,
+                mailLanguage = { MailLanguageStore.loadOrDefault() },
+            )
         } else {
             NoOpMembershipDecisionMailer
         }

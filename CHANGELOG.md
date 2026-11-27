@@ -6,6 +6,21 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.335 event mails single-language in the instance mail language
+
+**No migration.** No new setting, no new mail purpose.
+
+- **Event mails in eight languages.** The eight event mails (waitlist spot, registration confirmed/waitlisted/payment pending, notice to an account
+  holder whose address was typed into the guest form, duplicate notice, ticket after payment, ticket reissue, cancellation, registration-message notice
+  to the creator) are now written in the instance mail language, also for guests and members. Members have no language and a guest's is not stored,
+  so there is no per-recipient language. Wording in `EventMailTexts.kt`, layout (subject built there, title sanitised and capped, every variable
+  HTML-escaped) in `EventMailTemplates.kt`. The German wording is unchanged; the cancellation reason stays board free text.
+- **Behaviour change:** a membership decision mail sent with an empty or unknown language code now uses the instance language instead of `de`. Only API/MCP
+  callers can do that; the board dialog always sends a chosen code (default `de`), so clicks in the UI behave as before. The second language block stays.
+- The minute plural (`minutesText`, pl/ru one/few/many) joins the hour plural.
+- Help text of the setting adjusted (msgid changed in the Kotlin source and all seven `.po` files).
+- The translations other than German were written by the model and are NOT reviewed by native speakers.
+
 ### V1.9.334 all system mails single-language in the instance mail language
 
 **No migration** (the column `organization_settings.mail_language` exists since V176). No new setting, no new mail purpose.

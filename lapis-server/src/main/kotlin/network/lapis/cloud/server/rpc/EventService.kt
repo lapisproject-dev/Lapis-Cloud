@@ -54,8 +54,9 @@ import network.lapis.cloud.server.governance.meetingevent.MeetingEventLinkAudit
 import network.lapis.cloud.server.governance.meetingevent.MeetingEventLinkOperations
 import network.lapis.cloud.server.governance.meetingevent.MeetingEventLinkStore
 import network.lapis.cloud.server.governance.meetingevent.MeetingEventOfficerAccess
+import network.lapis.cloud.server.mail.EventMailTemplates
 import network.lapis.cloud.server.mail.MailDispatcher
-import network.lapis.cloud.server.mail.htmlEscape
+import network.lapis.cloud.server.mail.MailLanguage
 import network.lapis.cloud.server.mail.outbox.OutboundMail
 import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.server.security.CurrentMember
@@ -199,7 +200,11 @@ class EventService(
     private val eventOnline: EventOnlineServices = EventOnlineServices.DISABLED,
     // V1.9.204 -- tells the event's creator about a registration with a message; the default (no-op) keeps older constructions working.
     private val messageNotifier: EventRegistrationMessageNotifier = EventRegistrationMessageNotifier.DISABLED,
+    // V1.9.335 -- the instance mail language, read at SEND time; every event mail is single-language in it. Fails to `de`, never throws.
+    private val mailLanguage: () -> String = { MailLanguage.instanceLanguage() },
 ) : IEventService {
+    private fun mailLang(): String = MailLanguage.instance(mailLanguage)
+
     /** Fixed, per [EventSeriesLimits.SUPPORTED_TIMEZONES] -- see that object's KDoc "Frage F2"/"Zeitzone" for why this codebase does not (yet) offer a per-series timezone picker. */
     private val seriesZone: ZoneId = ZoneId.of(EventSeriesLimits.SUPPORTED_TIMEZONES.first())
 
@@ -209,6 +214,7 @@ class EventService(
             baseUrl = baseUrl,
             mailDispatcher = mailDispatcher,
             messageNotifier = messageNotifier,
+            mailLanguage = mailLanguage,
         )
     }
 
@@ -724,7 +730,7 @@ class EventService(
                 EventStore.cancelRegistration(id = regId, now = now)
                 regId
             }
-        promotions.forEach { it.mailPromotion(mailDispatcher) }
+        promotions.forEach { it.mailPromotion(mailDispatcher = mailDispatcher, language = mailLang()) }
         return fetchRegistrationDto(registrationId)
     }
 
@@ -801,7 +807,7 @@ class EventService(
             EventCapacityGuard.withEventLock(eventId = eventId, now = now) { event ->
                 event.toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
             }
-        promotions.forEach { it.mailPromotion(mailDispatcher) }
+        promotions.forEach { it.mailPromotion(mailDispatcher = mailDispatcher, language = mailLang()) }
         return dto
     }
 
@@ -930,23 +936,19 @@ class EventService(
             }
         if (mail != null) {
             val ticketUrl = EventTicketPolicy.ticketUrl(baseUrl = baseUrl, slug = mail.slug, rawCode = mail.rawCode)
-            val subject = "Neues Ticket: ${mail.eventTitle}"
-            val body =
-                "Für Ihre Anmeldung zu \"${mail.eventTitle}\" wurde ein neues Ticket ausgestellt. " +
-                    "Ihr vorheriges Ticket ist ab sofort ungültig."
-            // Security-Review MINOR fix: `mail.recipientName`/`mail.eventTitle` can originate from
-            // an unauthenticated guest form / a BOARD-supplied event title -- htmlEscape() every
-            // such value before it goes into `htmlBody` (see `htmlEscape` KDoc). `plainTextBody`
-            // stays unescaped -- HTML entities have no meaning there and would only clutter a plain
-            // mail client's rendering.
-            val bodyHtml =
-                "Für Ihre Anmeldung zu \"${htmlEscape(mail.eventTitle)}\" wurde ein neues Ticket ausgestellt. " +
-                    "Ihr vorheriges Ticket ist ab sofort ungültig."
+            // V1.9.335 -- single-language mail in the instance language; name/title are HTML-escaped inside EventMailTemplates.
+            val rendered =
+                EventMailTemplates.ticketReissued(
+                    eventTitle = mail.eventTitle,
+                    recipientName = mail.recipientName,
+                    ticketUrl = ticketUrl,
+                    language = mailLang(),
+                )
             mailDispatcher.enqueue(
                 to = mail.to,
-                subject = subject,
-                plainTextBody = "Hallo ${mail.recipientName},\n\n$body\n\nIhr Ticket: $ticketUrl\n",
-                htmlBody = "<p>Hallo ${htmlEscape(mail.recipientName)},</p><p>$bodyHtml</p><p><a href=\"$ticketUrl\">Ihr Ticket</a></p>",
+                subject = rendered.subject,
+                plainTextBody = rendered.plainText,
+                htmlBody = rendered.html,
                 purpose = "event-ticket-reissue",
             )
         }
@@ -1742,22 +1744,25 @@ class EventService(
         reason: String,
     ) {
         if (notices.isEmpty()) return
-        val subject = "Abgesagt: $eventTitle"
-        val body = "Die Veranstaltung \"$eventTitle\" wurde abgesagt.\n\nBegründung: $reason"
-        // Security-Review MINOR fix: `eventTitle`/`reason` are BOARD/ADMIN-supplied free text
-        // (see `htmlEscape` KDoc "Fehlerszenario B") -- htmlEscape() both before they reach every
-        // registrant's `htmlBody`.
-        val bodyHtml = "Die Veranstaltung \"${htmlEscape(eventTitle)}\" wurde abgesagt.\n\nBegründung: ${htmlEscape(reason)}"
+        // V1.9.335 -- one language per dispatch (read once, not per recipient); the reason is board free text, never translated.
+        val language = mailLang()
         // The cancellation is already committed: a failing outbox write must not turn it into an RPC error (a retry would fail, the
         // event being cancelled already). Log and carry on, like `offer()` does.
         try {
             mailDispatcher.enqueueAll(
                 notices.map { notice ->
+                    val mail =
+                        EventMailTemplates.eventCancelled(
+                            eventTitle = eventTitle,
+                            recipientName = notice.recipientName,
+                            reason = reason,
+                            language = language,
+                        )
                     OutboundMail(
                         to = notice.to,
-                        subject = subject,
-                        plainTextBody = "Hallo ${notice.recipientName},\n\n$body\n",
-                        htmlBody = "<p>Hallo ${htmlEscape(notice.recipientName)},</p><p>${bodyHtml.replace("\n", "<br>")}</p>",
+                        subject = mail.subject,
+                        plainTextBody = mail.plainText,
+                        htmlBody = mail.html,
                         purpose = "event-cancelled",
                     )
                 },

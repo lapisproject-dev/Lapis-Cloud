@@ -16,6 +16,7 @@ language the board chooses per decision, and never contains the rejection reason
   language choice (default German). Members have no stored language, so the language is chosen per decision. The mail has the chosen language
   first, followed by German (or by English when German was chosen). The subject is in the chosen language. An unknown language code is
   treated as German.
+* Since V1.9.335 an empty or unknown language code (API/MCP callers) falls back to the instance mail language instead of `de`; a valid code always wins.
 * The contact line is "reply to this e-mail" when a reply-to address is configured (`LAPIS_SMTP_REPLY_TO`), otherwise "contact the board".
   The sender address is never named as a contact.
 

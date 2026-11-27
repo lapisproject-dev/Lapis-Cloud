@@ -114,6 +114,40 @@ internal object MailCommonTexts {
             ru = "{n} часов",
         )
 
+    val minuteOne =
+        MailText(
+            de = "{n} Minute",
+            en = "{n} minute",
+            es = "{n} minuto",
+            fr = "{n} minute",
+            it = "{n} minuto",
+            nl = "{n} minuut",
+            pl = "{n} minuta",
+            ru = "{n} минута",
+        )
+    val minuteFew =
+        MailText(
+            de = "{n} Minuten",
+            en = "{n} minutes",
+            es = "{n} minutos",
+            fr = "{n} minutes",
+            it = "{n} minuti",
+            nl = "{n} minuten",
+            pl = "{n} minuty",
+            ru = "{n} минуты",
+        )
+    val minuteMany =
+        MailText(
+            de = "{n} Minuten",
+            en = "{n} minutes",
+            es = "{n} minutos",
+            fr = "{n} minutes",
+            it = "{n} minuti",
+            nl = "{n} minuten",
+            pl = "{n} minut",
+            ru = "{n} минут",
+        )
+
     /** "If you did not expect this, contact us" -- the one closing sentence of most notices. */
     val notExpectedContact =
         MailText(
@@ -177,6 +211,33 @@ internal fun hoursText(
                     else -> MailCommonTexts.hourMany
                 }
             else -> if (n == 1L) MailCommonTexts.hourOne else MailCommonTexts.hourMany
+        }
+    return fillMail(template = text.forLanguage(lang), values = mapOf("n" to n.toString()))
+}
+
+/** V1.9.335 -- `1 minute` / `30 minutes` in the grammatically right form (same plural rules as [hoursText]). */
+internal fun minutesText(
+    n: Long,
+    language: String,
+): String {
+    val lang = MembershipDecisionTexts.normalize(language)
+    val mod10 = n % 10
+    val mod100 = n % 100
+    val text =
+        when (lang) {
+            "pl" ->
+                when {
+                    n == 1L -> MailCommonTexts.minuteOne
+                    mod10 in 2..4 && mod100 !in 12..14 -> MailCommonTexts.minuteFew
+                    else -> MailCommonTexts.minuteMany
+                }
+            "ru" ->
+                when {
+                    mod10 == 1L && mod100 != 11L -> MailCommonTexts.minuteOne
+                    mod10 in 2..4 && mod100 !in 12..14 -> MailCommonTexts.minuteFew
+                    else -> MailCommonTexts.minuteMany
+                }
+            else -> if (n == 1L) MailCommonTexts.minuteOne else MailCommonTexts.minuteMany
         }
     return fillMail(template = text.forLanguage(lang), values = mapOf("n" to n.toString()))
 }

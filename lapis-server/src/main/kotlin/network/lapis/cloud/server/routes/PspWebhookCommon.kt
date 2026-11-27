@@ -5,8 +5,9 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respond
 import network.lapis.cloud.server.events.EventTicketPolicy
 import network.lapis.cloud.server.federation.FederationConfig
+import network.lapis.cloud.server.mail.EventMailTemplates
 import network.lapis.cloud.server.mail.MailDispatcher
-import network.lapis.cloud.server.mail.htmlEscape
+import network.lapis.cloud.server.mail.MailLanguage
 import network.lapis.cloud.server.payment.psp.EventTicketMail
 import network.lapis.cloud.server.payment.psp.PspWebhookEventLog
 import network.lapis.cloud.server.payment.psp.PspWebhookOutcome
@@ -63,20 +64,24 @@ internal suspend fun recordDeliveryAndRespond(
 internal fun mailEventTicket(
     mail: EventTicketMail,
     mailDispatcher: MailDispatcher,
+    language: String = MailLanguage.instanceLanguage(),
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
     val ticketUrl = EventTicketPolicy.ticketUrl(baseUrl = baseUrl, slug = mail.slug, rawCode = mail.rawTicketCode)
-    val subject = "Zahlung bestätigt: ${mail.eventTitle}"
-    val body = "Ihre Zahlung für \"${mail.eventTitle}\" ist eingegangen -- Ihre Teilnahme ist bestätigt."
-    // Security-Review MINOR fix: `mail.recipientName`/`mail.eventTitle` can originate from an
-    // unauthenticated guest form / a BOARD-supplied event title -- htmlEscape() both before they
-    // reach `htmlBody` (see `network.lapis.cloud.server.mail.htmlEscape` KDoc).
-    val bodyHtml = "Ihre Zahlung für \"${htmlEscape(mail.eventTitle)}\" ist eingegangen -- Ihre Teilnahme ist bestätigt."
+    // V1.9.335 -- single-language mail in the instance language; recipient name and title can come from a guest form / the board and are
+    // HTML-escaped inside EventMailTemplates.
+    val rendered =
+        EventMailTemplates.ticketAfterPayment(
+            eventTitle = mail.eventTitle,
+            recipientName = mail.recipientName,
+            ticketUrl = ticketUrl,
+            language = language,
+        )
     mailDispatcher.enqueue(
         to = mail.to,
-        subject = subject,
-        plainTextBody = "Hallo ${mail.recipientName},\n\n$body\n\nIhr Ticket: $ticketUrl\n",
-        htmlBody = "<p>Hallo ${htmlEscape(mail.recipientName)},</p><p>$bodyHtml</p><p><a href=\"$ticketUrl\">Ihr Ticket</a></p>",
+        subject = rendered.subject,
+        plainTextBody = rendered.plainText,
+        htmlBody = rendered.html,
         purpose = "event-ticket",
     )
 }

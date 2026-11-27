@@ -559,7 +559,7 @@ internal fun Route.registerEventPublicRoutes(
                             // storno got a DIFFERENT (and, for a paid event, unusable -- no payment
                             // link at all) message than the exact same promotion caused via the
                             // authenticated RPC path. See `EventWaitlist.mailPromotion` KDoc.
-                            promotions.forEach { it.mailPromotion(mailDispatcher) }
+                            promotions.forEach { it.mailPromotion(mailDispatcher = mailDispatcher) }
                         }
                     }
                 }

@@ -34832,8 +34832,8 @@ msgstr "Emails"
 msgid "Sprache der E-Mails"
 msgstr "Email language"
 
-msgid "Die Sprache, in der die Instanz ihre E-Mails versendet, jeweils in einer einzigen Sprache. Ausgenommen sind die Mitteilungen zu Mitgliedsanträgen (in der Sprache des Antrags), Rundschreiben mit eigener Sprache und die Veranstaltungs-E-Mails, die derzeit nur auf Deutsch versendet werden."
-msgstr "The language in which the instance sends its e-mails, each in a single language. Exceptions are the notices about membership applications (in the language of the application), mailings with their own language and the event e-mails, which are currently sent in German only."
+msgid "Die Sprache, in der die Instanz ihre E-Mails versendet, jeweils in einer einzigen Sprache. Ausgenommen sind Rundschreiben mit eigener Sprache; bei den Mitteilungen zu Mitgliedsanträgen gilt die im Dialog gewählte Sprache."
+msgstr "The language in which the instance sends its e-mails, each in a single language. The exception is mailings with their own language; for the notices about membership applications, the language chosen in the dialog applies."
 
 msgid "Unbekannte Sprache"
 msgstr "Unknown language"

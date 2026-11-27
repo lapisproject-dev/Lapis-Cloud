@@ -39,7 +39,7 @@ internal fun renderOrganizationMailLanguageSettings(
 ) {
     panel.p(
         tr(
-            "Die Sprache, in der die Instanz ihre E-Mails versendet, jeweils in einer einzigen Sprache. Ausgenommen sind die Mitteilungen zu Mitgliedsanträgen (in der Sprache des Antrags), Rundschreiben mit eigener Sprache und die Veranstaltungs-E-Mails, die derzeit nur auf Deutsch versendet werden.",
+            "Die Sprache, in der die Instanz ihre E-Mails versendet, jeweils in einer einzigen Sprache. Ausgenommen sind Rundschreiben mit eigener Sprache; bei den Mitteilungen zu Mitgliedsanträgen gilt die im Dialog gewählte Sprache.",
         ),
         className = "text-muted small",
     )

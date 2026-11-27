@@ -55,15 +55,24 @@ object NoOpMembershipDecisionMailer : MembershipDecisionMailer {
 class SmtpMembershipDecisionMailer(
     private val dispatcher: MailDispatcher,
     private val branding: MailBranding,
+    // V1.9.335 -- the instance mail language, read at SEND time. Used ONLY when the caller's [language] is empty or not one of the supported
+    // codes (API/MCP callers); the board dialog always sends a chosen code, which then wins. Fails to `de`, never throws.
+    private val mailLanguage: () -> String = { MembershipDecisionTexts.DEFAULT_LANGUAGE },
 ) : MembershipDecisionMailer {
     override val deliveryConfigured: Boolean = true
+
+    private fun resolveLanguage(language: String): String =
+        MailLanguage.resolve(
+            recipient = language,
+            instance = runCatching { mailLanguage() }.getOrDefault(MembershipDecisionTexts.DEFAULT_LANGUAGE),
+        )
 
     override fun sendApproved(
         email: String,
         displayName: String,
         language: String,
     ): Boolean {
-        val mail = MailTemplates.membershipApproved(displayName = displayName, language = language, branding = branding)
+        val mail = MailTemplates.membershipApproved(displayName = displayName, language = resolveLanguage(language), branding = branding)
         return dispatcher.enqueue(
             to = email,
             subject = mail.subject,
@@ -80,7 +89,12 @@ class SmtpMembershipDecisionMailer(
         language: String,
     ): Boolean {
         val mail =
-            MailTemplates.membershipRejected(displayName = displayName, variant = variant, language = language, branding = branding)
+            MailTemplates.membershipRejected(
+                displayName = displayName,
+                variant = variant,
+                language = resolveLanguage(language),
+                branding = branding,
+            )
         return dispatcher.enqueue(
             to = email,
             subject = mail.subject,

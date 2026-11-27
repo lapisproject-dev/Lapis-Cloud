@@ -705,7 +705,7 @@ object PspWebhookIngestion {
             }
         // MailDispatcher.enqueue must never run inside an open transaction {} -- see
         // EventCapacityGuard KDoc -- so this runs only after the transaction {} above has committed.
-        promotions.forEach { it.mailPromotion(mailDispatcher) }
+        promotions.forEach { it.mailPromotion(mailDispatcher = mailDispatcher) }
         return handled
     }
 

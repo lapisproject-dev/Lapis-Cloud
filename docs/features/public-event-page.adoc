@@ -64,7 +64,8 @@ never sends the header and, in the standard mode, has no robots meta. `Referrer-
 
 Every family-internal link and redirect is built by `EventPageContext.href(...)`, which appends `embed=1` (or `lang=xx` in the standard mode).
 The POST routes read the mode from the query string of the form action, not from a hidden field. Links in e-mails (storno, payment, ticket)
-are built without the parameter on purpose: a mail is not an iframe.
+are built without the parameter on purpose: a mail is not an iframe. The `lang` of the page is NOT carried into the mails either: since V1.9.335 every
+event mail is sent in the instance mail language (the registration stores no visitor language).
 
 == Framing rules
 

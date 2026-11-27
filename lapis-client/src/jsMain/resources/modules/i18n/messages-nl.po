@@ -34877,8 +34877,8 @@ msgstr "E-mails"
 msgid "Sprache der E-Mails"
 msgstr "Taal van e-mails"
 
-msgid "Die Sprache, in der die Instanz ihre E-Mails versendet, jeweils in einer einzigen Sprache. Ausgenommen sind die Mitteilungen zu Mitgliedsanträgen (in der Sprache des Antrags), Rundschreiben mit eigener Sprache und die Veranstaltungs-E-Mails, die derzeit nur auf Deutsch versendet werden."
-msgstr "De taal waarin de instantie haar e-mails verstuurt, elk in één enkele taal. Uitgezonderd zijn de berichten over lidmaatschapsaanvragen (in de taal van de aanvraag), circulaires met een eigen taal en de evenementen-e-mails, die momenteel alleen in het Duits worden verstuurd."
+msgid "Die Sprache, in der die Instanz ihre E-Mails versendet, jeweils in einer einzigen Sprache. Ausgenommen sind Rundschreiben mit eigener Sprache; bei den Mitteilungen zu Mitgliedsanträgen gilt die im Dialog gewählte Sprache."
+msgstr "De taal waarin de instantie haar e-mails verstuurt, elk in één enkele taal. Uitgezonderd zijn circulaires met een eigen taal; voor de berichten over lidmaatschapsaanvragen geldt de in het dialoogvenster gekozen taal."
 
 msgid "Unbekannte Sprache"
 msgstr "Onbekende taal"

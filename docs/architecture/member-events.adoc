@@ -103,6 +103,10 @@ Server side the shared `EventRegistrationSubmission.submit(..., message)` stores
 `EventRegistrationMessageNotifier` -- **outside any transaction** (a direct message in its own transaction, the mail through the dispatcher). The notifier
 never throws and never logs text, name or address. See link:../features/event-registrations.adoc[Event registrations].
 
+Since V1.9.335 this mail and all other event mails are rendered by `EventMailTemplates` from `EventMailTexts` (eight languages) in the instance
+mail language; the subject is built there, with the title sanitised and capped. Entry points take a `mailLanguage: () -> String` (default: the
+organisation setting, read at send time; failure means `de`).
+
 == Mobile labels (V1.9.208)
 
 The buttons of a card stand in one `actionGroup` (wrapping row, 44 px targets, destructive action last). Visible labels are short: "Teilnahme anmelden",

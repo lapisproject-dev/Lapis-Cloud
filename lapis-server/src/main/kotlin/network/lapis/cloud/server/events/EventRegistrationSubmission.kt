@@ -14,8 +14,10 @@ import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.withSavepoint
 import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.embed.EmbedOriginAudit
+import network.lapis.cloud.server.mail.EventMailTemplates
+import network.lapis.cloud.server.mail.EventRegistrationMailKind
 import network.lapis.cloud.server.mail.MailDispatcher
-import network.lapis.cloud.server.mail.htmlEscape
+import network.lapis.cloud.server.mail.MailLanguage
 import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.server.payment.psp.PspCheckoutResult
 import network.lapis.cloud.server.payment.psp.PspCheckoutSessions
@@ -158,7 +160,11 @@ internal class EventRegistrationSubmission(
     // resume a registration which carries an origin need the real config (`EventPublicRoutes`, `EmbedEventRoutes`). The default is safe:
     // every re-validation fails, so `null` is written -- exactly the pre-V1.9.261 behaviour.
     private val embedConfig: EmbedConfig = EmbedConfig.DISABLED,
+    // V1.9.335 -- the instance mail language, read at SEND time; every event mail is single-language in it. Fails to `de`, never throws.
+    private val mailLanguage: () -> String = { MailLanguage.instanceLanguage() },
 ) {
+    private fun mailLang(): String = MailLanguage.instance(mailLanguage)
+
     /**
      * Registers [participant] for [eventId]. [message] is the registrant's optional note to the organisers, ALREADY normalised by
      * `EventRegistrationMessage.normalize` (the caller rejects an over-long text before any rate-limit budget is spent). After a
@@ -340,7 +346,7 @@ internal class EventRegistrationSubmission(
 
         // Mail every OTHER registrant this same lock acquisition happened to promote off the
         // waitlist -- unrelated to this call's own outcome, see EventCapacityGuard KDoc.
-        promotions.forEach { it.mailPromotion(mailDispatcher) }
+        promotions.forEach { it.mailPromotion(mailDispatcher = mailDispatcher, language = mailLang()) }
 
         return when (placement) {
             Placement.Duplicate -> EventRegistrationResult.AlreadyRegistered
@@ -516,7 +522,7 @@ internal class EventRegistrationSubmission(
                         )
                 }
             }
-        promotions.forEach { it.mailPromotion(mailDispatcher) }
+        promotions.forEach { it.mailPromotion(mailDispatcher = mailDispatcher, language = mailLang()) }
         val facts = resumeFacts ?: return EventRegistrationResult.EventNotAvailable
         val fee = facts.fee
         val holdExpiresAt = facts.holdExpiresAt
@@ -808,7 +814,7 @@ internal class EventRegistrationSubmission(
         now: LocalDateTime = DbClock.nowLocalDateTime(),
     ) {
         val (_, promotions) = EventCapacityGuard.withEventLock(eventId = eventId, now = now) { }
-        promotions.forEach { it.mailPromotion(mailDispatcher) }
+        promotions.forEach { it.mailPromotion(mailDispatcher = mailDispatcher, language = mailLang()) }
     }
 
     /**
@@ -821,29 +827,18 @@ internal class EventRegistrationSubmission(
         title: String,
         eventId: Uuid,
     ) {
-        val loginUrl = "$baseUrl/app#/login"
-        val eventUrl = "$baseUrl/app#/events/$eventId"
-        val plainText =
-            "Hallo,\n\n" +
-                "für die Veranstaltung \"$title\" wurde auf unserer öffentlichen Seite diese E-Mail-Adresse eingetragen. " +
-                "Die Adresse gehört zu einem Konto bei uns. Bitte melden Sie sich an und melden Sie sich danach im " +
-                "Mitgliederbereich zur Veranstaltung an, damit die Anmeldung Ihrem Konto zugeordnet ist.\n\n" +
-                "Anmelden: $loginUrl\n\n" +
-                "Zur Veranstaltung im Mitgliederbereich: $eventUrl\n\n" +
-                "Falls Sie das nicht waren, können Sie diese E-Mail ignorieren. Es wurde keine Anmeldung gespeichert.\n"
-        val escapedTitle = htmlEscape(title)
-        val html =
-            "<p>Hallo,</p><p>für die Veranstaltung \"$escapedTitle\" wurde auf unserer öffentlichen Seite diese E-Mail-Adresse " +
-                "eingetragen. Die Adresse gehört zu einem Konto bei uns. Bitte melden Sie sich an und melden Sie sich danach im " +
-                "Mitgliederbereich zur Veranstaltung an, damit die Anmeldung Ihrem Konto zugeordnet ist.</p>" +
-                "<p><a href=\"$loginUrl\">Anmelden</a></p>" +
-                "<p><a href=\"$eventUrl\">Zur Veranstaltung im Mitgliederbereich</a></p>" +
-                "<p>Falls Sie das nicht waren, können Sie diese E-Mail ignorieren. Es wurde keine Anmeldung gespeichert.</p>"
+        val mail =
+            EventMailTemplates.memberNotice(
+                eventTitle = title,
+                loginUrl = "$baseUrl/app#/login",
+                eventUrl = "$baseUrl/app#/events/$eventId",
+                language = mailLang(),
+            )
         mailDispatcher.enqueue(
             to = to,
-            subject = "Hinweis zur Veranstaltung \"$title\"",
-            plainTextBody = plainText,
-            htmlBody = html,
+            subject = mail.subject,
+            plainTextBody = mail.plainText,
+            htmlBody = mail.html,
             purpose = "event-registration-member-notice",
             logRecipient = false,
         )
@@ -854,17 +849,12 @@ internal class EventRegistrationSubmission(
         to: String,
         title: String,
     ) {
-        val plainText =
-            "Hallo,\n\nDiese E-Mail-Adresse ist für \"$title\" bereits angemeldet. Es wurde nichts geändert. " +
-                "Ihren Stornierungslink finden Sie in der früheren E-Mail.\n"
-        val html =
-            "<p>Hallo,</p><p>Diese E-Mail-Adresse ist für \"${htmlEscape(title)}\" bereits angemeldet. Es wurde nichts geändert. " +
-                "Ihren Stornierungslink finden Sie in der früheren E-Mail.</p>"
+        val mail = EventMailTemplates.duplicateNotice(eventTitle = title, language = mailLang())
         mailDispatcher.enqueue(
             to = to,
-            subject = "Ihre Anmeldung: $title",
-            plainTextBody = plainText,
-            htmlBody = html,
+            subject = mail.subject,
+            plainTextBody = mail.plainText,
+            htmlBody = mail.html,
             purpose = "event-registration-duplicate-notice",
             logRecipient = false,
         )
@@ -916,49 +906,34 @@ internal class EventRegistrationSubmission(
         val to = participant.emailForMail() ?: return
         val name = participant.displayNameForMail()
         val cancelUrl = "$baseUrl/veranstaltung/$slug/storno?token=$cancelToken"
-        val subject =
-            when (mode) {
-                RegistrationMailMode.CONFIRMED -> "Anmeldebestätigung: $title"
-                RegistrationMailMode.WAITLISTED -> "Warteliste: $title"
-                RegistrationMailMode.PAYMENT_PENDING -> "Bitte Zahlung abschließen: $title"
-            }
-        val statusLine =
-            when (mode) {
-                RegistrationMailMode.CONFIRMED -> "Ihre Anmeldung für \"$title\" ist bestätigt."
-                RegistrationMailMode.WAITLISTED ->
-                    "Sie stehen auf der Warteliste für \"$title\". Wir melden uns, sobald ein Platz frei wird."
-                RegistrationMailMode.PAYMENT_PENDING ->
-                    "Ihr Platz für \"$title\" ist reserviert. Bitte schließen Sie die Zahlung innerhalb von " +
-                        "${EventPolicy.STANDARD_HOLD.inWholeMinutes} Minuten ab, sonst wird der Platz wieder freigegeben."
-            }
-        val ticketLine = if (ticketUrl != null) "\n\nIhr Ticket: $ticketUrl" else ""
-        val ticketHtml = if (ticketUrl != null) "<p><a href=\"$ticketUrl\">Ihr Ticket</a></p>" else ""
         // V1.9.259 -- the payment link: `POST /zahlung` takes the very same token as `/storno` (registration found by its hash, status must
         // be PENDING_PAYMENT), so the cancel token doubles as the pay token -- no migration, no second secret.
         val payUrl = if (mode == RegistrationMailMode.PAYMENT_PENDING) "$baseUrl/veranstaltung/$slug/zahlung?token=$cancelToken" else null
-        val payLine = if (payUrl != null) "\n\nJetzt bezahlen: $payUrl" else ""
-        val payHtml = if (payUrl != null) "<p><a href=\"$payUrl\">Jetzt bezahlen</a></p>" else ""
-        val plainText = "Hallo $name,\n\n$statusLine$ticketLine$payLine\n\nAnmeldung stornieren: $cancelUrl\n"
-        // Security-Review MINOR fix: `name` (guest display name from the unauthenticated public
-        // registration form)/`title` (BOARD/ADMIN-supplied event title) -- htmlEscape() both,
-        // separately from the plain-text `statusLine` above (see
-        // `network.lapis.cloud.server.mail.htmlEscape` KDoc). `cancelUrl`/`ticketUrl` stay
-        // unescaped -- both are built by this server itself from a slug + generated token.
-        val escapedTitle = htmlEscape(title)
-        val statusLineHtml =
-            when (mode) {
-                RegistrationMailMode.CONFIRMED -> "Ihre Anmeldung für \"$escapedTitle\" ist bestätigt."
-                RegistrationMailMode.WAITLISTED ->
-                    "Sie stehen auf der Warteliste für \"$escapedTitle\". Wir melden uns, sobald ein Platz frei wird."
-                RegistrationMailMode.PAYMENT_PENDING ->
-                    "Ihr Platz für \"$escapedTitle\" ist reserviert. Bitte schließen Sie die Zahlung innerhalb von " +
-                        "${EventPolicy.STANDARD_HOLD.inWholeMinutes} Minuten ab, sonst wird der Platz wieder freigegeben."
-            }
-        val html =
-            "<p>Hallo ${htmlEscape(
-                name,
-            )},</p><p>$statusLineHtml</p>$ticketHtml$payHtml<p><a href=\"$cancelUrl\">Anmeldung stornieren</a></p>"
-        mailDispatcher.enqueue(to = to, subject = subject, plainTextBody = plainText, htmlBody = html, purpose = "event-registration")
+        // V1.9.335 -- single-language mail in the instance language; `name` (guest form) and `title` (board) are HTML-escaped inside
+        // EventMailTemplates, the links are built by this server from a slug + generated token.
+        val mail =
+            EventMailTemplates.registrationReceived(
+                kind =
+                    when (mode) {
+                        RegistrationMailMode.CONFIRMED -> EventRegistrationMailKind.CONFIRMED
+                        RegistrationMailMode.WAITLISTED -> EventRegistrationMailKind.WAITLISTED
+                        RegistrationMailMode.PAYMENT_PENDING -> EventRegistrationMailKind.PAYMENT_PENDING
+                    },
+                eventTitle = title,
+                recipientName = name,
+                ticketUrl = ticketUrl,
+                payUrl = payUrl,
+                cancelUrl = cancelUrl,
+                holdMinutes = EventPolicy.STANDARD_HOLD.inWholeMinutes,
+                language = mailLang(),
+            )
+        mailDispatcher.enqueue(
+            to = to,
+            subject = mail.subject,
+            plainTextBody = mail.plainText,
+            htmlBody = mail.html,
+            purpose = "event-registration",
+        )
     }
 
     private enum class RegistrationMailMode { CONFIRMED, WAITLISTED, PAYMENT_PENDING }
@@ -980,7 +955,7 @@ internal class EventRegistrationSubmission(
             EventCapacityGuard.withEventLock(eventId = eventId, now = now) { _ ->
                 EventStore.cancelRegistration(id = registrationId, now = now)
             }
-        promotions.forEach { it.mailPromotion(mailDispatcher) }
+        promotions.forEach { it.mailPromotion(mailDispatcher = mailDispatcher, language = mailLang()) }
     }
 
     private fun randomCancelToken(): String {

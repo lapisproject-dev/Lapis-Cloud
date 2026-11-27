@@ -92,6 +92,14 @@ The export of a data subject contains the member's own message; the erasure sets
 documented gap of `event_registration` (see `PersonalDataRegistry.knownUncoveredSubjectRoots`). The column is found by the organisation backup on its own
 (`OrganizationSchemaCatalog`); `EventRegistrationMessageBackupTest` pins the round trip.
 
+== Mail language (V1.9.335)
+
+All event mails (registration, waitlist spot, notice to an account holder, duplicate notice, ticket after payment, ticket reissue,
+cancellation, registration-message notice to the creator) are single-language in the *instance mail language* (see
+link:mail-language.adoc[Mail language]), also for guests and members: no member has a language of their own and a guest's is not stored
+(the registration has no language column; the page knows `?lang=` only, which is absent for `de`). The cancellation reason is board free text
+and is not translated. Translations other than German were written by the model and are not reviewed by native speakers.
+
 == Honest limits
 
 * Tested with unit, scenario (H2 and PostgreSQL), route and DOM tests in headless Chrome. **No person has used the pages in a real browser, and the CSV was

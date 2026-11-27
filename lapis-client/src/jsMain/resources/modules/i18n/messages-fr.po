@@ -34780,8 +34780,8 @@ msgstr "E-mails"
 msgid "Sprache der E-Mails"
 msgstr "Langue des e-mails"
 
-msgid "Die Sprache, in der die Instanz ihre E-Mails versendet, jeweils in einer einzigen Sprache. Ausgenommen sind die Mitteilungen zu Mitgliedsanträgen (in der Sprache des Antrags), Rundschreiben mit eigener Sprache und die Veranstaltungs-E-Mails, die derzeit nur auf Deutsch versendet werden."
-msgstr "La langue dans laquelle l'instance envoie ses e-mails, chacun dans une seule langue. Sont exclus les avis relatifs aux demandes d'adhésion (dans la langue de la demande), les envois groupés avec leur propre langue et les e-mails d'événements, qui ne sont actuellement envoyés qu'en allemand."
+msgid "Die Sprache, in der die Instanz ihre E-Mails versendet, jeweils in einer einzigen Sprache. Ausgenommen sind Rundschreiben mit eigener Sprache; bei den Mitteilungen zu Mitgliedsanträgen gilt die im Dialog gewählte Sprache."
+msgstr "La langue dans laquelle l'instance envoie ses e-mails, chacun dans une seule langue. Sont exclus les envois groupés avec leur propre langue ; pour les avis relatifs aux demandes d'adhésion, la langue choisie dans la boîte de dialogue s'applique."
 
 msgid "Unbekannte Sprache"
 msgstr "Langue inconnue"

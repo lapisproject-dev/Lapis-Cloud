@@ -21,4 +21,14 @@ internal object MailLanguage {
      */
     fun instance(source: () -> String): String =
         resolve(recipient = null, instance = runCatching { source() }.getOrDefault(MembershipDecisionTexts.DEFAULT_LANGUAGE))
+
+    /**
+     * V1.9.335 -- the language of the event mails: the instance language at SEND time (production source: the organisation settings).
+     * Used as the default of every event-mail entry point, so no production path can fall back to a hard-coded German.
+     */
+    fun instanceLanguage(): String =
+        instance {
+            network.lapis.cloud.server.rpc.MailLanguageStore
+                .loadOrDefault()
+        }
 }

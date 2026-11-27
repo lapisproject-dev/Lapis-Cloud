@@ -7,8 +7,9 @@ import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.federation.FederationConfig
+import network.lapis.cloud.server.mail.EventMailTemplates
 import network.lapis.cloud.server.mail.MailDispatcher
-import network.lapis.cloud.server.mail.htmlEscape
+import network.lapis.cloud.server.mail.MailLanguage
 import network.lapis.cloud.server.routes.sha256Hex
 import org.jetbrains.exposed.v1.core.ResultRow
 import java.math.BigDecimal
@@ -194,45 +195,34 @@ internal fun LocalDateTime.plusDuration(duration: kotlin.time.Duration): LocalDa
  * **NEVER call this from inside an open `transaction {}`** -- see `EventCapacityGuard` KDoc "the
  * caller is responsible for mailing each one AFTER this function returns".
  */
-internal fun WaitlistPromotion.mailPromotion(mailDispatcher: MailDispatcher) {
-    val subject = "Platz frei geworden: $eventTitle"
-    val plainText: String
-    val html: String
+internal fun WaitlistPromotion.mailPromotion(
+    mailDispatcher: MailDispatcher,
+    language: String = MailLanguage.instanceLanguage(),
+) {
+    // paymentResumeUrl/cancelUrl are set together alongside payNowRequired, ticketUrl alongside !payNowRequired -- see promoteWhileCapacityFree.
     if (payNowRequired) {
-        // paymentResumeUrl/cancelUrl are always set together alongside payNowRequired -- see
-        // promoteWhileCapacityFree.
-        val url = checkNotNull(paymentResumeUrl) { "payNowRequired promotion $registrationId has no paymentResumeUrl" }
-        val cancel = checkNotNull(cancelUrl) { "payNowRequired promotion $registrationId has no cancelUrl" }
-        val body =
-            "Ein Platz für \"$eventTitle\" ist frei geworden. Bitte schließen Sie die Zahlung " +
-                "innerhalb von ${EventPolicy.WAITLIST_OFFER_WINDOW.inWholeHours} Stunden ab, sonst rückt " +
-                "die nächste Person nach."
-        plainText = "Hallo $recipientDisplayName,\n\n$body\n\nZahlung abschließen: $url\n\nAnmeldung stornieren: $cancel\n"
-        // Security-Review MINOR fix: `recipientDisplayName`/`eventTitle` can originate from an
-        // unauthenticated guest form / a BOARD-supplied event title -- htmlEscape() both before
-        // they reach `html` (see `network.lapis.cloud.server.mail.htmlEscape` KDoc). `url`/`cancel`
-        // stay unescaped -- both are built by this server itself from a slug + generated token.
-        val bodyHtml =
-            "Ein Platz für \"${htmlEscape(eventTitle)}\" ist frei geworden. Bitte schließen Sie die Zahlung " +
-                "innerhalb von ${EventPolicy.WAITLIST_OFFER_WINDOW.inWholeHours} Stunden ab, sonst rückt " +
-                "die nächste Person nach."
-        html =
-            "<p>Hallo ${htmlEscape(recipientDisplayName)},</p><p>$bodyHtml</p>" +
-            "<p><a href=\"$url\">Zahlung abschließen</a></p>" +
-            "<p><a href=\"$cancel\">Anmeldung stornieren</a></p>"
+        checkNotNull(paymentResumeUrl) { "payNowRequired promotion $registrationId has no paymentResumeUrl" }
+        checkNotNull(cancelUrl) { "payNowRequired promotion $registrationId has no cancelUrl" }
     } else {
-        val body = "Ein Platz für \"$eventTitle\" ist frei geworden -- Ihre Teilnahme ist bestätigt."
-        // ticketUrl is always set alongside payNowRequired = false -- see promoteWhileCapacityFree.
-        val url = checkNotNull(ticketUrl) { "non-payNowRequired promotion $registrationId has no ticketUrl" }
-        plainText = "Hallo $recipientDisplayName,\n\n$body\n\nIhr Ticket: $url\n"
-        val bodyHtml = "Ein Platz für \"${htmlEscape(eventTitle)}\" ist frei geworden -- Ihre Teilnahme ist bestätigt."
-        html = "<p>Hallo ${htmlEscape(recipientDisplayName)},</p><p>$bodyHtml</p><p><a href=\"$url\">Ihr Ticket</a></p>"
+        checkNotNull(ticketUrl) { "non-payNowRequired promotion $registrationId has no ticketUrl" }
     }
+    // V1.9.335 -- single-language mail in the instance language; titles/names are HTML-escaped inside EventMailTemplates.
+    val mail =
+        EventMailTemplates.waitlistPromotion(
+            eventTitle = eventTitle,
+            recipientName = recipientDisplayName,
+            payNow = payNowRequired,
+            paymentUrl = paymentResumeUrl,
+            cancelUrl = cancelUrl,
+            ticketUrl = ticketUrl,
+            offerHours = EventPolicy.WAITLIST_OFFER_WINDOW.inWholeHours,
+            language = language,
+        )
     mailDispatcher.enqueue(
         to = recipientEmail,
-        subject = subject,
-        plainTextBody = plainText,
-        htmlBody = html,
+        subject = mail.subject,
+        plainTextBody = mail.plainText,
+        htmlBody = mail.html,
         purpose = "event-waitlist-promotion",
     )
 }

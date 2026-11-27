@@ -1187,7 +1187,7 @@ object MailTemplates {
      * break (mail-header-injection), and an article title is author-supplied free text that has
      * never been checked for this.
      */
-    private fun sanitizeSubjectFragment(fragment: String): String =
+    internal fun sanitizeSubjectFragment(fragment: String): String =
         fragment
             .map { c -> if (c == '\r' || c == '\n' || c == '\u0085' || c == ' ' || c == ' ' || c.isISOControl()) ' ' else c }
             .joinToString("")

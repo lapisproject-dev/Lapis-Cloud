@@ -44,16 +44,19 @@ language of their own, so the recipient language is always empty for them):
 | Carpool notice (8 kinds) | driver/rider | no names, no content
 | Peer protection (request, approval needed, executed, reset triggered, protected data, new administrator) | target/administrators | the operator console writes the actor name in the mail language
 | Tender payout receipt / failure notice (V1.9.330-332) | winner / board | footer localised since V1.9.334
+| Event mails (V1.9.335): waitlist spot, registration (confirmed / waitlisted / payment pending), notice to an account holder, duplicate notice, ticket after payment, ticket reissue, cancellation, registration-message notice | registrant (member or guest) / event creator | no footer (as before); no date, time or attachment in any of them; the cancellation reason stays board free text
 |===
 
 Not single-language in the instance language, on purpose:
 
-* the membership decision mails (approved/rejected): the applicant's own language plus a de/en second block (V1.9.118); their
-  fallback without a stored language is still `de`;
+* the membership decision mails (approved/rejected): the language chosen in the board dialog (`mailLanguage`) plus a de/en second block
+  (V1.9.118). Since V1.9.335 an empty or unknown code falls back to the instance language instead of `de` (only API/MCP callers can send
+  one; the dialog always sends a code, default `de`);
 * newsletters and mailings: they carry their own language.
 
-Not yet translated (German only): the event mails (registration confirmation, waitlist spot, ticket, reissue, cancellation,
-payment confirmation, message to the organiser). The help text of the setting names this.
+Event mails: members have no stored language and the language of a guest is not reliably known (the public page learns the visitor
+language only from `?lang=`, which is absent for `de` and lost in the embed mode, and the registration stores none), so all of them use the
+instance language. Wording lives in `EventMailTexts.kt`, layout in `EventMailTemplates.kt`.
 
 The footer ("Questions? ...") and the "unknown" time are localised in all of them.
 
@@ -66,6 +69,6 @@ completeness test checks that all eight exist and carry the same placeholders.
 == Known limits
 
 * Amounts keep the decimal comma and timestamps the `yyyy-MM-dd HH:mm UTC` form in every language; the FinTS and administrator-reset mails keep a raw `yyyy-MM-ddTHH:mm` timestamp.
-* Plural forms: hours follow one/few/many for `pl` and `ru`; the person counts of the encounter notice are phrased number-neutrally in es/fr/it/nl/pl/ru.
+* Plural forms: hours and minutes follow one/few/many for `pl` and `ru`; the person counts of the encounter notice are phrased number-neutrally in es/fr/it/nl/pl/ru.
 * The language list exists twice (server and client); a test keeps both in step.
 * Backup restore: a bundle without the column gets `de`; a value outside the list is refused.
