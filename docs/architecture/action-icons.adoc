@@ -34,7 +34,7 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `ACCESS` | `fa-user-lock` | Sichtbarkeit ändern (who may see an object); V1.9.49, NOT `LOCK`
 | `PASSWORD` | `fa-key` | V1.9.75: Passwort ändern (own password), set a member's password; NOT `LOCK` (reserved), NOT `ACCESS`
 | `LEAVE` | `fa-right-from-bracket` | V1.9.62: leave a room; V1.9.75: also Abmelden (leave the whole app = sign out, button and menu entry). One verb, one picture; there is no separate sign-out icon
-| `RATE_POSITIVE`, `RATE_NEGATIVE` | `fa-thumbs-up`, `fa-thumbs-down` | V1.9.301: rate a politician positively or negatively (toggle buttons with a visible count on the Politiker screen); assigned to this purpose only. Retracting a rating uses `UNDO`.
+| `RATE_POSITIVE`, `RATE_NEGATIVE` | `fa-thumbs-up`, `fa-thumbs-down` | V1.9.301: rate a politician positively or negatively (toggle buttons with a visible count on the Politiker screen); since V1.9.338 also the like/dislike reactions on crowdfunding projects; assigned to these purposes only. Retracting a rating uses `UNDO`.
 | `UNDO` | `fa-rotate-left` | Stornieren, Zurückziehen, Wiederherstellen, Zurücksetzen; V1.9.193: "Antrag zurückziehen" (secondary, at the end of the motion page)
 | `BROADCAST` | `fa-tower-broadcast` | V1.9.62: the pulpit transmission of the encounter room; V1.9.66: also the conference live stream (same verb: transmitting live)
 | `RECORD` | `fa-circle-dot` | V1.9.66: start/stop a conference recording (conference bar only)

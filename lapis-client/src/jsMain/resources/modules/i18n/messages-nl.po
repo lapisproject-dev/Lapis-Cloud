@@ -4720,11 +4720,6 @@ msgstr ""
 msgid "Direkt buchen"
 msgstr "Direct boeken"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:304
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:518
-msgid "Dislike"
-msgstr "Dislike"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:162
 msgid "Doch lieber Mitglied werden? Zum Beitrittsantrag."
 msgstr "Liever toch lid worden? Naar de lidmaatschapsaanvraag."
@@ -7020,11 +7015,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:81
 msgid "Letztmalig (FNAL)"
 msgstr "Laatste (FNAL)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:303
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:517
-msgid "Like"
-msgstr "Like"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:240
 msgid "Like: %1 · Dislike: %2 · Verteilungs-Korb: %3"
@@ -34885,3 +34875,24 @@ msgstr "Onbekende taal"
 
 msgid "Sprache der E-Mails gespeichert."
 msgstr "Taal van e-mails opgeslagen."
+
+msgid "Reaktion auf %1"
+msgstr "Reactie op %1"
+
+msgid "%1: Gefällt mir (%2 Reaktionen „Gefällt mir“)"
+msgstr "%1: Vind ik leuk (%2 reacties «Vind ik leuk»)"
+
+msgid "%1: Gefällt mir nicht (%2 Reaktionen „Gefällt mir nicht“)"
+msgstr "%1: Vind ik niet leuk (%2 reacties «Vind ik niet leuk»)"
+
+msgid "Reaktion zurückziehen"
+msgstr "Reactie intrekken"
+
+msgid "Reaktion zurückziehen: %1"
+msgstr "Reactie intrekken: %1"
+
+msgid "Gefällt mir"
+msgstr "Vind ik leuk"
+
+msgid "Gefällt mir nicht"
+msgstr "Vind ik niet leuk"

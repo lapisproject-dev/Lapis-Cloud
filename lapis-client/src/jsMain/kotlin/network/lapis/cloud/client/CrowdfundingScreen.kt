@@ -3,7 +3,6 @@ package network.lapis.cloud.client
 import io.kvision.form.select.select
 import io.kvision.form.text.textArea
 import io.kvision.html.ButtonStyle
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.image
@@ -292,6 +291,20 @@ private fun renderProjectCard(
     }
 }
 
+private fun reactionGroupName(title: String): String = sanitizeUntrustedI18nText(gettext("Reaktion auf %1", title))
+
+private fun likeName(
+    title: String,
+    n: Int,
+): String = sanitizeUntrustedI18nText(gettext("%1: Gefällt mir (%2 Reaktionen „Gefällt mir“)", title, n))
+
+private fun dislikeName(
+    title: String,
+    n: Int,
+): String = sanitizeUntrustedI18nText(gettext("%1: Gefällt mir nicht (%2 Reaktionen „Gefällt mir nicht“)", title, n))
+
+private fun retractName(title: String): String = sanitizeUntrustedI18nText(gettext("Reaktion zurückziehen: %1", title))
+
 private fun renderReactionControls(
     card: SimplePanel,
     project: CrowdfundingProjectDto,
@@ -300,13 +313,43 @@ private fun renderReactionControls(
     val reactionRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap border-top pt-2 mt-1") }
     val myReactionPanel = reactionRow.vPanel(spacing = 0) { addCssClasses("flex-grow-1") }
     myReactionPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-    val likeButton = reactionRow.button(tr("Like"), style = ButtonStyle.OUTLINESUCCESS)
-    val dislikeButton = reactionRow.button(tr("Dislike"), style = ButtonStyle.OUTLINEDANGER)
-    val retractButton = reactionRow.actionButton(ActionIcon.UNDO, tr("Zurückziehen"), style = ButtonStyle.OUTLINESECONDARY)
+    val title = project.title
+    val group = reactionRow.actionGroup()
+    group.setAttribute("role", "group")
+    group.setAttribute("aria-label", reactionGroupName(title))
+    val like =
+        CountedToggleButton(
+            ActionIcon.RATE_POSITIVE,
+            ButtonStyle.OUTLINESUCCESS,
+            ButtonStyle.SUCCESS,
+            project.likeCount,
+            likeName(title, project.likeCount),
+            pressed = false,
+        )
+    group.add(like.button)
+    val dislike =
+        CountedToggleButton(
+            ActionIcon.RATE_NEGATIVE,
+            ButtonStyle.OUTLINEDANGER,
+            ButtonStyle.DANGER,
+            project.dislikeCount,
+            dislikeName(title, project.dislikeCount),
+            pressed = false,
+        )
+    group.add(dislike.button)
+    val retractButton =
+        group.actionButton(
+            ActionIcon.UNDO,
+            tr("Reaktion zurückziehen"),
+            style = ButtonStyle.OUTLINESECONDARY,
+            labelMode = ActionLabelMode.RESPONSIVE,
+            accessibleName = retractName(title),
+        )
+    retractButton.hide()
 
     fun setButtonsDisabled(disabled: Boolean) {
-        likeButton.disabled = disabled
-        dislikeButton.disabled = disabled
+        like.button.disabled = disabled
+        dislike.button.disabled = disabled
         retractButton.disabled = disabled
     }
 
@@ -316,6 +359,12 @@ private fun renderReactionControls(
         AppScope.launch {
             val reactions = guarded { rpcService<ICrowdfundingService>().getMyReaction(project.id) } ?: emptyList()
             val mine = reactions.firstOrNull()
+            like.update(likeName(title, project.likeCount), mine?.value == CrowdfundingReactionValue.LIKE, project.likeCount)
+            dislike.update(
+                dislikeName(title, project.dislikeCount),
+                mine?.value == CrowdfundingReactionValue.DISLIKE,
+                project.dislikeCount,
+            )
             myReactionPanel.removeAll()
             if (mine == null) {
                 myReactionPanel.div(tr("Sie haben noch nicht reagiert.")) { addCssClasses("text-muted small") }
@@ -342,8 +391,8 @@ private fun renderReactionControls(
         }
     }
 
-    likeButton.onClick { castReaction(CrowdfundingReactionValue.LIKE) }
-    dislikeButton.onClick { castReaction(CrowdfundingReactionValue.DISLIKE) }
+    like.button.onClick { castReaction(CrowdfundingReactionValue.LIKE) }
+    dislike.button.onClick { castReaction(CrowdfundingReactionValue.DISLIKE) }
     retractButton.onClick {
         setButtonsDisabled(true)
         AppScope.launch {
@@ -514,8 +563,8 @@ fun crowdfundingProjectStatusColor(status: CrowdfundingProjectStatus): String =
  * status -- outline variant, per the plan's own convention table. */
 fun crowdfundingReactionValueLabel(value: CrowdfundingReactionValue): String =
     when (value) {
-        CrowdfundingReactionValue.LIKE -> gettext("Like")
-        CrowdfundingReactionValue.DISLIKE -> gettext("Dislike")
+        CrowdfundingReactionValue.LIKE -> gettext("Gefällt mir")
+        CrowdfundingReactionValue.DISLIKE -> gettext("Gefällt mir nicht")
     }
 
 fun crowdfundingReactionValueColor(value: CrowdfundingReactionValue): String =

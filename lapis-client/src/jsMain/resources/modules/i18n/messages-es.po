@@ -4735,13 +4735,6 @@ msgstr ""
 msgid "Direkt buchen"
 msgstr "Contabilizar directamente"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:346
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:615
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:410
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:867
-msgid "Dislike"
-msgstr "No me gusta"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:133
 msgid "Doch lieber Mitglied werden? Zum Beitrittsantrag."
 msgstr "¿Prefiere hacerse miembro? Vaya a la solicitud de afiliación."
@@ -6870,13 +6863,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:81
 msgid "Letztmalig (FNAL)"
 msgstr "Final (FNAL)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:345
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:614
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:409
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:866
-msgid "Like"
-msgstr "Me gusta"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:313
 msgid "Like: %1 · Dislike: %2 · Verteilungs-Korb: %3"
@@ -34396,3 +34382,24 @@ msgstr "Idioma desconocido"
 
 msgid "Sprache der E-Mails gespeichert."
 msgstr "Idioma de los correos electrónicos guardado."
+
+msgid "Reaktion auf %1"
+msgstr "Reacción a %1"
+
+msgid "%1: Gefällt mir (%2 Reaktionen „Gefällt mir“)"
+msgstr "%1: Me gusta (%2 reacciones «Me gusta»)"
+
+msgid "%1: Gefällt mir nicht (%2 Reaktionen „Gefällt mir nicht“)"
+msgstr "%1: No me gusta (%2 reacciones «No me gusta»)"
+
+msgid "Reaktion zurückziehen"
+msgstr "Retirar reacción"
+
+msgid "Reaktion zurückziehen: %1"
+msgstr "Retirar reacción: %1"
+
+msgid "Gefällt mir"
+msgstr "Me gusta"
+
+msgid "Gefällt mir nicht"
+msgstr "No me gusta"

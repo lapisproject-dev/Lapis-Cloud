@@ -6,6 +6,14 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.338 Crowdfunding reactions as thumb toggles
+
+**No migration, no server change.** The crowdfunding cards replace the text buttons "Like"/"Dislike" with two thumb toggles (same component as the politician view since V1.9.301): each shows its count, carries `aria-pressed` for the member's own reaction, and has an accessible name with the project title and count; both sit in a labelled group. The retract button is now a responsive "Reaktion zurückziehen" button (icon only on narrow screens, name with the project title). The "Ihre Reaktion" badge says "Gefällt mir"/"Gefällt mir nicht". Behaviour is unchanged: same RPCs, a click on the already pressed thumb casts again (it does not retract), counts come from the reloaded project list, no extra request.
+
+- **Catalogs:** 7 new messages in `messages.pot` and the seven `.po` files; the obsolete "Like"/"Dislike" removed.
+- **Tests:** a DOM test covers icons, counts, names, pressed state, the group, cast and retract.
+- **Open items (product decision):** the count line, the approval dialog and the page intro still say Like/Dislike.
+
 ### V1.9.337 commonmark 0.33.0
 
 **No migration, no UI change.** Dependency bump of the Markdown renderer (0.22.0 to 0.33.0), with the nesting contract made explicit.
@@ -657,11 +665,11 @@ Feature release on `[0.51.0]` (three waves, V1.9.300 to V1.9.302; database schem
 
 No migration (the schema stays `V151`): the photo is a LEFT JOIN on the existing `member_photo` table (one row per member).
 
-**Behaviour changes first:** (1) The politician view shows a photo only while the member has released it publicly (the live rule of the public delivery route); otherwise initials. A private photo path is never used. (2) "Like"/"Dislike" became "Positiv"/"Negativ": two thumb toggle buttons with the combined number of members and guests; clicking the pressed thumb withdraws the rating. (3) Layout: "Politiker ernennen" is a header button that opens a collapsed form; "Mandatstext bearbeiten" and "Politiker-Status widerrufen" moved into the card header; "Verwaltung" and "Einstellungen" are collapsed; the banner of a switched-off ranking has an "Einstellungen öffnen" button; role abbreviations (BOARD/ADMIN/TREASURER) are gone from the visible texts. (4) **Open item:** the crowdfunding screen still says "Like"/"Dislike".
+**Behaviour changes first:** (1) The politician view shows a photo only while the member has released it publicly (the live rule of the public delivery route); otherwise initials. A private photo path is never used. (2) "Like"/"Dislike" became "Positiv"/"Negativ": two thumb toggle buttons with the combined number of members and guests; clicking the pressed thumb withdraws the rating. (3) Layout: "Politiker ernennen" is a header button that opens a collapsed form; "Mandatstext bearbeiten" and "Politiker-Status widerrufen" moved into the card header; "Verwaltung" and "Einstellungen" are collapsed; the banner of a switched-off ranking has an "Einstellungen öffnen" button; role abbreviations (BOARD/ADMIN/TREASURER) are gone from the visible texts. (4) Closed in V1.9.338: the crowdfunding screen uses the same thumb toggles.
 
 - **Added:** `PoliticianProfileDto.photoUrl` (relative `/public/member-photos/{token}` or `null`); `ActionIcon.RATE_POSITIVE`/`RATE_NEGATIVE`; `CountedToggleButton`; `politicianAvatar`; `docs/features/politician.adoc`.
 - **Changed:** `PoliticianService.profileJoin()` (LEFT JOIN with `MemberPhotoStore.publicServableCondition()` in the `ON` clause); `PoliticianScreen.kt`; the page intro of the screen; `RESPONSIVE` action buttons honour `accessibleName`.
-- **Catalogs:** 21 new messages in `messages.pot` and the seven `.po` files, the obsolete ones removed (the Like/Dislike words stay for the crowdfunding screen).
+- **Catalogs:** 21 new messages in `messages.pot` and the seven `.po` files, the obsolete ones removed (the Like/Dislike words stayed for the crowdfunding screen until V1.9.338).
 - **Security:** no new route; the URL is relative and only set as `src`; accessible names are sanitized as a whole; the public delivery route keeps `no-store`, so a withdrawal is immediate.
 - **Tests:** `PoliticianPhotoVisibilityTest` (all read paths, eight cases and a source tripwire), `PoliticianViewDomTest`, `PoliticianI18nCatalogTest`; updated `PoliticianScreenFormDomTest`, `PseudoTableGoldenDomTest` and the tripwire ledgers.
 - **Docs:** `docs/features/politician.adoc`, `action-icons.adoc`, `ui-ux-guideline.adoc` (R58), `member-photo.adoc`, `public-profiles.adoc`.

@@ -4300,11 +4300,6 @@ msgstr ""
 msgid "Direkt buchen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:304
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:518
-msgid "Dislike"
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:162
 msgid "Doch lieber Mitglied werden? Zum Beitrittsantrag."
 msgstr ""
@@ -6431,11 +6426,6 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:81
 msgid "Letztmalig (FNAL)"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:303
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:517
-msgid "Like"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:240
@@ -34245,4 +34235,25 @@ msgid "Unbekannte Sprache"
 msgstr ""
 
 msgid "Sprache der E-Mails gespeichert."
+msgstr ""
+
+msgid "Reaktion auf %1"
+msgstr ""
+
+msgid "%1: Gefällt mir (%2 Reaktionen „Gefällt mir“)"
+msgstr ""
+
+msgid "%1: Gefällt mir nicht (%2 Reaktionen „Gefällt mir nicht“)"
+msgstr ""
+
+msgid "Reaktion zurückziehen"
+msgstr ""
+
+msgid "Reaktion zurückziehen: %1"
+msgstr ""
+
+msgid "Gefällt mir"
+msgstr ""
+
+msgid "Gefällt mir nicht"
 msgstr ""

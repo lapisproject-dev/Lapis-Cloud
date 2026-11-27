@@ -4741,11 +4741,6 @@ msgstr ""
 msgid "Direkt buchen"
 msgstr "Registra direttamente"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:304
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:518
-msgid "Dislike"
-msgstr "Non mi piace"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:162
 msgid "Doch lieber Mitglied werden? Zum Beitrittsantrag."
 msgstr "Preferisce diventare membro? Vada alla domanda di adesione."
@@ -7053,11 +7048,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:81
 msgid "Letztmalig (FNAL)"
 msgstr "Finale (FNAL)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:303
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:517
-msgid "Like"
-msgstr "Mi piace"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:240
 msgid "Like: %1 · Dislike: %2 · Verteilungs-Korb: %3"
@@ -34773,3 +34763,24 @@ msgstr "Lingua sconosciuta"
 
 msgid "Sprache der E-Mails gespeichert."
 msgstr "Lingua delle e-mail salvata."
+
+msgid "Reaktion auf %1"
+msgstr "Reazione a %1"
+
+msgid "%1: Gefällt mir (%2 Reaktionen „Gefällt mir“)"
+msgstr "%1: Mi piace (%2 reazioni «Mi piace»)"
+
+msgid "%1: Gefällt mir nicht (%2 Reaktionen „Gefällt mir nicht“)"
+msgstr "%1: Non mi piace (%2 reazioni «Non mi piace»)"
+
+msgid "Reaktion zurückziehen"
+msgstr "Ritira reazione"
+
+msgid "Reaktion zurückziehen: %1"
+msgstr "Ritira reazione: %1"
+
+msgid "Gefällt mir"
+msgstr "Mi piace"
+
+msgid "Gefällt mir nicht"
+msgstr "Non mi piace"
