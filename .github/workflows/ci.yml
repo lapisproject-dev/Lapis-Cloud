@@ -250,6 +250,7 @@ jobs:
           platforms: linux/amd64
           build-args: |
             BASE_REGISTRY=${{ steps.base.outputs.registry }}
+            NODE_MAX_OLD_SPACE_MB=8192
           tags: lapis-cloud-candidate:pr
           cache-from: type=gha,scope=lapis-image
 
