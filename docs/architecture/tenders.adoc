@@ -80,7 +80,7 @@ motion -> tender -> bids -> member (`forMemberUpdate` only) -> ledger (the payou
 * **Guest rule.** `tenderBidderEligible(status, currency)` in `TenderVisibilityPolicy`: a participant status, except that a GUEST never holds a bid on an LTR tender. `submitBid` decides it from the *locked* member row; `awardTender` uses it for the winner and for the running bids; `withdrawBid` does not (withdrawing is always safe).
 * **Blocked reason.** `tenderBidBlockedReason` (order: not a participant, guest on LTR, not open, cap reached) fills `TenderDetailDto.bidBlockedReason`. The bid count that feeds the cap decision is never shipped.
 * **Award marks** (`awardable`, `awardReadiness`, `awardJustificationRequired`) are set only for a manager without a bid of their own while the tender is effectively CLOSED; everybody else gets the neutral defaults.
-* **Markdown description.** Rendered by `AgreementMarkdown` (raw HTML escaped, only http/https/mailto links, images become text); the text is normalised (`\r\n` to `\n`) before the length check, and a text that cannot be rendered is never stored or published. The preview has its own shared rate limiter.
+* **Markdown description.** Rendered by `AgreementMarkdown` (raw HTML escaped, only http/https/mailto links, images become text); the text is normalised (`\r\n` to `\n`) before the length check, and a text that cannot be rendered (nested deeper than 64 levels) is never stored or published; a description stored earlier is still shown when it is read. The preview has its own shared rate limiter.
 * **Remaining time.** `minutesUntilDeadline` is computed from real elapsed time on the server clock, so there is no time zone error in the browser.
 
 == Wave 3 (V1.9.308): the payout

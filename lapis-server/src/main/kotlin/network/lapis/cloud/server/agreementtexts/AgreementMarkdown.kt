@@ -3,7 +3,6 @@ package network.lapis.cloud.server.agreementtexts
 import network.lapis.cloud.server.articles.ArticleMarkdown
 import network.lapis.cloud.shared.domain.AgreementTextFormat
 import network.lapis.cloud.shared.domain.AgreementTextRules
-import org.commonmark.parser.Parser
 import org.commonmark.renderer.text.TextContentRenderer
 
 /**
@@ -15,7 +14,6 @@ import org.commonmark.renderer.text.TextContentRenderer
  * Privacy rule: this object never logs; the text is not an input to anything but the renderer.
  */
 internal object AgreementMarkdown {
-    private val parser: Parser = Parser.builder().extensions(emptyList()).build()
     private val plainRenderer: TextContentRenderer = TextContentRenderer.builder().build()
 
     /** Sanitized HTML of a Markdown [body]. */
@@ -30,7 +28,7 @@ internal object AgreementMarkdown {
      */
     fun hasBlockNodes(body: String): Boolean =
         try {
-            var node = parser.parse(body.take(AgreementTextRules.MAX_CHARS)).firstChild
+            var node = ArticleMarkdown.parse(markdown = body, maxChars = AgreementTextRules.MAX_CHARS).firstChild
             var found = false
             while (node != null && !found) {
                 if (node !is org.commonmark.node.Paragraph) found = true
@@ -42,11 +40,32 @@ internal object AgreementMarkdown {
         }
 
     /**
-     * [render], or `null` if the text is so deeply nested that the parser's recursion gives out (`StackOverflowError`, e.g. 20,000 nested quote
-     * markers). Used where a text is ACCEPTED (save, publish, preview): a text that cannot be rendered is never stored, so serving a stored text
-     * can not fail. Nothing about the text is logged.
+     * [render], or `null` if the text is nested deeper than [ArticleMarkdown.MAX_NESTING_DEPTH] (checked on the parsed tree, not by waiting for
+     * a `StackOverflowError`), e.g. 20,000 nested quote markers. Used where a text is ACCEPTED (save, publish, preview): a text that is refused
+     * here is never stored, and the parser limits can never silently clamp an accepted text (they start above the depth limit). The
+     * `StackOverflowError` catch stays as a second safety net. Nothing about the text is logged.
      */
     fun renderOrNull(
+        body: String,
+        maxChars: Int = AgreementTextRules.MAX_CHARS,
+    ): String? =
+        try {
+            val document = ArticleMarkdown.parse(markdown = body, maxChars = maxChars)
+            if (ArticleMarkdown.nestingDepth(document) > ArticleMarkdown.MAX_NESTING_DEPTH) {
+                null
+            } else {
+                ArticleMarkdown.renderDocument(document = document, softBreakAsLineBreak = true)
+            }
+        } catch (_: StackOverflowError) {
+            null
+        }
+
+    /**
+     * Like [renderOrNull] but WITHOUT the depth refusal: the read paths of already stored texts (tender description, travel contact hint). A text
+     * stored before V1.9.337 may be nested deeper than [ArticleMarkdown.MAX_NESTING_DEPTH]; it is still shown, the limit applies when saving
+     * and in the preview only. `null` only if rendering overflows the stack.
+     */
+    fun renderForDisplayOrNull(
         body: String,
         maxChars: Int = AgreementTextRules.MAX_CHARS,
     ): String? =
@@ -57,7 +76,8 @@ internal object AgreementMarkdown {
         }
 
     /** Plain text without Markdown characters (for the headline and key points of an encounter or event notice). */
-    fun toPlainText(body: String): String = plainRenderer.render(parser.parse(body.take(AgreementTextRules.MAX_CHARS))).trim()
+    fun toPlainText(body: String): String =
+        plainRenderer.render(ArticleMarkdown.parse(markdown = body, maxChars = AgreementTextRules.MAX_CHARS)).trim()
 
     /** The HTML for [format], or `null` for [AgreementTextFormat.PLAIN] (the client shows plain text as text). */
     fun htmlFor(

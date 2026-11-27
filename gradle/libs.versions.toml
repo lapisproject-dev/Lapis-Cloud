@@ -105,11 +105,10 @@ zxing-core              = "3.5.4"
 # JVM, no transitive deps beyond kotlin-stdlib -- same "permissive license / no native deps" latte
 # as kotlinx-html/zxing-core/nimbus-jose-jwt above. `commonmark-java` (not flexmark -- flexmark's
 # larger surface/plugin graph is unnecessary here) deliberately on the 0.2x line.
-# V1.9.333: NOT bumped to 0.33.0. Newer commonmark releases limit block/inline nesting itself, so a text of 40,000 nested quote markers
-# no longer ends in a StackOverflowError and is rendered (depth-limited) instead of refused by renderOrNull -- five specs pin the old
-# refusal (AgreementMarkdownTest, AgreementTextMarkdownServiceTest, TenderDescriptionFormatTest). Taking 0.33.0 needs those contracts
-# decided on purpose (explicit Parser.maxOpenBlockParsers/maxInlineNesting), not a silent test edit.
-commonmark              = "0.22.0"
+# V1.9.337: 0.33.0. Newer commonmark releases limit block/inline nesting themselves (excess becomes plain text instead of a
+# StackOverflowError), so ArticleMarkdown sets maxOpenBlockParsers/maxInlineNesting explicitly and the accepting paths refuse deep nesting
+# through their own AST depth check (ArticleMarkdown.MAX_NESTING_DEPTH); the contract of the five nesting specs stays unchanged.
+commonmark              = "0.33.0"
 
 # V1.9.222 Bildergalerie -- WebP uploads. The JDK's ImageIO has no WebP reader, so a WebP picture could not be decoded on the server at all.
 # com.twelvemonkeys.imageio:imageio-webp (BSD-3-Clause, pure Java, no native code) adds ONE reader, registered by ServiceLoader for the format

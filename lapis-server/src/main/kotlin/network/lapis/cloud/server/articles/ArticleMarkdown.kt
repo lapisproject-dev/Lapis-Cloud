@@ -39,8 +39,72 @@ import java.net.URI
  *    renders, so a `# Foo` in the body becomes `<h2>Foo</h2>`, six-deep nesting caps at `<h4>`.
  */
 object ArticleMarkdown {
-    private val parser: Parser = Parser.builder().extensions(emptyList()).build()
+    /**
+     * Explicit parser limits (commonmark 0.30+). Beyond them the parser does NOT fail: excess block starts and emphasis/image delimiters become
+     * plain text. They are set here on purpose instead of trusting the library defaults, so a later default change cannot alter the behaviour.
+     */
+    internal const val PARSER_MAX_OPEN_BLOCK_PARSERS = 100
+    internal const val PARSER_MAX_INLINE_NESTING = 100
 
+    /**
+     * Deepest AST nesting ([nestingDepth]) the accepting paths (agreement texts, tender descriptions, travel contact hints -- see
+     * [network.lapis.cloud.server.agreementtexts.AgreementMarkdown.renderOrNull]) take. A text that hits a parser limit has at least a depth of
+     * `limit - 2` (the document node and one more are not counted), so it is always above this value: a text is never accepted silently
+     * clamped to plain text.
+     */
+    internal const val MAX_NESTING_DEPTH = 64
+
+    init {
+        require(MAX_NESTING_DEPTH < minOf(PARSER_MAX_OPEN_BLOCK_PARSERS, PARSER_MAX_INLINE_NESTING) - 2) {
+            "MAX_NESTING_DEPTH must stay clearly below the parser nesting limits"
+        }
+    }
+
+    private val parser: Parser =
+        Parser
+            .builder()
+            .extensions(emptyList())
+            .maxOpenBlockParsers(PARSER_MAX_OPEN_BLOCK_PARSERS)
+            .maxInlineNesting(PARSER_MAX_INLINE_NESTING)
+            .build()
+
+    /** Parses at most [maxChars] characters of [markdown] with the hardened parser. */
+    internal fun parse(
+        markdown: String,
+        maxChars: Int,
+    ): Node = parser.parse(markdown.take(maxChars))
+
+    /**
+     * The deepest nesting of [root] (the document node is 0, a direct child 1, ...). Iterative on purpose -- no recursion, no visitor
+     * (`AbstractVisitor` is recursive), so a deeply nested tree cannot overflow the stack here. Runs in O(number of nodes).
+     */
+    internal fun nestingDepth(root: Node): Int {
+        var depth = 0
+        var max = 0
+        var node: Node? = root.firstChild
+        if (node != null) depth = 1
+        while (node != null) {
+            if (depth > max) max = depth
+            val child = node.firstChild
+            if (child != null) {
+                node = child
+                depth++
+                continue
+            }
+            while (node != null && node.next == null) {
+                node = node.parent
+                depth--
+                if (node === root) return max
+            }
+            node = node?.next
+        }
+        return max
+    }
+
+    /**
+     * Renders markdown into sanitized HTML. Does not refuse deeply nested input (article semantics unchanged): the parser limits turn excess
+     * nesting into plain text, so it can neither overflow the stack nor run away. Follow-up item: refuse such bodies when an article is saved.
+     */
     fun render(
         markdown: String,
         embedHost: EmbedLinkHost? = null,
@@ -51,7 +115,19 @@ object ArticleMarkdown {
         // (saveDraft/submitArticle), this is a second, independent belt for any caller that
         // reaches this function with an un-vetted string (e.g. a future direct previewArticle
         // call before validateDraftLengths has run).
-        val document = parser.parse(markdown.take(maxChars))
+        return renderDocument(
+            document = parse(markdown = markdown, maxChars = maxChars),
+            embedHost = embedHost,
+            softBreakAsLineBreak = softBreakAsLineBreak,
+        )
+    }
+
+    /** Renders an already parsed [document] (so a caller that inspects the tree first parses only once). */
+    internal fun renderDocument(
+        document: Node,
+        embedHost: EmbedLinkHost? = null,
+        softBreakAsLineBreak: Boolean = false,
+    ): String {
         val renderer =
             HtmlRenderer
                 .builder()

@@ -293,7 +293,11 @@ internal object TravelExpenseLineRules {
 internal object TravelContactHintMarkdown {
     fun render(body: String): String = AgreementMarkdown.render(body = body, maxChars = TravelExpenseAmountRules.MAX_CONTACT_HINT_LENGTH)
 
-    /** `null` if the text is so deeply nested that the parser gives out (`StackOverflowError`). */
+    /** `null` if the text is nested deeper than the acceptance limit (acceptance paths: save, preview). */
     fun renderOrNull(body: String): String? =
         AgreementMarkdown.renderOrNull(body = body, maxChars = TravelExpenseAmountRules.MAX_CONTACT_HINT_LENGTH)
+
+    /** Read path of an already stored hint: shown even if nested deeper than the acceptance limit (see [AgreementMarkdown.renderForDisplayOrNull]). */
+    fun renderForDisplayOrNull(body: String): String? =
+        AgreementMarkdown.renderForDisplayOrNull(body = body, maxChars = TravelExpenseAmountRules.MAX_CONTACT_HINT_LENGTH)
 }

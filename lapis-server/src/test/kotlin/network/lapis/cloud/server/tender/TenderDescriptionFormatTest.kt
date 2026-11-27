@@ -3,6 +3,7 @@ package network.lapis.cloud.server.tender
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import network.lapis.cloud.server.db.generated.TenderTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.rpc.TenderService
 import network.lapis.cloud.server.time.MutableTestClock
@@ -15,7 +16,11 @@ import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.RateLimitedException
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Duration.Companion.minutes
+import kotlin.uuid.Uuid
 
 /** V1.9.202 -- a Markdown description is rendered by the SERVER to sanitized HTML; the client never renders Markdown itself. */
 class TenderDescriptionFormatTest :
@@ -111,6 +116,58 @@ class TenderDescriptionFormatTest :
                         member = board,
                     ) { createTender(createInput(binding = fx.approvedMotion()).copy(description = nested)) }.isSuccess shouldBe
                         true
+                }
+            }
+        }
+
+        test("nesting limit: depth 20 is accepted and shipped, depth 70 is refused on create and in the preview") {
+            TimeTestSupport.withMutableServerClock(clock = tenderClock()) {
+                tenderTestApplication {
+                    val board = fx.member(label = "board", role = AccountRole.BOARD)
+
+                    fun nested(n: Int) = ">".repeat(n) + " Text"
+                    val ok =
+                        tender(member = board) {
+                            createTender(
+                                createInput(
+                                    binding = fx.approvedMotion(),
+                                ).copy(description = nested(20), descriptionFormat = TenderDescriptionFormat.MARKDOWN),
+                            )
+                        }
+                    (ok.descriptionHtml ?: "").contains("<blockquote>") shouldBe true
+                    tenderAttempt(member = board) {
+                        createTender(
+                            createInput(
+                                binding = fx.approvedMotion(),
+                            ).copy(description = nested(70), descriptionFormat = TenderDescriptionFormat.MARKDOWN),
+                        )
+                    }.exceptionOrNull().shouldBeInstanceOf<ConflictException>()
+                    attempt(member = board) { TenderService(call = it).previewTenderDescription(nested(70)) }
+                        .exceptionOrNull()
+                        .shouldBeInstanceOf<BadRequestException>()
+                }
+            }
+        }
+
+        test("read path: a description stored deeper than the limit (legacy) is still shown, not null and not a 500") {
+            TimeTestSupport.withMutableServerClock(clock = tenderClock()) {
+                tenderTestApplication {
+                    val board = fx.member(label = "board", role = AccountRole.BOARD)
+                    val created =
+                        tender(member = board) {
+                            createTender(
+                                createInput(
+                                    binding = fx.approvedMotion(),
+                                ).copy(description = "x", descriptionFormat = TenderDescriptionFormat.MARKDOWN),
+                            )
+                        }
+                    transaction {
+                        TenderTable.update(
+                            { TenderTable.id eq Uuid.parse(created.tender.id) },
+                        ) { it[description] = ">".repeat(70) + " Text" }
+                    }
+                    val shown = tender(member = board) { getTender(created.tender.id) }
+                    (shown.descriptionHtml ?: "").contains("<blockquote>") shouldBe true
                 }
             }
         }

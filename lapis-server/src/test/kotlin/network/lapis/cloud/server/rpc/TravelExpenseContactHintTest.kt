@@ -193,10 +193,35 @@ class TravelExpenseContactHintTest :
 
         test("a deeply nested quote is refused (400), not a 500") {
             withApp {
+                client.hint(HINT_ADMIN_ID, ">".repeat(1900), "MARKDOWN").status shouldBe HttpStatusCode.BadRequest
+                client.hint(HINT_ADMIN_ID, ">".repeat(70) + " x", "MARKDOWN").status shouldBe HttpStatusCode.BadRequest
+                client.hint(HINT_ADMIN_ID, ">".repeat(20) + " x", "MARKDOWN").status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test("the preview refuses a hint nested deeper than the limit (400) and accepts depth 20") {
+            withApp {
+                testPreviewLimiter = FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes)
                 client
-                    .hint(HINT_ADMIN_ID, ">".repeat(1900), "MARKDOWN")
-                    .status.value
-                    .let { (it == 200 || it == 400) shouldBe true }
+                    .post("/test/travelexpense/previewhint?text=${enc(">".repeat(70) + " x")}") { header("X-Member-Id", HINT_ADMIN_ID) }
+                    .status shouldBe HttpStatusCode.BadRequest
+                client
+                    .post("/test/travelexpense/previewhint?text=${enc(">".repeat(20) + " x")}") { header("X-Member-Id", HINT_ADMIN_ID) }
+                    .status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test("read path: a hint stored deeper than the limit (legacy) is still shown to members") {
+            withApp {
+                transaction {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[travelContactHint] = ">".repeat(70) + " Altbestand"
+                        it[travelContactHintFormat] = "MARKDOWN"
+                    }
+                }
+                val rates = client.rates(newMember())
+                rates[4] shouldBe "MARKDOWN"
+                rates[5] shouldContain "Altbestand"
             }
         }
 

@@ -129,7 +129,7 @@ A text has a *format* (`agreement_text_version.body_format` and `agreement_text_
   body have the same hash; an acknowledgment recorded earlier still matches the current text (`AgreementTextHashStabilityTest`).
 * *The server renders.* `AgreementMarkdown` (a thin layer over the sanitizing `ArticleMarkdown`: raw HTML is escaped as text, only `http://`, `https://` and `mailto:` links keep their `href`, images become their
   alt text, headings are shifted to h2-h4, a single line break stays a `<br />`) is the only place a text becomes HTML. It is capped at `AgreementTextRules.MAX_CHARS`, the limit the write path enforces, so the
-  rendered text cannot be shorter than the hashed one. A text so deeply nested that the parser runs out of stack is refused when it is saved (`renderOrNull`).
+  rendered text cannot be shorter than the hashed one. A text nested deeper than `ArticleMarkdown.MAX_NESTING_DEPTH` (64 levels of the parsed tree, checked explicitly; a legitimate text stays below about 15) is refused when it is saved and in the preview (`renderOrNull`); the parser itself is limited to 100 open blocks and 100 inline levels, so a clamped text is never accepted. Already stored texts are still shown when they are read (`renderForDisplayOrNull`).
 * *The client never renders Markdown.* HTML reaches the page in one function, `agreementHtml` (`AgreementTextRendering.kt`), fed only with the `renderedHtml` of a DTO; if it is missing, or does not start with
   a tag, the source is shown as text. `ClientAgreementHtmlTripwireTest` pins this. The privacy tripwires of the encounter and member-finder clients scan the *spelling* `rich = true` in their own files and are
   unchanged: those files call `renderAgreementBody` and never spell it.

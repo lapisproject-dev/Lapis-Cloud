@@ -65,6 +65,23 @@ class ArticleMarkdownTest :
             (html.length <= ArticlePolicy.BODY_MAX + 20) shouldBe true
         }
 
+        test(
+            "V1.9.337: a pathologically nested article body renders without an exception (was a StackOverflowError, i.e. a 500) and stays escaped",
+        ) {
+            val sources =
+                listOf(
+                    ">".repeat(50_000),
+                    "![".repeat(30_000) + "x" + "](u)".repeat(30_000),
+                    "*a ".repeat(30_000) + " b*".repeat(30_000),
+                    (0 until 3_000).joinToString("\n") { i -> " ".repeat(i * 2) + "- item <script>" },
+                )
+            for (source in sources) {
+                val html = ArticleMarkdown.render(markdown = source)
+                html shouldNotContain "<script"
+                html shouldNotContain "<img"
+            }
+        }
+
         test("golden: render(md) without an embed host is byte-identical to the checked-in STANDARD fixture") {
             val html = ArticleMarkdown.render(markdown = GOLDEN_MARKDOWN)
             val golden = File("src/test/resources/golden/article-markdown-standard.html")

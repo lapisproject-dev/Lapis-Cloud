@@ -302,7 +302,7 @@ class TravelExpenseService(
         val hintText = contact.hint
         val hintHtml =
             if (contact.hintFormat == TravelContactHintFormat.MARKDOWN && hintText != null) {
-                TravelContactHintMarkdown.renderOrNull(hintText)
+                TravelContactHintMarkdown.renderForDisplayOrNull(hintText)
             } else {
                 null
             }

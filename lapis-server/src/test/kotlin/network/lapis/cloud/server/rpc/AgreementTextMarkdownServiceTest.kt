@@ -269,6 +269,24 @@ class AgreementTextMarkdownServiceTest :
             }
         }
 
+        test("nesting at the limit: depth 20 is saved and previewed, depth 70 is refused in both") {
+            withApp {
+                fun nested(n: Int) = ">".repeat(n) + " Text"
+                client.save(AgreementTextKind.MEMBERSHIP, nested(20)).status shouldBe HttpStatusCode.OK
+                client.save(AgreementTextKind.MEMBERSHIP, nested(70)).bodyAsText() shouldBe "Invalid"
+                client
+                    .post("/t/preview?kind=MEMBERSHIP") {
+                        header("X-Member-Id", ADMIN)
+                        setBody(nested(20))
+                    }.status shouldBe HttpStatusCode.OK
+                client
+                    .post("/t/preview?kind=MEMBERSHIP") {
+                        header("X-Member-Id", ADMIN)
+                        setBody(nested(70))
+                    }.status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
         test(
             "block markup in the summary paragraphs is refused for the notice kinds, but a list in the FULL text and in MEMBERSHIP is fine",
         ) {

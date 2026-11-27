@@ -195,6 +195,14 @@ departures from commonmark-java's defaults:
    maxLevel = 4`) -- an article's own `<h1>` is reserved for the page-level title the surrounding
    template renders, so `# Foo` in the body becomes `<h2>Foo</h2>`.
 
+*Nesting limits (V1.9.337).* The parser is built with explicit `maxOpenBlockParsers` and `maxInlineNesting` (both 100, set in code instead of
+relying on the library default). Beyond a limit the parser does not fail: excess block starts and emphasis/image delimiters become plain text, so a
+pathologically nested body can neither overflow the stack nor run away, and `ArticleMarkdown.render` itself still refuses nothing (the article
+semantics are unchanged; refusing such a body when the article is saved is a recorded follow-up). The paths that ACCEPT a text (agreement texts,
+tender descriptions, travel contact hints, see `AgreementMarkdown.renderOrNull`) check the depth of the parsed tree against
+`ArticleMarkdown.MAX_NESTING_DEPTH` (64, measured iteratively by `nestingDepth`). A text that reaches a parser limit has a depth of at least 98, so
+it is always above that value and never accepted silently clamped.
+
 On the public page (`ArticlePublicHtml.articlePage`), the rendered HTML is inserted via
 `unsafe { +view.renderedBodyHtml }` rather than `kotlinx.html`'s normal escaping text API -- this
 is safe specifically because that string is the *output* of `ArticleMarkdown.render`, already

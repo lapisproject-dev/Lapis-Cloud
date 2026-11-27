@@ -6,6 +6,27 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.337 commonmark 0.33.0
+
+**No migration, no UI change.** Dependency bump of the Markdown renderer (0.22.0 to 0.33.0), with the nesting contract made explicit.
+
+- commonmark 0.30 and later limit block and inline nesting themselves (excess becomes plain text, no `StackOverflowError`). The parser is now built with
+  explicit `maxOpenBlockParsers` and `maxInlineNesting` (both 100) instead of the library default.
+- The refusal of absurdly nested texts no longer waits for a stack overflow: the accepting paths (agreement texts, tender descriptions, travel contact
+  hints; save and preview) measure the depth of the parsed tree (iteratively) and refuse above `ArticleMarkdown.MAX_NESTING_DEPTH` = 64. The allowed
+  syntax does not change; a legitimate text stays below about 15 levels. A text that reaches a parser limit is always above 64 and therefore never
+  accepted silently clamped.
+- Behaviour change: a text nested 65 to roughly 1,500 levels deep was accepted before and is now refused when saved or previewed (400).
+- Stored texts are not touched: the two read paths (tender description, travel contact hint) still show an older text nested deeper than 64.
+- Articles: a pathologically nested article body no longer ends in a `StackOverflowError` (500) in the preview, the review and on `/aktuelles/{slug}`; it is
+  rendered depth-limited. The article path still does not refuse such a body on save (recorded follow-up).
+- Characterization on 0.22.0 recorded before the bump (`MarkdownCharacterizationTest`): the HTML of all pinned inputs is byte-identical, `hasBlockNodes` is
+  unchanged (also for a text of only a link reference definition). Deviations, all legitimate fixes: `toPlainText` of nested lists on one line and of nested
+  quotes (0.27.1), and numeric references to unpaired surrogates become U+FFFD (0.33.0). Escaping, link allowlist and image handling are unchanged.
+- New specs: nesting per construct at the boundary, clamp-never-silent property, bounded run time at every size limit, an XSS matrix across all three
+  pipelines, service-level and read-path tests.
+- Dependabot: the deferral of `org.commonmark*` is removed. No new transitive dependency (commonmark 0.33.0 has none at runtime).
+
 ### V1.9.336 decision dialog preselects the instance mail language
 
 **No migration, no new RPC, no text change.** Client and docs only.

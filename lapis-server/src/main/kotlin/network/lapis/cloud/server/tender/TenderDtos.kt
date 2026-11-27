@@ -265,7 +265,7 @@ internal object TenderDtos {
             descriptionFormat = descriptionFormat,
             descriptionHtml =
                 if (descriptionFormat == TenderDescriptionFormat.MARKDOWN) {
-                    AgreementMarkdown.renderOrNull(body = row[TenderTable.description], maxChars = TENDER_MAX_DESCRIPTION)
+                    AgreementMarkdown.renderForDisplayOrNull(body = row[TenderTable.description], maxChars = TENDER_MAX_DESCRIPTION)
                 } else {
                     null
                 },
