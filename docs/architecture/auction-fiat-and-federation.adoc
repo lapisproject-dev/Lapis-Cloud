@@ -4,7 +4,7 @@
 :toc-placement: preamble
 :icons: font
 
-WARNING: **Wave (a) "currency per auction and direct payment, including buy now in fiat" is implemented (V1.9.320, schema V166) and wave (b) "price offer" is implemented on a feature branch (V1.9.321, schema V167); everything else in this document is still concept.** Wave (c) "federation visibility" is implemented up to step c4 (origin side and receiving side: consent, signed feed, withdrawal, landing route, pull, verification, display, hiding, relay, restore, GDPR export and erasure, member exit, retention, staging notes; schema V169, see link:auction-federation.adoc[Auction hints on partner servers]). The legal-review gate is NOT lifted. The feature is **off by default** (instance switch) and **has not been legally reviewed**. **Nothing in it is legal advice and nothing has been reviewed by a lawyer.** Every legal statement below is a question for a lawyer, not a finding. The first country is **Germany**.
+WARNING: **Wave (a) "currency per auction and direct payment, including buy now in fiat" is implemented (V1.9.320, schema V166) and wave (b) "price offer" is implemented (V1.9.321, schema V167; both released with 0.57.0, off by default); everything else in this document is still concept.** Wave (c) "federation visibility" is implemented up to step c4 (origin side and receiving side: consent, signed feed, withdrawal, landing route, pull, verification, display, hiding, relay, restore, GDPR export and erasure, member exit, retention, staging notes; schema V169, see link:auction-federation.adoc[Auction hints on partner servers]). The legal-review gate is NOT lifted. The feature is **off by default** (instance switch) and **has not been legally reviewed**. **Nothing in it is legal advice and nothing has been reviewed by a lawyer.** Every legal statement below is a question for a lawyer, not a finding. The first country is **Germany**.
 
 == Decisions taken
 
@@ -13,7 +13,7 @@ WARNING: **Wave (a) "currency per auction and direct payment, including buy now 
 . **Bids only on the origin server.** Partner servers only *show* an auction; bidding, buying and paying happen on the origin server.
 . **Sellers are members selling privately**, not the organisation.
 . First country: **Germany**. Georgia later, checked separately.
-. Today (0.56.0) auctions and tenders are paid **only in LTR**. A buy-now price already exists (`buyNowPriceLtr`, RPC `buyNow`, LTR only). A **price offer does not exist**.
+. Up to 0.56.0 auctions and tenders were paid **only in LTR**. A buy-now price already existed (`buyNowPriceLtr`, RPC `buyNow`, LTR only). A **price offer did not exist**.
 
 == Implemented in wave (a) (V1.9.320)
 
@@ -152,8 +152,8 @@ Template: the carpool exchange (`carpool-federation.adoc`): a signed teaser feed
 == Waves (proposal)
 
 . Currency per auction and the direct-payment flow, including buy now in fiat. **Done (V1.9.320), behind the instance switch, not legally reviewed.**
-. Price offer. **Implemented on a feature branch (V1.9.321), opt-in per auction, not legally reviewed. The legal-review gate below was NOT lifted by this change: the project owner has to decide before a release whether wave (b) may ship ahead of the review.**
-. Visibility in the federation (carpool pattern). **Steps c1 to c4 implemented, off by default, not legally reviewed, not released; the legal-review gate is not lifted.**
+. Price offer. **Implemented (V1.9.321, V1.9.323), opt-in per auction, not legally reviewed; released with 0.57.0 ahead of the review, behind the instance switch of wave (a). The legal-review gate below is NOT lifted.**
+. Visibility in the federation (carpool pattern). **Steps c1 to c4 implemented, off by default, not legally reviewed; released with 0.57.0 ahead of the review; the legal-review gate is not lifted.**
 . Tenders analogously.
 
 Wave (a) went ahead before the legal review as an opt-in, off by default and limited to a pilot (EUR, Germany, at most 100,000.00 EUR per auction); the operator and seller notices say so and recommend a lawyer. The other waves are not started before the legal review of the open questions.

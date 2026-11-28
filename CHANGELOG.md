@@ -6,6 +6,14 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.57.0] — 2026-11-28
+
+Feature release on `[0.56.0]` (waves V1.9.320 to V1.9.340; the database schema goes from `V165` to `V176`, eleven migrations). **For operators:** backups made before `V176` cannot be restored (schema checksum), and `0.56.0` cannot read a euro auction, so a rollback needs a backup taken before the upgrade; `V168`, `V174` and `V175` change existing data (journal links of bank payments, a `donation` row for every captured donation payment) and the start-up repair `BankPaymentReceivedAtRepair` moves `received_at` of older bank payments to the booking day; no new environment variable. Off by default: auctions in euros with price offers, auctions on partner servers, the gold price at a reference date and the refund of travel expenses in LTR. Changed at once without a switch: bank payments carry the bank booking date (the §25 PartG year of a donation follows the bank inflow), system and event mails are single-language in the new instance mail language (default `de`; the membership decision mails keep their own language), receipt and failure mails for tender payouts, the nesting limit for article texts, thumb toggles for crowdfunding reactions, the approval counters in the sidebar, the `SoldOut` offer in the structured data of events with closed registration, and a dependency update (Gradle 9.9.2, Kotlin 2.4.21, Ktor 3.6.2, Exposed 1.6.1, commonmark 0.33.0).
+
+Contents: auctions in euros (V1.9.320) and price offers (V1.9.321, V1.9.323); bank reconciliation fix (journal link and booking date, V168); auctions on partner servers, steps c1 to c4 (V1.9.322); gold price at a reference date and its follow-ups, donation entity (V1.9.324, V1.9.327 to V1.9.329); refund of travel expenses in LTR (V1.9.325); carpool restore tombstones (V1.9.326); tender payout mails (V1.9.330, V1.9.331); instance mail language (V1.9.332, V1.9.334 to V1.9.336); dependency updates (V1.9.333, V1.9.337); crowdfunding thumbs (V1.9.338); sidebar counters (V1.9.339); article nesting limit (V1.9.340); event structured data fix.
+
+**Not verified:** **no legal review** of the euro auctions, the price offers or the auctions on partner servers (payment services supervision, money laundering, consumer law, DAC7, Art. 26 GDPR are open; the legal-review gate of `docs/architecture/auction-fiat-and-federation.adoc` is not lifted, these features ship off by default ahead of the review); **no tax review** of the gold price at a reference date and the LTR refund of travel expenses; euro auctions never ran with a real payment, seller and winner on a real instance; the auction exchange never ran with several independent servers; price offers and the reference-date screens were not browser-tested on a device; the PostgreSQL lane of some waves ran only in CI; the updated FinTS library was not tested against a live bank and the updated LiveKit client not in a browser video conference; translations are model-written and not reviewed by native speakers. Details per wave follow.
+
 ### V1.9.340 Article text: nesting limit when saving
 
 **No migration, no schema or API signature change.** An article text nested deeper than 64 levels (quotes, lists, emphasis inside each other) is now refused when it is **saved** (draft create and auto-save update), **submitted**, **previewed**, **imported** (reason in the import check) and **created through the MCP draft tool** -- until now such a body was accepted. This closes the follow-up recorded in V1.9.337. Behaviour change: a draft stored earlier with a too deeply nested body can no longer be submitted until the author simplifies it. New distinct exception `ArticleTextTooDeeplyNestedException` (Kilua RPC transmits only the type), with a translated message in the editor status line (no retry button, the same text would be refused again) and in the preview; the new msgid is in `messages.pot` and all seven `.po` files. The read paths (`/aktuelles/{slug}`, review view) are unchanged: articles stored earlier stay readable and are not touched. The check is shared with the agreement texts (`ArticleMarkdown.parseWithinDepthLimit`); agreement-text behaviour is unchanged.
@@ -171,7 +179,7 @@ No schema change. After a restore, partners received no withdrawal for the offer
 
 ### V1.9.325 refund of a travel expense report in LTR
 
-Schema **V172**. **Implemented, switched off by default (`organization_settings.travel_ltr_payout_enabled = false`), not reviewed by a tax adviser, not released.** The accounting treatment (offsetting account, area of the non-profit status, PartG presentation) is an open question for the tax adviser; the offsetting account is a configurable assumption, see `docs/features/travel-expenses.adoc`.
+Schema **V172**. **Implemented, switched off by default (`organization_settings.travel_ltr_payout_enabled = false`), not reviewed by a tax adviser.** The accounting treatment (offsetting account, area of the non-profit status, PartG presentation) is an open question for the tax adviser; the offsetting account is a configurable assumption, see `docs/features/travel-expenses.adoc`.
 
 - **Choice:** `TravelExpensePayoutChoice.LTR`, offered only while the switch is on. The payable amount (`total - advance`) is credited as LTR at the gold price of the day the trip ended (`travelTo`, moved back to the last London trading day), `amount / (anchorUnitsPerLtr * price)` rounded `HALF_UP` to 0.01 LTR. Possible from the day after the trip end.
 - **Booking:** on approval the expense is booked against a **liability** account (`travel_ltr_payable_account_id`), never the bank; crediting the LTR settles it against `travel_ltr_settlement_account_id` (`TravelExpenseLtrPostingBridge`). No exchange difference arises in euros.
@@ -185,7 +193,7 @@ Schema **V172**. **Implemented, switched off by default (`organization_settings.
 
 ### V1.9.324 gold price at a reference date (donation conversion)
 
-Schema **V171**. **Off by default (`conversion_rate_basis = CURRENT`, behaviour unchanged), not reviewed by a tax adviser, not released.**
+Schema **V171**. **Off by default (`conversion_rate_basis = CURRENT`, behaviour unchanged), not reviewed by a tax adviser.**
 
 - **Switch:** `price_oracle_config.conversion_rate_basis` (`CURRENT` / `REFERENCE_DATE`), set by the administrator only; `PriceOracleConfigInput.conversionRateBasis = null` leaves it unchanged. The reference-date mode exists for the **gold anchor only** (fiat has a one-source quorum, Bitcoin has no trading calendar); leaving gold while it is on is refused.
 - **Resolver:** `PriceOracleReferenceRateResolver` is the one place that finds a rate for a reference date: not before 2000-01-01, strictly before today (Europe/Berlin), moved back to the last London trading day (`LbmaGoldCalendar`: England and Wales bank holidays with substitute days and a table of one-off royal-event changes; a new one-off closure needs a code update), then a manual rate, else the latest qualifying snapshot of that Berlin day (status `LIVE`, quorum reached, raw values complete). Outcomes: `RESOLVED`, `NO_DATA`, `QUORUM_MISSING`, `RAW_VALUES_MISSING`.
@@ -201,7 +209,7 @@ Schema **V171**. **Off by default (`conversion_rate_basis = CURRENT`, behaviour 
 
 ### V1.9.323 (Fiat wave b2) price offers: limits, decline block, withdrawal, notice version
 
-Schema **V170** (V167 untouched: it may already be applied). **Off by default, not legally reviewed, not released; the legal-review gate stands.**
+Schema **V170** (V167 untouched: it may already be applied). **Off by default, not legally reviewed; the legal-review gate stands (released with 0.57.0 ahead of the review, behind the switches).**
 
 - **Limits:** at most 10 open buyer proposals per auction (counter-offers and closed rows do not count; replaces the old "20 live rows"), a hard cap of 200 rows per auction, one open negotiation per buyer and the five-proposals cap stay.
 - **Decline block:** three declined proposals of one buyer block him on that auction for 7 days (was: for good); the next cycle starts from zero. New table `auction_offer_buyer_restriction`, written only by `AuctionOfferRestrictionStore` under the auction lock. The blocked buyer sees a lock and the end date, the seller sees the counter per buyer and is warned before the third decline; audit event `AUCTION_OFFER_BUYER_BLOCKED` (no amount, no name).
@@ -213,7 +221,7 @@ Schema **V170** (V167 untouched: it may already be applied). **Off by default, n
 
 ### V1.9.322 step c4 hardening (auction hints on partner servers)
 
-Hardening and documentation of the auction hint exchange. No schema change (V169 unchanged), no new capability. Off by default, not legally reviewed, not released; the legal-review gate stands.
+Hardening and documentation of the auction hint exchange. No schema change (V169 unchanged), no new capability. Off by default, not legally reviewed; the legal-review gate stands (released with 0.57.0 ahead of the review, behind the switches).
 
 - GDPR: the export of a seller shows whether his auction is shared and since when (never to the winner); the erasure withdraws his hints first (global tombstones) and ends the consent.
 - Member exit: the consent sweep filters the seller in the database, so more than the scan limit of auctions of active sellers can no longer hide the auction of a seller who left.
@@ -237,14 +245,14 @@ Wave V1.9.322, step c2 "origin side" (no schema change, stays V169). **Off by de
 * **Changed:** the consent ends with the auction; carpool tripwires (refusal literal, build permits, statement builder) now name the auction counterparts.
 * **Not done yet (c3/c4):** pull and relay, received hints, hide/block, restore, GDPR export/erasure, member exit.
 
-Wave V1.9.322 "Federation visibility for auctions" (fiat wave c), step c1 "foundation", **schema V168 -> V169** (V169 may still be corrected on the feature branch until the release; a backup taken before V169 cannot be restored on V169 and the other way round). **Not legally reviewed**; the legal-review gate of `docs/architecture/auction-fiat-and-federation.adoc` is not lifted by this code and needs the project owner's decision before a release. **Everything is OFF by default and nothing is visible yet**: this step contains no feed, no pull and no screen.
+Wave V1.9.322 "Federation visibility for auctions" (fiat wave c), step c1 "foundation", **schema V168 -> V169** (a backup taken before V169 cannot be restored on V169 and the other way round). **Not legally reviewed**; the legal-review gate of `docs/architecture/auction-fiat-and-federation.adoc` is not lifted by this code and needs the project owner's decision before a release. **Everything is OFF by default and nothing is visible yet**: this step contains no feed, no pull and no screen.
 
 * **Added (shared):** `AuctionFederation.kt` with the ten-field wire type `AuctionTeaser` (pinned by `AuctionTeaserTripwireTest`: no seller, bidder, offer, payment, description, image or URL), the title rules, the eligibility rule `isAuctionTeaserEligible` (an ended auction that is still `OPEN` because settlement is lazy is never eligible), the consent rule `mayConsentToAuctionFederation`, the only link builder `buildAuctionHintLink` (`https://<host>/app#/auction/hint/<teaserId>`, the id in the fragment) and the DTOs of the later steps. Hop limit 1..2 (default 1).
 * **Migration `V169__auction_federation.sql`:** `auction.federation_opt_in/_at`, `organization_settings.auction_federation_enabled/_hop_limit`, `partner_server.auction_sharing` and the `auction_feed_*`/`auction_pull_*` columns, the tables `auction_teaser_snapshot`, `auction_teaser_tombstone`, `auction_received_hint`, `auction_received_tombstone`, and `AUCTION_FEDERATION_FEED` in the audit entity-type CHECK. No backfill.
 * **Added (server):** `AuctionFederationStore` (settings, consent flag with its moment, restore reset). The three received/snapshot tables are excluded from the organization backup; the tombstone table stays in it.
 * **Not done yet (steps c2 to c4):** origin side (teaser ids, signature, feed route, throttled snapshot, withdrawals, landing route), receiving side (pull, store, relay, display, admin hiding, retention), RPC methods, client screens, DSGVO export/erasure, restore tombstones, tripwires, i18n, documentation.
 
-Fix wave "Bank reconciliation: journal link and booking date", **schema V167 -> V168** (V168 may still be corrected on the feature branch until the release; a backup taken before V168 cannot be restored on V168 and the other way round).
+Fix wave "Bank reconciliation: journal link and booking date", **schema V167 -> V168** (a backup taken before V168 cannot be restored on V168 and the other way round).
 
 * **Fixed:** the three bank-statement booking paths (manual contribution, manual donation, import auto-post) now write `payment_transaction.journal_entry_id` in the same transaction as the posting. Before, such payments looked "not booked" in the payment list and appeared in the `unreconciledOnly` filter although the journal entry existed.
 * **Fixed:** these paths used the moment of the assignment for `received_at`, `contribution.paid_at` and the journal `entry_date`. They now use the bank's **booking date** (not the value date): `received_at` = start of that day in the organization zone, `paid_at`/`entry_date` = the booking date. Behaviour changes: the §25 PartG year of a donation is the year of the bank inflow; the payment list sorts bank payments by their booking day; the `CONTRIBUTION_PAID` webhook carries the booking date at 00:00.
@@ -259,6 +267,8 @@ Wave V1.9.321 "Price offers" (fiat wave b), **schema V166 -> V167** (together wi
 * **Fix (wave a):** `getAuctionPaymentDetails` now requires an active membership like `confirmFiat` (a former member no longer opens the payment details); retention unchanged.
 * Export and erasure: `AuctionPersonalData` exports the offers; erasing a buyer deletes his negotiation chains without an award and keeps awarded ones.
 * Not done: the optional retention of declined/expired offers (they stay until the member is erased), notifications, federation of the "offers possible" flag.
+
+Fix "Event structured data: closed registration as SoldOut offer", **no migration**. The public event page (JSON-LD `Event`) of an upcoming event whose registration is closed now carries an `Offer` with availability `SoldOut`; an ended event still carries none (Google Search Console had flagged the missing `offers` field). Test: `EventShareMetaJsonLdTest`. Not verified: not re-checked in Google Search Console.
 
 Wave V1.9.320 "Auctions in euros with direct payment" (fiat wave a), **schema V165 -> V166**. A backup taken before V166 cannot be restored on V166 (schema checksum), as after every schema change.
 

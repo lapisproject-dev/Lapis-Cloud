@@ -1,7 +1,7 @@
 = Auction hints on partner servers
 :toc:
 
-WARNING: Status: **implemented (steps c1 to c4), off by default (instance switch, partner switch, seller consent), not legally reviewed, not released. The legal-review gate of wave (c) is NOT lifted.** Whether the organisations are joint controllers in the sense of Art. 26 GDPR is not clarified (same open question as with the carpool exchange). Staging only: see link:auction-federation-staging-test.adoc[the staging test plan] and the link:../features/auction-federation-runbook.adoc[operator runbook].
+WARNING: Status: **implemented (steps c1 to c4), off by default (instance switch, partner switch, seller consent), not legally reviewed, released with 0.57.0 (off). The legal-review gate of wave (c) is NOT lifted.** Whether the organisations are joint controllers in the sense of Art. 26 GDPR is not clarified (same open question as with the carpool exchange). Staging only: see link:auction-federation-staging-test.adoc[the staging test plan] and the link:../features/auction-federation-runbook.adoc[operator runbook].
 
 == Goal
 

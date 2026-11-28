@@ -1,7 +1,7 @@
 = Price oracle: gold price at a reference date
 :toc:
 
-NOTE: Status: **implemented (V1.9.324, schema V171), off by default** (`price_oracle_config.conversion_rate_basis = CURRENT`). **Not reviewed by a tax adviser, not released.** Whether the "closing rate" defined here (see <<closing-rate>>) is acceptable as a booking basis is a question for the tax adviser.
+NOTE: Status: **implemented (V1.9.324, schema V171), off by default** (`price_oracle_config.conversion_rate_basis = CURRENT`). **Not reviewed by a tax adviser; released with 0.57.0 (off).** Whether the "closing rate" defined here (see <<closing-rate>>) is acceptable as a booking basis is a question for the tax adviser.
 
 == Goal
 

@@ -147,7 +147,7 @@ still wrong.
 [source,bash]
 ----
 cd deploy/example
-cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.56.0) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
+cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.57.0) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
 docker compose pull
 docker compose up -d
 docker compose logs -f lapis-server
@@ -344,7 +344,7 @@ on 2026-10-10 (the tag `v0.31.0` has no image: its first build ran out of heap, 
 (GitHub package settings; an organisation must allow public packages first). Check
 `docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` before switching an instance; an instance on the old server-side build
 keeps working until it is switched (see "Switching a real instance from server-side builds to the published image" below). Example:
-`LAPIS_IMAGE_TAG=0.56.0` (no `v`; the git tag is `v0.56.0`, the image tag is `0.56.0`).
+`LAPIS_IMAGE_TAG=0.57.0` (no `v`; the git tag is `v0.57.0`, the image tag is `0.57.0`).
 ====
 
 Since V1.9.93 the server is **not built on the host any more**: CI builds the image once per release tag and publishes it, the host sets
@@ -363,6 +363,8 @@ any instance: that wave edited 16 already-applied Flyway migration files in plac
 to run at all on any of these three already-migrated instances until `flywayRepair` has run against
 each of them -- see the CHANGELOG "Operator notes" entry for this wave for the full mechanism and
 the exact command. Run it once per instance before rebuilding that instance below.
+
+Upgrading from `v0.56.0` to `v0.57.0` adds **eleven migrations** (`V166` to `V176`; the schema goes from `V165` to `V176`) and needs no `flywayRepair`. Besides new tables and columns they change existing data: `V166` widens `auction.status` and makes the LTR amount columns of `auction` nullable, `V168` links existing bank payments to their journal entry where exactly one matches, `V174`/`V175` create a `donation` row for every captured donation payment. At the first start the repair `BankPaymentReceivedAtRepair` also moves `received_at` of older bank payments to the bank booking day (counters only in the log). **Take a backup before upgrading and keep it:** backups made before `V176` are refused on restore (schema checksum), and `0.56.0` cannot read a euro auction, so a rollback to `0.56.x` is only possible from a backup taken before the upgrade. No new environment variable; euro auctions need the existing `LAPIS_SECRET_ENCRYPTION_KEY`, automatic reference-date gold prices need the existing `LAPIS_ORACLE_SNAPSHOT_ENABLED=true` on one instance. Off by default and not legally or tax reviewed: auctions in euros (instance switch with an operator notice) with price offers, auctions on partner servers, the gold price at a reference date for donation conversion and the refund of travel expenses in LTR. Changed at once without a switch: bank payments carry the booking date (the §25 PartG year of a donation is the year of the bank inflow), system and event mails are written in one language (the membership decision mails keep their own language plus a second block), the new instance mail language (Organisation, *Allgemein*, default `de`, so English halves disappear), the winner of a tender payout gets a receipt mail and the board a notice when a payout fails, too deeply nested article texts are refused when saved. Set `LAPIS_IMAGE_TAG=0.57.0`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`.
 
 Upgrading from `v0.55.0` to `v0.56.0` adds **nine additive migrations** (`V157` to `V165`; the schema goes from `V156` to `V165`) and needs no `flywayRepair`. **Take a backup before upgrading and keep it:** backups made before `V165` are refused on restore, so a rollback to `0.55.x` is only possible from a backup taken before the upgrade. One new optional environment variable, `LAPIS_CARPOOL_RETENTION_INTERVAL_HOURS` (1 to 24, default 24; how often the retention poller of the carpool exchange runs); it reaches the container only if your compose file passes it through (see `docker-compose.yml` here). Nothing new is switched on except *Mitglied werden* (on, today's behaviour); the carpool exchange (instance switch, per-partner switch and a per-offer consent, all off) and the LTR recognition for meeting attendance (off, amounts only by resolution and four-eyes) stay off. Available at once without a switch: tender payout (TREASURER, BOARD, ADMIN; issues new LTR and changes the public figure "Insgesamt ausgegebene LTR"), auditor invitations (board) and the full-screen button in the guest call. V157 widens a column, V160 clears every partner ETag once (the first poll after the upgrade is a full fetch). An invalid retention value logs a warning and uses 24. Set `LAPIS_IMAGE_TAG=0.56.0`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`.
 

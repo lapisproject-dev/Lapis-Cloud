@@ -3,7 +3,7 @@
 
 == 0. Before you start
 
-WARNING: The exchange is **off by default, not legally reviewed and not released**. A lawyer has to clarify the open questions first: distance-selling rules, joint controllership between the organisations (Art. 26 GDPR) and the platform liability for foreign hints. **Nothing here is legal advice. Do not switch it on in production.** Use staging only (see xref:../architecture/auction-federation-staging-test.adoc[the staging test plan]).
+WARNING: The exchange is **off by default and not legally reviewed** (released with 0.57.0). A lawyer has to clarify the open questions first: distance-selling rules, joint controllership between the organisations (Art. 26 GDPR) and the platform liability for foreign hints. **Nothing here is legal advice. Do not switch it on in production.** Use staging only (see xref:../architecture/auction-federation-staging-test.adoc[the staging test plan]).
 
 What leaves your server: for an auction the seller chose to share, one short hint (title, price, end, buy-now price, "offers possible"), signed with a pseudonymous id. Never the seller, a bidder, a bid, an offer, payment data, a description or a URL. LTR auctions are never shared. Bidding and buying happen on your server only.
 

@@ -343,7 +343,7 @@ download, `nosniff`, no `image/svg+xml` in the allowlist).
 
 [WARNING]
 ====
-Implemented, **switched off by default**, not reviewed by a tax adviser and not released. The accounting treatment below is an assumption, not advice.
+Implemented, **switched off by default**, not reviewed by a tax adviser; released with 0.57.0 (off). The accounting treatment below is an assumption, not advice.
 ====
 
 A member can choose to have the payable amount (`total - advance`) credited as LTR instead of being paid out. The choice is offered only while an administrator has switched the feature on (it checks that the price oracle is set to gold in euros and that a liability account and a settlement account are saved).
