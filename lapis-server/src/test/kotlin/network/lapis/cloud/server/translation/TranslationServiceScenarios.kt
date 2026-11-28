@@ -387,6 +387,132 @@ abstract class TranslationServiceScenarios(
             fixtures.rowCount(id) shouldBe 3
             service.close()
         }
+
+        test("batch: mixed events get the right states, one model call per consented event, none for the rest") {
+            val llm = ScriptedLlm()
+            val service = newService(llm)
+            val ok1 = fixtures.event(title = "Eins")
+            val ok2 = fixtures.event(title = "Zwei")
+            val noConsent = fixtures.event(consent = false)
+            val draft = fixtures.event(status = EventStatus.DRAFT)
+            val unknown = kotlin.uuid.Uuid.random()
+            val batch =
+                service.translateEvents(eventIds = listOf(ok1, ok2, noConsent, draft, unknown), target = "fr", maySpend = { true })
+            batch.sourceLang shouldBe "de"
+            batch.outcomes.getValue(ok1).state shouldBe TranslationState.TRANSLATED
+            batch.outcomes
+                .getValue(ok1)
+                .fields
+                .getValue(TranslatableField.TITLE) shouldBe "EN: Eins"
+            batch.outcomes.getValue(ok2).state shouldBe TranslationState.TRANSLATED
+            batch.outcomes.getValue(noConsent).state shouldBe TranslationState.NO_CONSENT
+            batch.outcomes.getValue(draft).state shouldBe TranslationState.NOT_PUBLIC
+            batch.outcomes.getValue(draft).fields shouldBe emptyMap()
+            batch.outcomes.getValue(unknown).state shouldBe TranslationState.NOT_FOUND
+            llm.callCount shouldBe 2
+        }
+
+        test("batch: cache hits make no call and never ask maySpend") {
+            val llm = ScriptedLlm()
+            val service = newService(llm)
+            val a = fixtures.event(title = "A")
+            val b = fixtures.event(title = "B")
+            service.translateEvents(eventIds = listOf(a, b), target = "it", maySpend = { true })
+            llm.callCount shouldBe 2
+            var asked = 0
+            val again =
+                service.translateEvents(eventIds = listOf(a, b), target = "it", maySpend = { asked++ >= 0 })
+            again.outcomes.values.all { it.state == TranslationState.TRANSLATED } shouldBe true
+            asked shouldBe 0
+            llm.callCount shouldBe 2
+        }
+
+        test("batch: maySpend is asked at most once, false leaves pending without a call but still serves hits") {
+            val llm = ScriptedLlm()
+            val service = newService(llm)
+            val cached = fixtures.event(title = "Schon da")
+            service.translateEvents(eventIds = listOf(cached), target = "nl", maySpend = { true })
+            llm.callCount shouldBe 1
+            val fresh = (1..5).map { fixtures.event(title = "Neu $it") }
+            var asked = 0
+            val batch =
+                service.translateEvents(
+                    eventIds = listOf(cached) + fresh,
+                    target = "nl",
+                    maySpend = {
+                        asked++
+                        false
+                    },
+                )
+            asked shouldBe 1
+            batch.outcomes.getValue(cached).state shouldBe TranslationState.TRANSLATED
+            fresh.forEach { batch.outcomes.getValue(it).state shouldBe TranslationState.PENDING }
+            llm.callCount shouldBe 1
+        }
+
+        test("batch: at most maxNewJobs new jobs start per call, the rest stays pending") {
+            val llm = ScriptedLlm()
+            val service = newService(llm)
+            val ids = (1..5).map { fixtures.event(title = "Job $it") }
+            val batch = service.translateEvents(eventIds = ids, target = "es", maySpend = { true }, maxNewJobs = 2)
+            batch.outcomes.values.count { it.state == TranslationState.TRANSLATED } shouldBe 2
+            batch.outcomes.values.count { it.state == TranslationState.PENDING } shouldBe 3
+            llm.callCount shouldBe 2
+        }
+
+        test("batch: one shared wait budget -- slow jobs do not add up, the next call is served from storage") {
+            val entered = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            val llm = ScriptedLlm(latchedResponder(entered = entered, release = release))
+            val service = newService(llm, TranslateConfig.operationalForTest(waitTimeoutMs = 500, maxConcurrentCalls = 3))
+            val ids = (1..3).map { fixtures.event(title = "Langsam $it") }
+            val started = System.nanoTime()
+            val first = service.translateEvents(eventIds = ids, target = "pl", maySpend = { true })
+            val tookMs = (System.nanoTime() - started) / 1_000_000
+            (tookMs < 1_400) shouldBe true
+            first.outcomes.values.all { it.state == TranslationState.PENDING } shouldBe true
+            release.complete(Unit)
+            withTimeout(60.seconds) {
+                while (ids.any { fixtures.rowCount(it) < 3 }) delay(50)
+            }
+            val calls = llm.callCount
+            val second = service.translateEvents(eventIds = ids, target = "pl", maySpend = { true })
+            second.outcomes.values.all { it.state == TranslationState.TRANSLATED } shouldBe true
+            llm.callCount shouldBe calls
+        }
+
+        test("batch: two parallel batches for the same events make one call per event") {
+            val llm = ScriptedLlm()
+            val service = newService(llm)
+            val ids = (1..3).map { fixtures.event(title = "Parallel $it") }
+            val results =
+                (1..2)
+                    .map { async(Dispatchers.Default) { service.translateEvents(eventIds = ids, target = "fr", maySpend = { true }) } }
+                    .awaitAll()
+            results.forEach { r -> r.outcomes.values.all { it.state == TranslationState.TRANSLATED } shouldBe true }
+            llm.callCount shouldBe 3
+        }
+
+        test("batch: feature off answers DISABLED for everything and calls nothing") {
+            val llm = ScriptedLlm()
+            val off = newService(null, TranslateConfig.disabled())
+            val id = fixtures.event()
+            val batch = off.translateEvents(eventIds = listOf(id), target = "en", maySpend = { true })
+            batch.outcomes.getValue(id).state shouldBe TranslationState.DISABLED
+            batch.sourceLang shouldBe "de"
+            llm.callCount shouldBe 0
+        }
+
+        test("batch: an unsupported target is a programming error") {
+            val service = newService(ScriptedLlm())
+            var thrown = false
+            try {
+                service.translateEvents(eventIds = emptyList(), target = "xx", maySpend = { true })
+            } catch (_: IllegalArgumentException) {
+                thrown = true
+            }
+            thrown shouldBe true
+        }
     })
 
 private fun updateDescription(

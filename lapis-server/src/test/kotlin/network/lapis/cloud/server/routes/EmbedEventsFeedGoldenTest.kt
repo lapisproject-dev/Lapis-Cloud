@@ -132,6 +132,22 @@ class EmbedEventsFeedGoldenTest :
             }
         }
 
+        test("V1.9.343: with the translation switched off a browser Accept-Language changes nothing") {
+            app {
+                val default = client.get("/api/embed/v1/events") { header("Origin", "https://partei.example") }
+                for (language in listOf("fr", "en-US,en;q=0.9", "de-DE,de;q=0.9,en;q=0.8")) {
+                    val response =
+                        client.get("/api/embed/v1/events") {
+                            header("Origin", "https://partei.example")
+                            header("Accept-Language", language)
+                        }
+                    response.bodyAsText() shouldBe default.bodyAsText()
+                    response.headers.getAll("Cache-Control") shouldBe listOf("no-store")
+                    response.headers["Content-Language"] shouldBe null
+                }
+            }
+        }
+
         test("schema mirror: top level is exactly events, entries stay inside the known field set") {
             val known =
                 setOf(

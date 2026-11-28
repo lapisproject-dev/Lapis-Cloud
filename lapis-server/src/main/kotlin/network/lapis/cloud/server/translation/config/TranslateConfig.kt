@@ -33,7 +33,7 @@ internal class TranslateConfig private constructor(
     val maxOutputTokens: Int,
     val maxSourceCharsPerContent: Int,
     val dailyCharBudget: Int,
-    /** Wired in T2 (public API); built and tested in T1. */
+    /** Requests per IP and minute that may START a translation (embed events feed, T2); cache hits are free. */
     val requestsPerIpPerMinute: Int,
     val maxConcurrentCalls: Int,
     /** Names of the `LAPIS_TRANSLATE_*` variables whose value was rejected -- for startup logging only. */
@@ -194,6 +194,7 @@ internal class TranslateConfig private constructor(
             maxSourceCharsPerContent: Int = DEFAULT_MAX_SOURCE_CHARS,
             dailyCharBudget: Int = DEFAULT_DAILY_CHAR_BUDGET,
             maxConcurrentCalls: Int = DEFAULT_MAX_CONCURRENT,
+            requestsPerIpPerMinute: Int = DEFAULT_RATE_PER_IP_MINUTE,
         ): TranslateConfig =
             TranslateConfig(
                 enabled = true,
@@ -208,7 +209,7 @@ internal class TranslateConfig private constructor(
                 maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS,
                 maxSourceCharsPerContent = maxSourceCharsPerContent,
                 dailyCharBudget = dailyCharBudget,
-                requestsPerIpPerMinute = DEFAULT_RATE_PER_IP_MINUTE,
+                requestsPerIpPerMinute = requestsPerIpPerMinute,
                 maxConcurrentCalls = maxConcurrentCalls,
                 invalid = emptyList(),
             )

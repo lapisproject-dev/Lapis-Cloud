@@ -284,6 +284,7 @@ import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
 import network.lapis.cloud.server.payment.sepa.SepaBatchPoller
 import network.lapis.cloud.server.payment.sepa.SepaConfig
 import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
+import network.lapis.cloud.server.routes.EmbedFeedTranslation
 import network.lapis.cloud.server.routes.PartgReviewerRateLimits
 import network.lapis.cloud.server.routes.PublicNavAvailabilityProvider
 import network.lapis.cloud.server.routes.installArticleImportImagesBodyLimit
@@ -464,6 +465,7 @@ import network.lapis.cloud.server.theme.ThemeStartupCheck
 import network.lapis.cloud.server.theme.WOFF2_CONTENT_TYPE
 import network.lapis.cloud.server.theme.registerThemeRoutes
 import network.lapis.cloud.server.time.ServerClock
+import network.lapis.cloud.server.translation.TranslationIpRateLimiter
 import network.lapis.cloud.server.translation.TranslationService
 import network.lapis.cloud.server.translation.config.TranslateConfig
 import network.lapis.cloud.server.translation.config.TranslateStartupCheck
@@ -2433,10 +2435,11 @@ internal fun Application.module(
     if (aiConfig.isOperational) PostgresFullTextIndexInitializer.ensureIndexes()
 
     // Welle V1.9.342 "Uebersetzung oeffentlicher Inhalte" (T1: core only) -- DEFAULT OFF, own LAPIS_TRANSLATE_* profile (see TranslateConfig
-    // KDoc), never fail-fast. The service is ALWAYS built (it answers DISABLED while off) but nothing calls it yet: no route and no RPC in T1.
+    // KDoc), never fail-fast. The service is ALWAYS built (it answers DISABLED while off); T2 (V1.9.343): only the embed events feed calls it.
     TranslateStartupCheck.log(translateConfig)
     val translationLlm = translateConfig.providerProfileOrNull()?.let(AiProviderFactory::create)
     val translationService = TranslationService(config = translateConfig, llm = translationLlm)
+    val translationIpRateLimiter = TranslationIpRateLimiter(perMinute = translateConfig.requestsPerIpPerMinute)
     monitor.subscribe(ApplicationStopping) { translationService.close() }
 
     // Welle V1.8.1 "MCP-Server für Mitglieder-Agenten (Fundament, lesend)" -- optional MCP resource
@@ -3807,6 +3810,7 @@ internal fun Application.module(
             brandTitle = resolvedBranding.title,
             keycloakEnabled = keycloakConfig.enabled,
             joinRateLimiter = embedJoinRateLimiter,
+            eventsFeedTranslation = EmbedFeedTranslation(service = translationService, ipLimiter = translationIpRateLimiter),
         )
         getAllServiceManagers().forEach { applyRoutes(it) }
         // V1.2.5 White-Label-Branding -- literal routes, registered before staticFiles below for

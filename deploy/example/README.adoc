@@ -1422,7 +1422,7 @@ To enable it, add the variables to the service's `environment:` block yourself. 
 |`LAPIS_TRANSLATE_MAX_OUTPUT_TOKENS` |6000 |256 to 16384
 |`LAPIS_TRANSLATE_MAX_SOURCE_CHARS` |12000 |Largest content that is translated (100 to 50000)
 |`LAPIS_TRANSLATE_DAILY_CHAR_BUDGET` |200000 |Characters per day, per server process (a restart resets it)
-|`LAPIS_TRANSLATE_RATE_PER_IP_MINUTE` |20 |Wired in a later wave
+|`LAPIS_TRANSLATE_RATE_PER_IP_MINUTE` |20 |Requests per IP and minute that may start a translation in the embed events feed (1 to 1000); a stored translation is free
 |`LAPIS_TRANSLATE_MAX_CONCURRENT` |2 |Parallel provider calls (1 to 8)
 |===
 

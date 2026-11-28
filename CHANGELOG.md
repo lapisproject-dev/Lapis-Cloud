@@ -6,6 +6,17 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.343 Language choice in the embed events feed (off by default)
+
+**No migration.** Wave T2 of the just-in-time translation: `GET /api/embed/v1/events` takes `?lang=<code>` (wins) or `Accept-Language` (q-values honoured, hard size limits) and, for events whose author consented, delivers title, summary, description and picture text machine translated. **No screen, no consent switch yet (T3).** Everything applies to this one endpoint only: the archive, the article feed and the partner entries are unchanged and never translated.
+
+- **Rules:** unsupported, empty, repeated or malformed `?lang` gives English; **no wish at all gives the original** (build steps and server-to-server callers send no header). New entry fields `lang`, `sourceLang`, `translated`, `machineTranslated`, `translationPending` appear only if the operator enabled the translation or the request carries `?lang=`; otherwise the body stays byte-identical (golden test), also when a browser sends `Accept-Language`. Place, price, dates, links, `full`, `onlineUrl` and `seriesText` are never translated.
+- **Headers:** `Vary: Origin, Accept-Language`, `Content-Language`, and `Cache-Control` exactly once: `public, max-age=60` for a complete translated answer, otherwise `no-store`. `applyEmbedCors` got the optional parameters `vary` and `cacheControl` (defaults unchanged; only this route passes a null policy).
+- **Cost bounds:** `TranslationService.translateEvents` (one read for all snapshots, one store query for all hits); the per-IP limit (`LAPIS_TRANSLATE_RATE_PER_IP_MINUTE`) counts only requests that would start a job, a stored translation is free; at most 8 new jobs per request; one shared wait budget per request; a failing translation layer gives the originals instead of a 500.
+- Documentation: `docs/architecture/translation.adoc`, `docs/features/content-translation.adoc`, `docs/api/embed-widgets.adoc`.
+
+**Not verified:** **never tested against a real provider**, also not against xAI/Grok (scripted model only); the switch is off by default and nothing ran on a real instance. **The bundled widgets (`lapis-widgets.js`) do not label machine translations yet**, so do not enable the translation before T3. The daily budget is per JVM. **Legal questions are open:** processing agreement with the provider (Art. 28 GDPR), roles toward the provider (Art. 26 GDPR), labelling duty (AI Regulation Art. 50), copyright of translated text.
+
 ### V1.9.342 Content translation core (events only, off by default)
 
 **Migration `V177__content_translation.sql` (purely additive).** Core of the just-in-time machine translation of public content. **Wave T1 builds the core only: no screen, no route, no API field, nothing calls the service yet** (T2 adds the public read path, T3 the author's consent switch, the content-language setting and the "machine translated" notice). Events only (title, summary, description, picture text); place, price, dates and links are never sent; articles are out of scope.

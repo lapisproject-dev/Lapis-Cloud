@@ -7,6 +7,7 @@ import ch.qos.logback.core.read.ListAppender
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.comparables.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
@@ -150,6 +151,50 @@ class TranslationStructureTest :
             var open = index - 1
             while (open >= 0 && (lines[open].isBlank() || lines[open].takeWhile { it == ' ' }.length >= indent)) open--
             lines[open] shouldNotContain "transaction"
+        }
+
+        test("T2: only the embed events feed calls translateEvents, outside any transaction block, and owns its own Cache-Control") {
+            val callers =
+                allMainSources()
+                    .filter { (_, t) -> t.contains(".translateEvents(") }
+                    .map { it.first }
+            callers shouldBe listOf("routes/EmbedEventsFeedRoutes.kt")
+            val feed = allMainSources().single { it.first == "routes/EmbedEventsFeedRoutes.kt" }.second
+            // the call sits in a suspend helper that is invoked after the transaction that builds the DTOs
+            val helper = feed.substringAfter("private suspend fun applyLanguageChoice(")
+            helper.substringBefore("\n}\n") shouldNotContain "transaction {"
+            feed.indexOf("val translated = applyLanguageChoice(") shouldBeGreaterThan feed.indexOf("val itemsWithIds =")
+            // the cache policy is handed to the caller in exactly one file
+            allMainSources()
+                .filter { (_, t) -> t.contains("cacheControl = null") }
+                .map { it.first } shouldBe listOf("routes/EmbedEventsFeedRoutes.kt")
+            // every OTHER caller of applyEmbedCors keeps the default policy
+            allMainSources()
+                .filter { (path, t) ->
+                    path != "routes/EmbedEventsFeedRoutes.kt" && Regex("""applyEmbedCors\([^)]*cacheControl""").containsMatchIn(t)
+                }.map { it.first }
+                .shouldBeEmpty()
+        }
+
+        test("T2: the article feed and the archive do not know the translation layer") {
+            val articles = allMainSources().single { it.first == "routes/EmbedArticlesFeedRoutes.kt" }.second
+            articles shouldNotContain "translation."
+            allMainSources()
+                .single { it.first == "routes/EmbedEventsFeedRoutes.kt" }
+                .second
+                .substringAfter(
+                    "get(\"/api/embed/v1/events/past\")",
+                ).substringBefore("options(\"/api/embed/v1/events/past\")") shouldNotContain "translation"
+        }
+
+        test("T2: no log line of the feed names a language value or header") {
+            val feed = allMainSources().single { it.first == "routes/EmbedEventsFeedRoutes.kt" }.second
+            feed.lines().filter { it.contains("logger.") }.forEach {
+                it shouldNotContain "lang"
+                it shouldNotContain "Lang"
+                it shouldNotContain "Accept"
+            }
+            translationSources().single { it.first == "LanguageNegotiation.kt" }.second shouldNotContain "logger"
         }
 
         test("neither compose file forwards LAPIS_TRANSLATE_") {

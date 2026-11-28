@@ -1,4 +1,4 @@
-= Machine translation of public content (V1.9.342, wave T1)
+= Machine translation of public content (V1.9.342 T1, V1.9.343 T2)
 :toc:
 
 Public events of an instance can be shown in the visitor's language by a machine translation that is produced on demand and stored. Architecture and data model: link:../architecture/translation.adoc[translation.adoc].
@@ -6,7 +6,8 @@ Public events of an instance can be shown in the visitor's language by a machine
 == Status, honestly
 
 * **Off by default** (`LAPIS_TRANSLATE_ENABLED` not `true`). Nothing is sent to a provider unless an operator switches it on and configures a provider.
-* **Wave T1 is the core only.** There is **no screen, no route and no API field** yet, and nothing calls the service (T2 adds the public read path and the `Accept-Language` handling, T3 the author's consent switch, the content-language setting and the display of the "machine translated" notice). The consent column exists and defaults to "no" for every event; no one can change it yet.
+* **Wave T2 adds one read path: the embed events feed** (`GET /api/embed/v1/events`). There is still **no screen**, no archive, no article and no partner translation. The author's consent switch, the content-language setting and the visible "machine translated" notice are T3. The consent column exists and defaults to "no" for every event; no one can change it yet, so nothing is translated in practice until T3.
+* **Do not switch it on before T3.** The widgets of `lapis-widgets.js` send the browser language automatically and would show machine translations **without a label**; the marking is the duty of the page that embeds the feed until T3.
 * **Never tested against a real provider**, also not against xAI/Grok. The tests use a scripted model.
 * **Legal questions are open:** processing agreement with the provider (Art. 28 GDPR), roles toward the provider (Art. 26), the labelling duty for machine-generated text (AI Regulation Art. 50) and copyright. Settle them before switching it on.
 * A translation is always meant to be marked as machine translated (the field is there; the display follows in T3).
@@ -34,6 +35,50 @@ All variables are **not passed through by the compose files, on purpose**; add t
 |`LAPIS_TRANSLATE_MAX_OUTPUT_TOKENS` |6000 (256 to 16384) |Output token cap
 |`LAPIS_TRANSLATE_MAX_SOURCE_CHARS` |12000 (100 to 50000) |Largest content that is translated
 |`LAPIS_TRANSLATE_DAILY_CHAR_BUDGET` |200000 |Characters per day and server process; a restart resets it
-|`LAPIS_TRANSLATE_RATE_PER_IP_MINUTE` |20 |Wired in T2
+|`LAPIS_TRANSLATE_RATE_PER_IP_MINUTE` |20 (1 to 1000) |Requests per IP and minute that may start a translation; a stored translation is free
 |`LAPIS_TRANSLATE_MAX_CONCURRENT` |2 (1 to 8) |Parallel provider calls
 |===
+
+== Static websites and the embed feed (T2)
+
+`GET /api/embed/v1/events` takes a language wish. Rules (details: link:../architecture/translation.adoc[translation.adoc]):
+
+* `?lang=fr` wins over the `Accept-Language` header. An unsupported, broken or repeated value gives English. Without any wish the **original** is delivered.
+* The new entry fields (`lang`, `sourceLang`, `translated`, `machineTranslated`, `translationPending`) appear only if the operator switched the translation on or the caller sent `?lang=`. Otherwise the answer is unchanged.
+* Only title, summary, description and picture text are translated, and only for events whose author consented. Place, price, dates, links and the series sentence stay in the instance language.
+* A translation that is not ready within the wait time (default 8 s on the first request) is answered with the original and `translationPending: true`; ask again later. A request may start at most 8 new translations; the feed fills up over several requests.
+
+*At run time in a browser* the plain `fetch(url)` already sends the visitor's language. To be explicit and independent of the header:
+
+[source,javascript]
+----
+const lang = (navigator.language || "en").slice(0, 2);
+const response = await fetch(`${base}/api/embed/v1/events?lang=${encodeURIComponent(lang)}`);
+const { events } = await response.json();
+// show a "machine translated" notice for entries with machineTranslated === true
+----
+
+*In a build step* (for example Astro) call the feed **without** `Accept-Language` and without `?lang=`: you get the original, never a translation stored in a page. Do not pre-translate on the build.
+
+Setting your own `Accept-Language` header from script on a different origin can make the browser send a preflight request that the endpoint does not allow (only values of the CORS safelist pass without one). Prefer `?lang=`.
+
+`Content-Language` is a safelisted response header and readable from script. `Cache-Control` is `public, max-age=60` only for a complete, translated answer; everything else is `no-store`.
+
+Examples (the entries are shortened):
+
+[source,json]
+----
+{"events":[{"slug":"sommerfest","title":"EN: Sommerfest","description":"...","lang":"fr","sourceLang":"de","translated":true,"machineTranslated":true,"translationPending":false}]}
+----
+
+[source,json]
+----
+{"events":[{"slug":"sommerfest","title":"Sommerfest","lang":"de","sourceLang":"de","translated":false,"machineTranslated":false,"translationPending":true}]}
+----
+
+[source,json]
+----
+{"events":[{"slug":"mitgliederfest","title":"Mitgliederfest","lang":"de","sourceLang":"de","translated":false,"machineTranslated":false,"translationPending":false}]}
+----
+
+The first is a stored translation, the second a request that is still being translated, the third an event without the author's consent (or in the content language).

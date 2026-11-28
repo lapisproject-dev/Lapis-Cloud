@@ -62,6 +62,10 @@ membership-enumeration oracle over email addresses. The widget shows one sentenc
 redirects to the payment provider; a paid seat is completed through the link in the mail. Shares its rate-limit budget with the form route (no doubled
 ceiling). No new environment variable. Full contract: `docs/api/embed-widgets.adoc`.
 
+== Language choice of the events feed (V1.9.343)
+
+The events feed accepts `?lang=` (and honours `Accept-Language`) and can deliver machine-translated text for events whose author consented; off by default. See xref:content-translation.adoc[Machine translation of public content] and `docs/api/embed-widgets.adoc`.
+
 == What doesn't work yet (this wave)
 
 Deliberately still absent: an automatic "already signed in" indicator on page load without a

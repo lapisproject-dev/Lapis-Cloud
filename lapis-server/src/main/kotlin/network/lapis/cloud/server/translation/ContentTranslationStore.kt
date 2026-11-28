@@ -45,6 +45,40 @@ internal object ContentTranslationStore {
     }
 
     /**
+     * [findAll] for many contents of one type in ONE query (feeds). Same exact-hash rule per content and field; contents without any hit are
+     * absent from the map. Callers pass a bounded id list (the feeds cap at 50).
+     */
+    fun findAllForMany(
+        type: TranslatableContentType,
+        hashesById: Map<Uuid, Map<TranslatableField, String>>,
+        sourceLang: String,
+        targetLang: String,
+    ): Map<Uuid, Map<TranslatableField, String>> {
+        val wanted = hashesById.filterValues { it.isNotEmpty() }
+        if (wanted.isEmpty()) return emptyMap()
+        val allHashes = wanted.values.flatMap { it.values }.toSet()
+        val rows =
+            ContentTranslationTable
+                .selectAll()
+                .where {
+                    (ContentTranslationTable.contentType eq type.name) and
+                        (ContentTranslationTable.contentId inList wanted.keys) and
+                        (ContentTranslationTable.sourceLang eq sourceLang) and
+                        (ContentTranslationTable.targetLang eq targetLang) and
+                        (ContentTranslationTable.sourceSha256 inList allHashes)
+                }.toList()
+        val result = LinkedHashMap<Uuid, LinkedHashMap<TranslatableField, String>>()
+        for (row in rows) {
+            val id = row[ContentTranslationTable.contentId]
+            val field = TranslatableField.entries.firstOrNull { it.name == row[ContentTranslationTable.field] } ?: continue
+            if (wanted[id]?.get(field) == row[ContentTranslationTable.sourceSha256]) {
+                result.getOrPut(id) { LinkedHashMap() }[field] = row[ContentTranslationTable.translatedText]
+            }
+        }
+        return result
+    }
+
+    /**
      * Inserts each row under its own savepoint and swallows ONLY a unique violation (a concurrent writer produced the same row). On Postgres a
      * failed statement would otherwise poison the whole transaction.
      */

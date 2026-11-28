@@ -48,22 +48,29 @@ internal sealed interface EmbedCorsResult {
  * would still never attach the session cookie to a cross-origin request without this header (and
  * `SameSite=Strict`, unmodified by this welle, would refuse it a second time anyway).
  *
- * `Vary: Origin` and `Cache-Control: no-store` are set UNCONDITIONALLY, before the allow/reject
+ * [vary] (default `Origin`) and [cacheControl] (default `no-store`) are set UNCONDITIONALLY, before the allow/reject
  * decision -- both must be present on every response this function's caller ever produces,
  * including the eventual 403 (rule 5 in the class-level plan), so setting them once here, before
  * branching, is both simpler and impossible to forget on one branch but not the other.
+ *
+ * The one exception (V1.9.343): a caller may pass a null [cacheControl] and then owns the header on every path, because a
+ * second value could never replace the first. Its [vary] must then name every request header the answer depends on.
  */
 internal fun ApplicationCall.applyEmbedCors(
     allowlist: EmbedOriginAllowlist,
     allowInsecure: Boolean,
+    vary: String = "Origin",
+    // `null` = the CALLER sets Cache-Control itself, exactly once, on EVERY path (response.header appends, it can never replace). Only the
+    // embed events feed does that (V1.9.343); every other caller keeps the default.
+    cacheControl: String? = "no-store",
 ): EmbedCorsResult {
     // allowInsecure is currently unused here -- EmbedOriginAllowlist.canonicalize already embeds
     // the correct accepted-scheme decision from parse() time (see that function's own KDoc). Kept
     // as a parameter so a future caller-side scheme check can be added here without changing every
     // call site's signature, and so this function's signature visibly documents that scheme
     // handling is a first-class concern of this file, not an afterthought.
-    response.header(HttpHeaders.Vary, "Origin")
-    response.header(HttpHeaders.CacheControl, "no-store")
+    response.header(HttpHeaders.Vary, vary)
+    if (cacheControl != null) response.header(HttpHeaders.CacheControl, cacheControl)
     val rawOrigin = request.headers[HttpHeaders.Origin] ?: return EmbedCorsResult.NoOriginHeader
     val allowedOrigin = allowlist.canonicalize(rawOrigin) ?: return EmbedCorsResult.Rejected
     response.header(HttpHeaders.AccessControlAllowOrigin, allowedOrigin)

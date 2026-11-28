@@ -147,6 +147,8 @@ internal fun Route.registerEmbedRoutes(
     keycloakEnabled: Boolean = false,
     joinRateLimiter: FederationInboxRateLimiter =
         FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000),
+    // V1.9.343 (T2) -- optional language choice of the events feed (just-in-time translation); the default is switched off.
+    eventsFeedTranslation: EmbedFeedTranslation = EmbedFeedTranslation.disabled(),
 ) {
     // Registered FIRST, unconditionally -- see this function's own KDoc "A false EmbedConfig.enabled
     // means...". Must work whether or not the block below runs, so it is wired before the early
@@ -215,6 +217,7 @@ internal fun Route.registerEmbedRoutes(
         feedRateLimiter = eventsFeedRateLimiter,
         preflightRateLimiter = eventPageRateLimiter,
         pastFeedRateLimiter = eventsPastFeedRateLimiter,
+        translation = eventsFeedTranslation,
     )
 
     // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- Artikelliste als Embed-Widget.

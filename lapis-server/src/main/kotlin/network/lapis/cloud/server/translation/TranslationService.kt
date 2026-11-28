@@ -26,20 +26,30 @@ import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.translation.config.TranslateConfig
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlin.time.TimeSource
 import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
+/** The answer of [TranslationService.translateEvents]: one outcome per requested (distinct, known or unknown) event id, plus the content language. */
+internal data class TranslationBatch(
+    val sourceLang: String,
+    val outcomes: Map<Uuid, TranslationOutcome>,
+)
+
 /**
- * Just-in-time translation of the public text of an event (Welle V1.9.342, T1: the core only -- no route, no UI, off by default).
+ * Just-in-time translation of the public text of an event (Welle V1.9.342 T1: the core; V1.9.343 T2: the embed events feed is the one caller of [translateEvents]; no UI, off by default).
  *
  * Contract of [translateEvent]: it NEVER throws for an operational reason and ALWAYS answers with a complete set of fields -- the translation
  * or the original, never a mixture. A request waits at most [TranslateConfig.waitTimeoutMs]; a slower job keeps running in the service's own
@@ -103,6 +113,9 @@ internal class TranslationService(
 
     private val operational: Boolean get() = llm != null && config.isOperational
 
+    /** `true` iff a translation could be started at all (feature on, provider complete). */
+    val isOperational: Boolean get() = operational
+
     suspend fun translateEvent(
         eventId: Uuid,
         preferences: List<String>,
@@ -110,23 +123,9 @@ internal class TranslationService(
         val requested = TranslationLanguages.resolveTarget(preferences)
         val snapshot = withContext(Dispatchers.IO) { transaction { loadSnapshot(eventId) } }
 
-        fun original(
-            state: TranslationState,
-            source: String = snapshot?.sourceLang ?: TranslationLanguages.normalizeSource(null),
-        ) = TranslationOutcome(
-            deliveredLang = source,
-            sourceLang = source,
-            requestedLang = requested,
-            state = state,
-            fields = snapshot?.fields ?: emptyMap(),
-        )
-        if (snapshot == null) return original(TranslationState.NOT_FOUND)
-        if (!snapshot.isPublic) return original(TranslationState.NOT_PUBLIC).copy(fields = emptyMap())
-        if (requested == snapshot.sourceLang) return original(TranslationState.SAME_LANGUAGE)
-        if (!snapshot.consent) return original(TranslationState.NO_CONSENT)
-        if (!operational) return original(TranslationState.DISABLED)
-        if (snapshot.hashes.isEmpty()) return original(TranslationState.SAME_LANGUAGE)
-
+        fun original(state: TranslationState) = originalOutcome(snapshot = snapshot, requested = requested, state = state)
+        decide(snapshot = snapshot, requested = requested)?.let { return original(it) }
+        snapshot ?: return original(TranslationState.NOT_FOUND)
         val cached =
             withContext(Dispatchers.IO) {
                 transaction {
@@ -168,21 +167,199 @@ internal class TranslationService(
                 cooldownUntil.remove(key, until)
             }
         }
-        val job = startOrJoin(key = key, snapshot = snapshot) ?: return original(TranslationState.PENDING)
-        // The job belongs to the service scope: a timeout or cancellation of THIS request only stops the waiting, never the job.
-        val awaited =
-            try {
-                withTimeoutOrNull(config.waitTimeoutMs) { job.await() }
-            } catch (e: CancellationException) {
-                // Either THIS request was cancelled (then it must stop) or only the job was (cancelInFlight): the answer is "pending".
-                currentCoroutineContext().ensureActive()
-                null
-            }
+        val job = startOrJoin(key = key, snapshot = snapshot, allowCreate = true) ?: return original(TranslationState.PENDING)
+        val awaited = awaitJob(job = job, timeoutMs = config.waitTimeoutMs)
         return when (val result = awaited) {
             is JobResult.Translated -> translatedOutcome(cached + result.fields)
             else -> original(TranslationState.PENDING)
         }
     }
+
+    /** The language the public content is written in (one settings read). */
+    suspend fun contentLanguage(): String = withContext(Dispatchers.IO) { transaction { loadSourceLang() } }
+
+    /**
+     * The batch form for feeds (T2). [target] must be one of [TranslationLanguages.SUPPORTED]. One read for all snapshots and the content
+     * language, ONE store query for all cache hits. [maySpend] is asked at most ONCE per call, and only right before the first NEW job would
+     * be started (never for a cache hit, a joined job or a cooling-down entry); `false` leaves the affected entries pending without a job. At
+     * most [maxNewJobs] new jobs start per call, the rest stays pending. All jobs of the call share ONE wait budget of
+     * [TranslateConfig.waitTimeoutMs]. Not operational: only the content language is read, every entry is [TranslationState.DISABLED].
+     * Same decision rules as [translateEvent] (one private [decide]); the model call stays at its one place under the semaphore.
+     */
+    suspend fun translateEvents(
+        eventIds: List<Uuid>,
+        target: String,
+        maySpend: () -> Boolean,
+        maxNewJobs: Int = MAX_NEW_JOBS_PER_CALL,
+    ): TranslationBatch {
+        require(target in TranslationLanguages.SUPPORTED) { "unsupported target language" }
+        val ids = eventIds.distinct()
+        if (!operational) {
+            val source = contentLanguage()
+            return TranslationBatch(
+                sourceLang = source,
+                outcomes =
+                    ids.associateWith {
+                        TranslationOutcome(
+                            deliveredLang = source,
+                            sourceLang = source,
+                            requestedLang = target,
+                            state = TranslationState.DISABLED,
+                            fields = emptyMap(),
+                        )
+                    },
+            )
+        }
+        val (sourceLang, snapshots) = withContext(Dispatchers.IO) { transaction { loadSnapshots(ids) } }
+        val outcomes = LinkedHashMap<Uuid, TranslationOutcome>()
+        val candidates = LinkedHashMap<Uuid, Snapshot>()
+        for (id in ids) {
+            val snapshot = snapshots[id]
+            val state = decide(snapshot = snapshot, requested = target)
+            if (state != null) {
+                outcomes[id] = originalOutcome(snapshot = snapshot, requested = target, state = state, sourceFallback = sourceLang)
+            } else {
+                candidates[id] = checkNotNull(snapshot)
+            }
+        }
+        val cached =
+            if (candidates.isEmpty()) {
+                emptyMap()
+            } else {
+                withContext(Dispatchers.IO) {
+                    transaction {
+                        ContentTranslationStore.findAllForMany(
+                            type = TranslatableContentType.EVENT,
+                            hashesById = candidates.mapValues { it.value.hashes },
+                            sourceLang = sourceLang,
+                            targetLang = target,
+                        )
+                    }
+                }
+            }
+
+        fun translated(
+            snapshot: Snapshot,
+            translations: Map<TranslatableField, String>,
+        ) = TranslationOutcome(
+            deliveredLang = target,
+            sourceLang = sourceLang,
+            requestedLang = target,
+            state = TranslationState.TRANSLATED,
+            fields = snapshot.fields + translations,
+        )
+
+        val jobs = LinkedHashMap<Uuid, Deferred<JobResult>>()
+        var started = 0
+        var spendAnswer: Boolean? = null
+        for ((id, snapshot) in candidates) {
+            val have = cached[id] ?: emptyMap()
+            val missing = snapshot.hashes.filterKeys { it !in have }
+            if (missing.isEmpty()) {
+                outcomes[id] = translated(snapshot, have)
+                continue
+            }
+            val key =
+                FlightKey(
+                    type = TranslatableContentType.EVENT,
+                    id = id,
+                    sourceLang = sourceLang,
+                    targetLang = target,
+                    hashes = missing,
+                )
+            val pending = originalOutcome(snapshot = snapshot, requested = target, state = TranslationState.PENDING)
+            val cooldown = cooldownUntil[key]
+            if (cooldown != null) {
+                if (now() < cooldown) {
+                    outcomes[id] = pending
+                    continue
+                }
+                cooldownUntil.remove(key, cooldown)
+            }
+            // Joining a running job costs nothing; only a NEW job asks the spend question (outside the flight lock).
+            val running = startOrJoin(key = key, snapshot = snapshot, allowCreate = false)
+            if (running != null) {
+                jobs[id] = running
+                continue
+            }
+            if (started >= maxNewJobs) {
+                outcomes[id] = pending
+                continue
+            }
+            val allowed = spendAnswer ?: maySpend().also { spendAnswer = it }
+            val job = if (allowed) startOrJoin(key = key, snapshot = snapshot, allowCreate = true) else null
+            if (job == null) {
+                outcomes[id] = pending
+                continue
+            }
+            started++
+            jobs[id] = job
+        }
+        // ONE wait budget for the whole call, not one per entry.
+        val deadline = TimeSource.Monotonic.markNow() + config.waitTimeoutMs.milliseconds
+        for ((id, job) in jobs) {
+            val snapshot = candidates.getValue(id)
+            val remainingMs = (-deadline.elapsedNow()).inWholeMilliseconds
+            val result = awaitJob(job = job, timeoutMs = remainingMs)
+            outcomes[id] =
+                if (result is JobResult.Translated) {
+                    translated(snapshot, (cached[id] ?: emptyMap()) + result.fields)
+                } else {
+                    originalOutcome(snapshot = snapshot, requested = target, state = TranslationState.PENDING)
+                }
+        }
+        return TranslationBatch(sourceLang = sourceLang, outcomes = ids.associateWith { outcomes.getValue(it) })
+    }
+
+    /**
+     * The terminal state of the shared decision rules, or `null` when the content may be translated (cache lookup / job). ONE place for
+     * [translateEvent] and [translateEvents], so the rules cannot drift apart.
+     */
+    private fun decide(
+        snapshot: Snapshot?,
+        requested: String,
+    ): TranslationState? =
+        when {
+            snapshot == null -> TranslationState.NOT_FOUND
+            !snapshot.isPublic -> TranslationState.NOT_PUBLIC
+            requested == snapshot.sourceLang -> TranslationState.SAME_LANGUAGE
+            !snapshot.consent -> TranslationState.NO_CONSENT
+            !operational -> TranslationState.DISABLED
+            snapshot.hashes.isEmpty() -> TranslationState.SAME_LANGUAGE
+            else -> null
+        }
+
+    private fun originalOutcome(
+        snapshot: Snapshot?,
+        requested: String,
+        state: TranslationState,
+        sourceFallback: String = TranslationLanguages.normalizeSource(null),
+    ): TranslationOutcome {
+        val source = snapshot?.sourceLang ?: sourceFallback
+        return TranslationOutcome(
+            deliveredLang = source,
+            sourceLang = source,
+            requestedLang = requested,
+            state = state,
+            fields = if (state == TranslationState.NOT_PUBLIC) emptyMap() else snapshot?.fields ?: emptyMap(),
+        )
+    }
+
+    /**
+     * Waits for [job] at most [timeoutMs]. The job belongs to the service scope: a timeout or cancellation of THIS request only stops the
+     * waiting, never the job. `null` = no usable result (slow, cancelled job).
+     */
+    private suspend fun awaitJob(
+        job: Deferred<JobResult>,
+        timeoutMs: Long,
+    ): JobResult? =
+        try {
+            if (job.isCompleted) job.await() else withTimeoutOrNull(timeoutMs) { job.await() }
+        } catch (e: CancellationException) {
+            // Either THIS request was cancelled (then it must stop) or only the job was (cancelInFlight): the answer is "pending".
+            currentCoroutineContext().ensureActive()
+            null
+        }
 
     /**
      * Best effort: cancels running jobs of this content. The real guarantee against a late write is the re-check under the row lock (see class
@@ -203,12 +380,13 @@ internal class TranslationService(
     private fun startOrJoin(
         key: FlightKey,
         snapshot: Snapshot,
+        allowCreate: Boolean,
     ): Deferred<JobResult>? {
         var created: Deferred<JobResult>? = null
         val deferred =
             synchronized(flightLock) {
                 inFlight[key] ?: run {
-                    if (inFlight.size >= MAX_IN_FLIGHT) return@synchronized null
+                    if (!allowCreate || inFlight.size >= MAX_IN_FLIGHT) return@synchronized null
                     val job = scope.async(start = CoroutineStart.LAZY) { runJob(key = key, snapshot = snapshot) }
                     inFlight[key] = job
                     job.invokeOnCompletion { synchronized(flightLock) { inFlight.remove(key, job) } }
@@ -292,7 +470,7 @@ internal class TranslationService(
                             EventStore
                                 .getEventOrNull(
                                     key.id,
-                                )?.let { stillAllowed(key = key, snapshot = snapshot, current = currentSnapshot(it)) }
+                                )?.let { stillAllowed(key = key, snapshot = snapshot, current = currentSnapshot(row = it)) }
                                 ?: false
                         }
                     }
@@ -316,7 +494,7 @@ internal class TranslationService(
     ): JobResult =
         transaction {
             val row = EventStore.lockEventForUpdate(key.id) ?: return@transaction JobResult.Stale
-            val current = currentSnapshot(row)
+            val current = currentSnapshot(row = row)
             if (!stillAllowed(key = key, snapshot = snapshot, current = current)) return@transaction JobResult.Stale
             ContentTranslationStore.insertIgnoringDuplicates(
                 translations.map { (field, text) ->
@@ -360,10 +538,30 @@ internal class TranslationService(
 
     private fun loadSnapshot(eventId: Uuid): Snapshot? {
         val row = EventStore.getEventOrNull(eventId) ?: return null
-        return currentSnapshot(row)
+        return currentSnapshot(row = row)
     }
 
-    private fun currentSnapshot(row: ResultRow): Snapshot {
+    /** All snapshots in ONE query plus the content language (read once). Unknown ids are absent from the map. */
+    private fun loadSnapshots(ids: List<Uuid>): Pair<String, Map<Uuid, Snapshot>> {
+        val sourceLang = loadSourceLang()
+        if (ids.isEmpty()) return sourceLang to emptyMap()
+        val rows = EventTable.selectAll().where { EventTable.id inList ids }.toList()
+        return sourceLang to rows.associate { it[EventTable.id] to currentSnapshot(row = it, sourceLang = sourceLang) }
+    }
+
+    private fun loadSourceLang(): String =
+        TranslationLanguages.normalizeSource(
+            OrganizationSettingsTable
+                .select(OrganizationSettingsTable.contentLanguage)
+                .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                .singleOrNull()
+                ?.get(OrganizationSettingsTable.contentLanguage),
+        )
+
+    private fun currentSnapshot(
+        row: ResultRow,
+        sourceLang: String? = null,
+    ): Snapshot {
         val fields =
             EventTranslationSource.fields(
                 title = row[EventTable.title],
@@ -371,19 +569,12 @@ internal class TranslationService(
                 description = row[EventTable.description],
                 coverImageAlt = row[EventTable.coverImageAlt],
             )
-        val sourceLang =
-            TranslationLanguages.normalizeSource(
-                OrganizationSettingsTable
-                    .select(OrganizationSettingsTable.contentLanguage)
-                    .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
-                    .singleOrNull()
-                    ?.get(OrganizationSettingsTable.contentLanguage),
-            )
+        val resolvedSourceLang = sourceLang ?: loadSourceLang()
         return Snapshot(
             isPublic = EventTranslationEligibility.isPublic(row),
             consent = row[EventTable.translationConsent],
             consentAt = row[EventTable.translationConsentAt],
-            sourceLang = sourceLang,
+            sourceLang = resolvedSourceLang,
             fields = fields,
             hashes = EventTranslationSource.hashes(fields),
         )
@@ -391,6 +582,9 @@ internal class TranslationService(
 
     internal companion object {
         const val MAX_IN_FLIGHT = 64
+
+        /** Upper bound of NEW jobs one feed call may start, so a single call cannot take most of [MAX_IN_FLIGHT] (the feed fills up over several calls). */
+        const val MAX_NEW_JOBS_PER_CALL = 8
         const val MAX_COOLDOWN_ENTRIES = 10_000
         private const val MODEL_PROFILE_MAX = 200
         val FAILURE_COOLDOWN: Duration = 10.minutes

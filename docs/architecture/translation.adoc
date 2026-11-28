@@ -71,13 +71,13 @@ classDiagram(name = "Translation -- tables") {
 [kuml, translation-flow, svg]
 ----
 sequenceDiagram(name = "Translate an event on demand") {
-    val caller = lifeline(name = "Caller (T2: public route)")
+    val caller = lifeline(name = "Embed events feed (T2)")
     val service = lifeline(name = "TranslationService")
     val db = lifeline(name = "Database")
     val job = lifeline(name = "Job (service scope)")
     val model = lifeline(name = "LlmClient")
 
-    message(from = caller, to = service, label = "translateEvent(id, language preferences)")
+    message(from = caller, to = service, label = "translateEvents(ids, language, may a new job start?)")
     message(from = service, to = db, label = "read: public? consent? hashes, stored translations")
     message(from = service, to = caller, label = "original: not found, not public, same language, no consent, disabled")
     message(from = service, to = job, label = "missing fields: join or start ONE job per (content, pair, hashes)")
@@ -96,6 +96,23 @@ sequenceDiagram(name = "Translate an event on demand") {
 * **Cost bounds.** Daily character budget (in memory, **per JVM; a restart resets it**), a size limit per content, a semaphore around the model call, a bounded number of jobs and cooldown entries. The reservation is made before the call and is not given back on failure.
 * **Re-check at write time.** The job stores its rows only if, under the event row lock (`FOR UPDATE`), the event is still public, the consent is still given *with the same decision timestamp*, the text hashes are unchanged and the content language is unchanged. A revoke, and also revoke plus re-grant, therefore always wins over a running job; `cancelInFlight` is only a best-effort shortcut. A revoke deletes the stored rows in the same transaction. The insert uses a savepoint per row and swallows only a unique violation, so two instances writing the same row cannot poison a PostgreSQL transaction.
 * **No HTTP in a transaction** (rule of V1.9.55). The model call sits under the semaphore, outside every transaction block (a test pins that).
+
+== Public read path (T2): embed events feed
+
+Wave V1.9.343 (T2) wires the service into **one** place: `GET /api/embed/v1/events`. Nothing else calls it (a tripwire test pins that): not the archive `/events/past`, not the article feed, not the partner entries (`?quelle=alle`), no screen.
+
+*Language choice* (`LanguageNegotiation`, pure, no Ktor types, linear time):
+
+* `?lang=<code>` wins. Once the key is present it is authoritative: one well-formed value is resolved to one of the eight languages (primary subtag, case-insensitive; `pt` gives `en`); an invalid, empty, too long or repeated value gives `en` and the header is **not** read.
+* Without `?lang=`, `Accept-Language` decides: q-values are honoured (`q=0` removes an entry, a broken q skips it, `*` is ignored), at most 1024 characters in total and 32 entries, 35 characters per tag; too long counts as absent. The first supported language wins, otherwise `en`.
+* **No wish at all** (no parameter, no header, only `*`) gives the **original** and never a model call. Build steps and server-to-server callers send no header; they must not freeze an English text into a page.
+* The raw request value is never logged, echoed or put in a header. Only codes of the supported list are ever written out.
+
+*When the new fields appear.* Only if the translation is operational at the operator **or** the caller sent `?lang=` explicitly. Otherwise the body is byte-identical to before (golden test), although every browser sends `Accept-Language`. Fields, added at the end of an entry: `lang`, `sourceLang`, `translated`, `machineTranslated`, `translationPending`. Only title, summary, description and the picture text are replaced, and only for a stored translation. Place, price, date, links, `full`, the online link and the series sentence (`seriesText`, stays in the instance language) are never touched.
+
+*Headers.* `Vary: Origin, Accept-Language`; `Content-Language` with the delivered languages of the own entries; `Cache-Control` exactly once per response: `public, max-age=60` if at least one entry is translated and none is pending, otherwise `no-store` (the default answer, a pending entry, 403, 429, 500). The short lifetime is deliberate: `full` is live. `applyEmbedCors` got a `cacheControl` parameter for this; only this route passes a null policy and then sets the header itself on every path (`response.header` appends, it cannot replace).
+
+*Cost bounds on the public path.* The service call happens after the transaction that builds the entries. `translateEvents` reads all snapshots and the content language in one query and all cache hits in one query. The per-IP limiter (`LAPIS_TRANSLATE_RATE_PER_IP_MINUTE`) is asked **once per request and only when a new job would start**; cache hits, joined jobs and cooldown entries are free. At most 8 new jobs start per request (`MAX_NEW_JOBS_PER_CALL`), the rest of the entries stay pending and fill in over later requests. All jobs of one request share one wait budget (`LAPIS_TRANSLATE_WAIT_MS`), not one each. A failure of the translation layer gives the originals, never a 500.
 
 == Prompt isolation and validation
 

@@ -33,6 +33,11 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.partner.PartnerEventDisplay
 import network.lapis.cloud.server.partner.PartnerEventView
 import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.server.translation.LanguageChoice
+import network.lapis.cloud.server.translation.LanguageNegotiation
+import network.lapis.cloud.server.translation.TranslatableField
+import network.lapis.cloud.server.translation.TranslationLanguages
+import network.lapis.cloud.server.translation.TranslationOutcome
 import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventStatus
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -86,6 +91,16 @@ internal data class EmbedEventListItemDto(
      * public pages show. Omitted otherwise. No series key is ever published.
      */
     val seriesText: String? = null,
+    /** V1.9.343 -- the language of `title`/`summary`/`description`/`coverImageAlt` of THIS entry. Only present when the language choice is active (see [registerEmbedEventsFeedRoutes]). */
+    val lang: String? = null,
+    /** V1.9.343 -- the language the author wrote the entry in. */
+    val sourceLang: String? = null,
+    /** V1.9.343 -- `true` iff the four text fields are a stored machine translation. */
+    val translated: Boolean? = null,
+    /** V1.9.343 -- `true` iff the text was machine translated (same as [translated]; kept separate so a later human review can differ). */
+    val machineTranslated: Boolean? = null,
+    /** V1.9.343 -- `true` iff a translation was wanted but is not ready yet (the entry is the original; ask again later). */
+    val translationPending: Boolean? = null,
 )
 
 /**
@@ -208,15 +223,17 @@ internal fun ResultRow.toEmbedEventCommonFields(
  * Any other spelling is the default feed, byte-identical to before (golden test). Two extra statements, independent of the number of series;
  * the cap stays 50 ENTRIES. No series id is ever published.
  *
- * **`Cache-Control` stays `no-store`** -- [applyEmbedCors] itself sets `Cache-Control: no-store`
- * unconditionally, BEFORE this handler ever runs (see that function's own KDoc), and
- * `response.header(...)` APPENDS rather than replaces (the exact footgun every other file in this
- * package's KDoc warns about, e.g. `EmbedEventRoutes.kt`'s own "F-1"). A second, more permissive
- * `Cache-Control` value written here would not REPLACE that `no-store`, it would sit ALONGSIDE it as
- * a second value on the same header -- worse than either value alone. Making this endpoint properly
- * cacheable would require changing [applyEmbedCors] itself (a shared, security-reviewed helper used
- * by every other embed route), which is out of scope for this wave; `no-store` is kept, deferring a
- * dedicated cache-policy change to a follow-up wave.
+ * **V1.9.343 language choice (just-in-time translation, T2)**: `?lang=<code>` (one of the eight site languages; anything else, empty or repeated gives
+ * `en`) wins over `Accept-Language` (q-values honoured, `*` ignored, hard size limits, see [LanguageNegotiation]). No usable wish at all means the ORIGINAL
+ * (build steps and server-to-server callers send no header and must never fix an English text into a page). The five new fields are added only when
+ * the translation is operational at the operator OR the caller sent `?lang=` explicitly; otherwise the body stays byte-identical (golden test), even
+ * though every browser sends `Accept-Language`. Only the four text fields are replaced (title, summary, description, cover image alt); place, price,
+ * date, links and the series sentence stay as they are. Partner events and the archive are never translated. The model is called only through
+ * [network.lapis.cloud.server.translation.TranslationService.translateEvents], outside every database transaction, with one wait budget per call.
+ *
+ * **`Cache-Control`** (V1.9.343): [applyEmbedCors] is called with a null cache policy here and this handler sets the header exactly ONCE on every
+ * path (`response.header` appends, it can never replace): `public, max-age=60` when at least one entry is translated and none is pending, otherwise
+ * `no-store` (also the whole default answer). `Vary` is `Origin, Accept-Language`.
  */
 internal fun Route.registerEmbedEventsFeedRoutes(
     config: EmbedConfig,
@@ -225,13 +242,22 @@ internal fun Route.registerEmbedEventsFeedRoutes(
     preflightRateLimiter: FederationInboxRateLimiter,
     // V1.9.82 -- the archive feed's own budget (see EmbedRoutes' `eventsPastFeedRateLimiter`).
     pastFeedRateLimiter: FederationInboxRateLimiter,
+    // V1.9.343 -- optional language choice; the default is switched off, so existing callers behave exactly as before.
+    translation: EmbedFeedTranslation = EmbedFeedTranslation.disabled(),
 ) {
     get("/api/embed/v1/events") {
         call.withEmbedEventsFeedErrorHandling {
             // 1. CORS -- see this file's own KDoc "Read-only, public-by-design": NoOriginHeader is
             // NOT rejected here, unlike the write-path embed routes.
-            val cors = call.applyEmbedCors(allowlist = config.allowlist, allowInsecure = config.allowInsecureOrigins)
+            val cors =
+                call.applyEmbedCors(
+                    allowlist = config.allowlist,
+                    allowInsecure = config.allowInsecureOrigins,
+                    vary = "Origin, Accept-Language",
+                    cacheControl = null,
+                )
             if (cors is EmbedCorsResult.Rejected) {
+                call.setCacheControlOnce("no-store")
                 call.respondEmbedForbiddenOrigin()
                 return@withEmbedEventsFeedErrorHandling
             }
@@ -241,6 +267,7 @@ internal fun Route.registerEmbedEventsFeedRoutes(
             val rateLimitKey = rateLimitKeyFor(remoteHost = call.request.origin.remoteHost)
             if (!feedRateLimiter.checkAndRecord(rateLimitKey)) {
                 val retryAfterSeconds = feedRateLimiter.retryAfterSeconds(rateLimitKey)
+                call.setCacheControlOnce("no-store")
                 call.response.header(HttpHeaders.RetryAfter, retryAfterSeconds.toString())
                 call.respond(HttpStatusCode.TooManyRequests)
                 return@withEmbedEventsFeedErrorHandling
@@ -258,7 +285,7 @@ internal fun Route.registerEmbedEventsFeedRoutes(
             // V1.9.278 -- one entry per series only for exactly one `serien=eine`.
             val oneEntryPerSeries = wantsOneEntryPerSeries(call.request.queryParameters)
             var partnerViews: List<PartnerEventView> = emptyList()
-            val items =
+            val itemsWithIds =
                 transaction {
                     // Same transaction, same `now` as /veranstaltungen. No memoisation: block list and switches are read per request.
                     if (withPartners) partnerViews = PartnerEventDisplay.loadVisible(nowUtc = now, orgZone = orgZone)
@@ -294,33 +321,40 @@ internal fun Route.registerEmbedEventsFeedRoutes(
                                         row[EventTable.status] != EventStatus.CANCELLED &&
                                         EventText.isHttpsUrl(it)
                                 }
-                            EmbedEventListItemDto(
-                                slug = common.slug,
-                                title = common.title,
-                                startsAt = common.startsAt,
-                                endsAt = common.endsAt,
-                                locationText = common.locationText,
-                                registrationUrl = common.registrationUrl,
-                                full = capacity != null && occupied >= capacity,
-                                feeAmount = common.feeAmount,
-                                feeCurrency = common.feeCurrency,
-                                coverImageUrl = common.coverImageUrl,
-                                description = common.description,
-                                summary = common.summary,
-                                coverImageAlt = common.coverImageAlt,
-                                onlineUrl = onlineUrl,
-                                online = common.online,
-                                seriesText =
-                                    if (oneEntryPerSeries) {
-                                        row[EventTable.seriesId]
-                                            ?.let { seriesStats[it] }
-                                            ?.let { PublicSeriesSummary.repeatSentenceOrFallback(it.rrule) }
-                                    } else {
-                                        null
-                                    },
-                            )
+                            eventId to
+                                EmbedEventListItemDto(
+                                    slug = common.slug,
+                                    title = common.title,
+                                    startsAt = common.startsAt,
+                                    endsAt = common.endsAt,
+                                    locationText = common.locationText,
+                                    registrationUrl = common.registrationUrl,
+                                    full = capacity != null && occupied >= capacity,
+                                    feeAmount = common.feeAmount,
+                                    feeCurrency = common.feeCurrency,
+                                    coverImageUrl = common.coverImageUrl,
+                                    description = common.description,
+                                    summary = common.summary,
+                                    coverImageAlt = common.coverImageAlt,
+                                    onlineUrl = onlineUrl,
+                                    online = common.online,
+                                    seriesText =
+                                        if (oneEntryPerSeries) {
+                                            row[EventTable.seriesId]
+                                                ?.let { seriesStats[it] }
+                                                ?.let { PublicSeriesSummary.repeatSentenceOrFallback(it.rrule) }
+                                        } else {
+                                            null
+                                        },
+                                )
                         }
                 }
+
+            // 5. Optional language choice -- AFTER the transaction (the model call never runs inside one).
+            val translated = applyLanguageChoice(call = call, translation = translation, itemsWithIds = itemsWithIds)
+            val items = translated.items
+            call.setCacheControlOnce(translated.cacheControl)
+            translated.contentLanguage?.let { call.response.header(HttpHeaders.ContentLanguage, it) }
 
             val text =
                 if (withPartners) {
@@ -452,6 +486,119 @@ internal fun Route.registerEmbedEventsFeedRoutes(
     }
 }
 
+/** The feed items after the language choice, plus the headers that go with them. */
+private class FeedLanguageResult(
+    val items: List<EmbedEventListItemDto>,
+    val cacheControl: String,
+    val contentLanguage: String?,
+)
+
+/** Header value for an answer that may be stored and reused for a short time (the occupancy `full` is live, so only a minute). */
+private const val TRANSLATED_CACHE_CONTROL = "public, max-age=60"
+
+/**
+ * Reads the language wish and, if the choice is active, replaces the text of the entries. Never throws for an operational reason: a failing
+ * translation layer gives the originals (the feed must not break on it). Logs only counts, never a language value or header text.
+ */
+private suspend fun applyLanguageChoice(
+    call: ApplicationCall,
+    translation: EmbedFeedTranslation,
+    itemsWithIds: List<Pair<Uuid, EmbedEventListItemDto>>,
+): FeedLanguageResult {
+    val plain = itemsWithIds.map { it.second }
+    val choice =
+        LanguageNegotiation.choose(
+            langParams = call.request.queryParameters.getAll("lang"),
+            acceptLanguage = call.request.headers.getAll(HttpHeaders.AcceptLanguage) ?: emptyList(),
+        )
+    val emit = translation.service.isOperational || (choice is LanguageChoice.Target && choice.explicit)
+    if (!emit) return FeedLanguageResult(items = plain, cacheControl = "no-store", contentLanguage = null)
+
+    val sourceLang: String
+    val outcomes: Map<Uuid, TranslationOutcome>
+    try {
+        when (choice) {
+            is LanguageChoice.NoPreference -> {
+                sourceLang = translation.service.contentLanguage()
+                outcomes = emptyMap()
+            }
+            is LanguageChoice.Target -> {
+                val remoteKey = rateLimitKeyFor(remoteHost = call.request.origin.remoteHost)
+                val batch =
+                    translation.service.translateEvents(
+                        eventIds = itemsWithIds.map { it.first },
+                        target = choice.target,
+                        maySpend = { translation.ipLimiter.checkAndRecord(remoteKey) },
+                    )
+                sourceLang = batch.sourceLang
+                outcomes = batch.outcomes
+            }
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        logger.warn {
+            "embed events feed: translation layer failed, serving originals (entries=${itemsWithIds.size}, ${e::class.simpleName})"
+        }
+        val fallbackLang = TranslationLanguages.normalizeSource(null)
+        return FeedLanguageResult(
+            items = plain.map { it.withTranslation(outcome = null, sourceLang = fallbackLang) },
+            cacheControl = "no-store",
+            contentLanguage = fallbackLang,
+        )
+    }
+    val items = itemsWithIds.map { (id, dto) -> dto.withTranslation(outcome = outcomes[id], sourceLang = sourceLang) }
+    val cacheable = items.any { it.translated == true } && items.none { it.translationPending == true }
+    return FeedLanguageResult(
+        items = items,
+        cacheControl = if (cacheable) TRANSLATED_CACHE_CONTROL else "no-store",
+        contentLanguage =
+            items
+                .mapNotNull { it.lang }
+                .distinct()
+                .ifEmpty { listOf(sourceLang) }
+                .joinToString(", "),
+    )
+}
+
+/**
+ * Replaces exactly the four translatable text fields, and only for a stored translation. Everything else (place, price, date, links, `full`,
+ * the series sentence) is left untouched. A missing outcome (event vanished between the two reads) keeps the original.
+ */
+private fun EmbedEventListItemDto.withTranslation(
+    outcome: TranslationOutcome?,
+    sourceLang: String,
+): EmbedEventListItemDto {
+    if (outcome == null) {
+        return copy(lang = sourceLang, sourceLang = sourceLang, translated = false, machineTranslated = false, translationPending = false)
+    }
+    val fields = outcome.fields
+    val base =
+        if (outcome.translated) {
+            copy(
+                title = fields[TranslatableField.TITLE] ?: title,
+                summary = summary?.let { fields[TranslatableField.SUMMARY] ?: it },
+                description = fields[TranslatableField.DESCRIPTION] ?: description,
+                // the alt text exists on the entry only when there is a cover image (rule of the projection)
+                coverImageAlt = coverImageAlt?.let { fields[TranslatableField.COVER_IMAGE_ALT] ?: it },
+            )
+        } else {
+            this
+        }
+    return base.copy(
+        lang = outcome.deliveredLang,
+        sourceLang = outcome.sourceLang,
+        translated = outcome.translated,
+        machineTranslated = outcome.machineTranslated,
+        translationPending = outcome.translationPending,
+    )
+}
+
+/** `response.header` appends and can never replace: this sets `Cache-Control` only if nothing set it yet, so the answer carries exactly one value. */
+private fun ApplicationCall.setCacheControlOnce(value: String) {
+    if (response.headers[HttpHeaders.CacheControl] == null) response.header(HttpHeaders.CacheControl, value)
+}
+
 /**
  * Same guarantee every other embed route family's own error handler establishes (see
  * `EmbedEventRoutes.withEmbedEventErrorHandling`'s KDoc) -- plain `try`/`catch`, NOT `runCatching`
@@ -466,7 +613,10 @@ private suspend fun ApplicationCall.withEmbedEventsFeedErrorHandling(handler: su
         throw e
     } catch (e: Exception) {
         logger.error(e) { "Unhandled exception in the embed events-feed handler (${request.path()})" }
-        runCatching { respond(HttpStatusCode.InternalServerError) }
+        runCatching {
+            setCacheControlOnce("no-store")
+            respond(HttpStatusCode.InternalServerError)
+        }
     }
 }
 

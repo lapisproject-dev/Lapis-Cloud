@@ -43,7 +43,7 @@ internal class TranslationDailyBudget(
 
 /**
  * Sliding one-minute window per client key (an IP string). Bounded map, opportunistic eviction (no scheduler), like `AiQuestionRateLimiter`.
- * Built and tested in T1; wired to the public endpoint in T2.
+ * Counts only requests that would START a translation (embed events feed, T2); a cache hit never touches it.
  */
 internal class TranslationIpRateLimiter(
     private val perMinute: Int,

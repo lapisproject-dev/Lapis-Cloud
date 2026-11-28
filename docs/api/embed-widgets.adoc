@@ -709,12 +709,25 @@ GET /api/embed/v1/events/past?page=1&limit=20
 * `registrationUrl` points to the public event page, which says "Diese Veranstaltung hat stattgefunden." and offers no
   registration form.
 
-`Cache-Control: no-store` is present on every response — this is a **read-only, non-personalized**
-endpoint, but it shares the same `applyEmbedCors` helper every other endpoint on this surface uses,
-which sets `no-store` unconditionally before any handler-specific logic runs (see
-`network.lapis.cloud.server.embed.EmbedCors` KDoc). Making this specific endpoint cacheable would
-require changing that shared, security-reviewed helper — out of scope for this wave, left for a
-follow-up if partner-site polling volume ever warrants it.
+The archive never translates: it ignores `?lang=` and `Accept-Language` and keeps `Cache-Control: no-store` (the shared
+`applyEmbedCors` helper sets it before the handler runs).
+
+[[events-feed-language]]
+=== Language choice of the events feed (wave V1.9.343)
+
+`GET /api/embed/v1/events` can deliver the four text fields (`title`, `summary`, `description`, `coverImageAlt`) machine
+translated. **Off by default** and only for events whose author consented (see `docs/features/content-translation.adoc`).
+
+* `?lang=<code>` (one of `de`, `en`, `fr`, `es`, `it`, `nl`, `pl`, `ru`) wins over `Accept-Language` (q-values honoured). An
+  unsupported, empty, repeated or malformed `lang` gives `en`. **No wish at all gives the original.**
+* The fields `lang`, `sourceLang`, `translated`, `machineTranslated` and `translationPending` are added to each own entry only if
+  the operator enabled the translation or the request carries `?lang=`; otherwise the body is unchanged byte for byte.
+* Place, price, dates, links, `full`, `onlineUrl` and `seriesText` are never translated. `partnerEvents` and the archive are not
+  translated.
+* Headers: `Vary: Origin, Accept-Language`; `Content-Language` (delivered languages); `Cache-Control: public, max-age=60` only if at
+  least one entry is translated and none is pending, otherwise `no-store` (exactly one value in every case).
+* The bundled `events` widget sends the browser language automatically and does not label machine translations yet: do not enable
+  the translation before the labelling wave (T3).
 
 [[events-list-hydration]]
 === The `events` widget (wave V1.9.248)
