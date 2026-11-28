@@ -464,6 +464,9 @@ import network.lapis.cloud.server.theme.ThemeStartupCheck
 import network.lapis.cloud.server.theme.WOFF2_CONTENT_TYPE
 import network.lapis.cloud.server.theme.registerThemeRoutes
 import network.lapis.cloud.server.time.ServerClock
+import network.lapis.cloud.server.translation.TranslationService
+import network.lapis.cloud.server.translation.config.TranslateConfig
+import network.lapis.cloud.server.translation.config.TranslateStartupCheck
 import network.lapis.cloud.server.videooverlays.VideoOverlayInstanceLogo
 import network.lapis.cloud.server.videooverlays.VideoOverlayStorage
 import network.lapis.cloud.server.webhook.WebhookConfig
@@ -652,6 +655,9 @@ internal fun Application.module(
     // Welle V1.9.9 "Ortssuche" -- same "explicit parameter with a production-safe default" pattern as
     // [postalCodeCentroids] just above.
     placeSearchIndex: PlaceSearchIndex? = PlaceSearchIndex.bundled,
+    // Welle V1.9.342 "Uebersetzung oeffentlicher Inhalte" -- an explicit parameter so tests can set it; the default reads the environment (off unless
+    // LAPIS_TRANSLATE_* is complete), exactly what production gets from the zero-argument entry point above.
+    translateConfig: TranslateConfig = TranslateConfig.load(),
 ) {
     // Idempotent (see DatabaseConfig/DevSeedData KDoc) — safe to call again here so that
     // ApplicationTest's `testApplication { application { module() } }` also gets a migrated,
@@ -2425,6 +2431,13 @@ internal fun Application.module(
     val aiAuditSink = DbAiCallAuditRecorder()
     val aiIndexer = KnowledgeIndexer(storageRoot = documentStorageRoot)
     if (aiConfig.isOperational) PostgresFullTextIndexInitializer.ensureIndexes()
+
+    // Welle V1.9.342 "Uebersetzung oeffentlicher Inhalte" (T1: core only) -- DEFAULT OFF, own LAPIS_TRANSLATE_* profile (see TranslateConfig
+    // KDoc), never fail-fast. The service is ALWAYS built (it answers DISABLED while off) but nothing calls it yet: no route and no RPC in T1.
+    TranslateStartupCheck.log(translateConfig)
+    val translationLlm = translateConfig.providerProfileOrNull()?.let(AiProviderFactory::create)
+    val translationService = TranslationService(config = translateConfig, llm = translationLlm)
+    monitor.subscribe(ApplicationStopping) { translationService.close() }
 
     // Welle V1.8.1 "MCP-Server für Mitglieder-Agenten (Fundament, lesend)" -- optional MCP resource
     // server, DEFAULT OFF (see McpConfig KDoc). Same "never fail-fast" posture as aiConfig above.

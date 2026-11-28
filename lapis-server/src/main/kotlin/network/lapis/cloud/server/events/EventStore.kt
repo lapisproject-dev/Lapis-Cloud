@@ -7,6 +7,9 @@ import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
+import network.lapis.cloud.server.translation.ContentTranslationStore
+import network.lapis.cloud.server.translation.EventTranslationSource
+import network.lapis.cloud.server.translation.TranslatableContentType
 import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventRegistrationStatusSets
@@ -210,6 +213,23 @@ internal object EventStore {
             it[EventTable.onlineKind] = onlineKind
             it[EventTable.encounterSpaceId] = encounterSpaceId
         }
+        // V1.9.342: a stale translation is never served (the hash is part of its key); this hook only removes what can no longer be hit.
+        // It runs with the feature off too -- rows may stem from an earlier phase. A no-longer-public event loses all of them.
+        if (visibility == EventVisibility.PUBLIC) {
+            ContentTranslationStore.deleteStale(
+                type = TranslatableContentType.EVENT,
+                id = id,
+                currentHashes =
+                    EventTranslationSource.hashes(
+                        title = title,
+                        summary = summary,
+                        description = description,
+                        coverImageAlt = coverImageAlt,
+                    ),
+            )
+        } else {
+            ContentTranslationStore.deleteForContent(type = TranslatableContentType.EVENT, id = id)
+        }
     }
 
     fun setStatus(
@@ -221,6 +241,8 @@ internal object EventStore {
             it[EventTable.status] = status
             it[EventTable.cancelledAt] = cancelledAt
         }
+        // V1.9.342: a draft is not public -- its cached translations go (the same predicate as EventTranslationEligibility).
+        if (status == EventStatus.DRAFT) ContentTranslationStore.deleteForContent(type = TranslatableContentType.EVENT, id = id)
     }
 
     /**
@@ -900,6 +922,8 @@ internal object EventStore {
         EventOnlineLifecycle.beforeEventDeleted(id)
         // V1.9.156: the capture-consent proofs of this event go first (no ON DELETE CASCADE in V110).
         EventCaptureAcknowledgments.deleteForEvent(id)
+        // V1.9.342: content_translation.content_id is polymorphic and has no foreign key -- the cache rows of this event go explicitly.
+        ContentTranslationStore.deleteForContent(type = TranslatableContentType.EVENT, id = id)
         return EventTable.deleteWhere { EventTable.id eq id }
     }
 }

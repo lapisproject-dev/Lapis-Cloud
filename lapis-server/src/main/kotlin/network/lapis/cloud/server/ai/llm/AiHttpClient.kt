@@ -37,11 +37,18 @@ import network.lapis.cloud.server.ai.config.AiConfig
  *   hand, so no content-type sniffing or deserializer runs on provider output.
  */
 internal fun aiHttpClient(config: AiConfig): HttpClient =
+    aiHttpClient(connectTimeoutMs = config.connectTimeoutMs, requestTimeoutMs = config.requestTimeoutMs)
+
+/** Same hardened client, parameterized by timeouts so other features (translation) can share it. */
+internal fun aiHttpClient(
+    connectTimeoutMs: Long,
+    requestTimeoutMs: Long,
+): HttpClient =
     HttpClient(CIO) {
         install(HttpTimeout) {
-            connectTimeoutMillis = config.connectTimeoutMs
-            requestTimeoutMillis = config.requestTimeoutMs
-            socketTimeoutMillis = config.requestTimeoutMs
+            connectTimeoutMillis = connectTimeoutMs
+            requestTimeoutMillis = requestTimeoutMs
+            socketTimeoutMillis = requestTimeoutMs
         }
         expectSuccess = false
         followRedirects = false

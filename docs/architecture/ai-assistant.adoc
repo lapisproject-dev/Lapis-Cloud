@@ -92,6 +92,8 @@ this repository's Ktor line and offers a logging-free client module.
 `LlmResult.Failure` deliberately carries no provider text: neither a provider name, a model name nor
 an error message can reach the UI or a log through it.
 
+NOTE: The translation feature (V1.9.342, link:translation.adoc[translation.adoc]) reuses `LlmClient`, the provider factory and the hardened HTTP client with its own `LAPIS_TRANSLATE_*` profile (through `LlmProviderProfile`); it shares no switch, key or budget with this feature.
+
 === HTTP hardening
 
 * `followRedirects = false`, bounded connect/request/socket timeouts, no Ktor `Logging` plugin

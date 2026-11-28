@@ -47,6 +47,20 @@ internal class AiConfig private constructor(
     val isOperational: Boolean
         get() = enabled && provider != null && !model.isNullOrBlank() && !apiKeyValue.isNullOrBlank() && baseUrl != null
 
+    /** The provider profile for the shared client factory; `null` when the feature is not operational. */
+    internal fun providerProfileOrNull(): network.lapis.cloud.server.ai.llm.LlmProviderProfile? {
+        if (!isOperational) return null
+        return network.lapis.cloud.server.ai.llm.LlmProviderProfile(
+            provider = provider ?: return null,
+            model = model ?: return null,
+            apiKeyValue = apiKeyValue ?: return null,
+            baseUrl = baseUrl ?: return null,
+            connectTimeoutMs = connectTimeoutMs,
+            requestTimeoutMs = requestTimeoutMs,
+            maxResponseBytes = maxResponseBytes,
+        )
+    }
+
     /** Redacted -- never the key, not even shortened or hashed. */
     override fun toString(): String =
         "AiConfig(enabled=$enabled, provider=$provider, model=$model, baseUrl=$baseUrl, " +
@@ -74,15 +88,13 @@ internal class AiConfig private constructor(
          */
         const val ENV_MEMBER_OPT_IN_DEFAULT = "LAPIS_AI_MEMBER_OPT_IN_DEFAULT"
 
-        const val DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com"
+        const val DEFAULT_ANTHROPIC_BASE_URL = ProviderProfileParsing.DEFAULT_ANTHROPIC_BASE_URL
         const val DEFAULT_TOP_K = 6
         const val DEFAULT_RATE_MEMBER_HOUR = 10
         const val DEFAULT_RATE_SERVER_DAY = 200
         const val DEFAULT_MAX_OUTPUT_TOKENS = 700
         const val DEFAULT_REQUEST_TIMEOUT_MS = 60_000L
         const val DEFAULT_MAX_RESPONSE_BYTES = 256 * 1024
-
-        private const val MAX_MODEL_LENGTH = 120
 
         /**
          * Pure string/number validation, no I/O. Never throws. With `LAPIS_AI_ENABLED` unset or not
@@ -124,12 +136,18 @@ internal class AiConfig private constructor(
 
             if (!enabled) return disabled()
 
-            val provider = parseProvider(raw = env(ENV_PROVIDER)?.trim(), invalid = invalid)
-            val model = parseModel(raw = env(ENV_MODEL)?.trim(), invalid = invalid)
-            val apiKey = parseApiKey(raw = env(ENV_API_KEY)?.trim(), invalid = invalid)
+            val provider = ProviderProfileParsing.parseProvider(raw = env(ENV_PROVIDER)?.trim(), envName = ENV_PROVIDER, invalid = invalid)
+            val model = ProviderProfileParsing.parseModel(raw = env(ENV_MODEL)?.trim(), envName = ENV_MODEL, invalid = invalid)
+            val apiKey = ProviderProfileParsing.parseApiKey(raw = env(ENV_API_KEY)?.trim(), envName = ENV_API_KEY, invalid = invalid)
             val allowPlaintext = env(ENV_ALLOW_PLAINTEXT_BASE_URL)?.trim().equals("true", ignoreCase = true)
             val baseUrl =
-                resolveBaseUrl(provider = provider, raw = env(ENV_BASE_URL)?.trim(), allowPlaintext = allowPlaintext, invalid = invalid)
+                ProviderProfileParsing.resolveBaseUrl(
+                    provider = provider,
+                    raw = env(ENV_BASE_URL)?.trim(),
+                    allowPlaintext = allowPlaintext,
+                    envName = ENV_BASE_URL,
+                    invalid = invalid,
+                )
 
             val topK = intVar(ENV_TOP_K, DEFAULT_TOP_K, 1..20)
             val rateMember = intVar(ENV_RATE_MEMBER_HOUR, DEFAULT_RATE_MEMBER_HOUR, 1..1_000)
@@ -188,73 +206,6 @@ internal class AiConfig private constructor(
                 memberOptInDefault = false,
                 invalid = emptyList(),
             )
-
-        private fun parseProvider(
-            raw: String?,
-            invalid: MutableList<String>,
-        ): AiProviderKind? {
-            if (raw.isNullOrEmpty()) {
-                invalid += ENV_PROVIDER
-                return null
-            }
-            val normalized = raw.uppercase().replace('-', '_')
-            val parsed = AiProviderKind.entries.firstOrNull { it.name == normalized }
-            if (parsed == null) invalid += ENV_PROVIDER
-            return parsed
-        }
-
-        private fun parseModel(
-            raw: String?,
-            invalid: MutableList<String>,
-        ): String? {
-            if (raw.isNullOrEmpty()) {
-                invalid += ENV_MODEL
-                return null
-            }
-            if (raw.length > MAX_MODEL_LENGTH || raw.any { it.code < 0x20 || it.code == 0x7f }) {
-                invalid += ENV_MODEL
-                return null
-            }
-            return raw
-        }
-
-        private fun parseApiKey(
-            raw: String?,
-            invalid: MutableList<String>,
-        ): String? {
-            if (raw.isNullOrEmpty()) {
-                invalid += ENV_API_KEY
-                return null
-            }
-            // A header value containing a control character would be a header-injection vector.
-            if (raw.any { it.code < 0x20 || it.code == 0x7f }) {
-                invalid += ENV_API_KEY
-                return null
-            }
-            return raw
-        }
-
-        private fun resolveBaseUrl(
-            provider: AiProviderKind?,
-            raw: String?,
-            allowPlaintext: Boolean,
-            invalid: MutableList<String>,
-        ): String? {
-            val candidate =
-                when {
-                    !raw.isNullOrEmpty() -> raw
-                    provider == AiProviderKind.ANTHROPIC -> DEFAULT_ANTHROPIC_BASE_URL
-                    else -> {
-                        // OPENAI_COMPATIBLE has no unambiguous default host, and an unknown provider
-                        // has no profile at all: the variable is required in both cases.
-                        if (provider != null) invalid += ENV_BASE_URL
-                        return null
-                    }
-                }
-            val validated = AiBaseUrlGuard.validateOrNull(raw = candidate, allowPlaintextLoopback = allowPlaintext)
-            if (validated == null) invalid += ENV_BASE_URL
-            return validated
-        }
 
         /** Hard upper bound for the tool-call cap -- shared by the pipeline and the tests. */
         const val HARD_MAX_TOOL_CALLS: Int = 2

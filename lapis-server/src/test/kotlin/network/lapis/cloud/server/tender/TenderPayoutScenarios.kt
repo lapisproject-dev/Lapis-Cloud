@@ -54,6 +54,7 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.notLike
 import org.jetbrains.exposed.v1.core.sum
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -80,7 +81,24 @@ abstract class TenderPayoutScenarios(
             TimeTestSupport.setOrganizationZone("Europe/Berlin")
         }
         installLaneGuards(db = db, checkDeadlocks = true)
-        afterTest { fx.reset() }
+        // The seeded members that silenceSeededMembers() withdrew, with their status before: put back after every test so no later spec in the same
+        // test JVM (WebhookDeliveryPollerTest needs active BOARD/ADMIN members) finds the seed withdrawn -- an order dependency the distribution of the
+        // spec classes over the forks used to hide.
+        val silencedSeed = mutableMapOf<Uuid, MemberStatus>()
+        afterTest {
+            fx.reset()
+            if (silencedSeed.isNotEmpty()) {
+                transaction {
+                    silencedSeed.forEach { (memberId, previous) ->
+                        MemberTable.update({ MemberTable.id eq memberId }) {
+                            it[status] =
+                                previous
+                        }
+                    }
+                }
+                silencedSeed.clear()
+            }
+        }
         afterSpec {
             TimeTestSupport.resetOrganizationZone()
             db.deactivate()
@@ -779,6 +797,10 @@ abstract class TenderPayoutScenarios(
         // The seeded database already holds board members; the exact-recipient tests silence every member that is not a fixture member.
         fun silenceSeededMembers() {
             transaction {
+                MemberTable
+                    .selectAll()
+                    .where { (MemberTable.email notLike "tender-test-%") and (MemberTable.status neq MemberStatus.WITHDRAWN) }
+                    .forEach { silencedSeed.putIfAbsent(it[MemberTable.id], it[MemberTable.status]) }
                 MemberTable.update({ MemberTable.email notLike "tender-test-%" }) { it[status] = MemberStatus.WITHDRAWN }
             }
         }

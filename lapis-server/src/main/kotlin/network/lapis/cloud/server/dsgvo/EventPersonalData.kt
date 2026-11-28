@@ -252,6 +252,26 @@ object EventPersonalData : MemberPersonalDataContributor {
                         }
                 },
             )
+            // V1.9.342: this member's own consent decisions to a machine translation of a public event text (who decided, when, what).
+            put(
+                "translationConsentDecisions",
+                buildJsonArray {
+                    EventTable
+                        .selectAll()
+                        .where { EventTable.translationConsentBy eq memberId }
+                        .limit(MAX_EXPORTED_REGISTRATIONS)
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("eventId", row[EventTable.id].toString())
+                                    put("title", row[EventTable.title])
+                                    put("consent", row[EventTable.translationConsent])
+                                    row[EventTable.translationConsentAt]?.let { put("decidedAt", it.toString()) }
+                                },
+                            )
+                        }
+                },
+            )
             put(
                 "createdEventSeries",
                 buildJsonArray {
@@ -330,6 +350,12 @@ object EventPersonalData : MemberPersonalDataContributor {
                 .where { EventSeriesTable.createdBy eq memberId }
                 .count()
                 .toInt()
+        val translationConsentDecisionCount =
+            EventTable
+                .selectAll()
+                .where { EventTable.translationConsentBy eq memberId }
+                .count()
+                .toInt()
         // V1.9.204: the optional message is free text the member wrote -- removed (set to NULL), the row itself stays.
         val clearedMessages =
             EventRegistrationTable.update(
@@ -361,6 +387,17 @@ object EventPersonalData : MemberPersonalDataContributor {
                         "Organisatorische Nachvollziehbarkeit, wer eine Veranstaltung angelegt hat -- " +
                             "created_by bleibt als FK-Anker erhalten, die Veranstaltung selbst beschreibt " +
                             "keine Person.",
+                )
+        }
+        if (translationConsentDecisionCount > 0) {
+            outcomes +=
+                TableErasureOutcome(
+                    table = "event",
+                    rowsRetained = translationConsentDecisionCount,
+                    retentionReason =
+                        "Nachweis der Einwilligung des Autors in die maschinelle Uebersetzung des oeffentlichen Veranstaltungstexts " +
+                            "(Art. 7 Abs. 1 DSGVO: wer hat wann entschieden) -- translation_consent_by bleibt als FK-Anker erhalten, " +
+                            "die Veranstaltung selbst beschreibt keine Person.",
                 )
         }
         if (createdEventRoomCount > 0) {

@@ -1,0 +1,117 @@
+= Just-in-time translation of public content: architecture (V1.9.342)
+:toc:
+
+NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+This page records the structure, the locks and the data-protection decisions of the translation core. See link:../features/content-translation.adoc[the feature description] for the status. **Wave T1 builds the core only: events, no route, no API field, no screen.** Nothing calls the service yet. The feature is off by default.
+
+== Purpose and boundary
+
+Public texts of a Lapis Cloud instance are written in one language (the instance's *content language*, default `de`). A visitor who reads another language gets a machine translation, produced on demand by a configured language model and stored, so the same text is never translated twice.
+
+* **Only events.** `TranslatableContentType` has one literal, `EVENT`. Articles are deliberately out (a tripwire pins that); auctions and carpool hints are later waves and will be appended to the enum and to the database CHECK by a new migration.
+* **Only four text fields:** title, summary, description and the picture's alternative text. Place, price, capacity, dates and links are structured data and never reach the model; a later wave formats them on the server.
+* **Only with the author's consent and only while public.** An event is sent out only if `event.translation_consent` is true and the event is public (`visibility = PUBLIC` and a status other than `DRAFT`, one predicate: `EventTranslationEligibility`).
+* **Off by default.** The operator switches it on with `LAPIS_TRANSLATE_ENABLED=true` and a complete provider profile. Without it `TranslationService` answers `DISABLED` and reads nothing from storage.
+
+== Package layout
+
+The code lives in `network.lapis.cloud.server.translation`, outside `ai/`, so the rule "nothing below `ai/` writes a table other than the five Ai tables" stays true. It reuses the provider abstraction of the AI layer (`LlmClient`, `AiProviderFactory`, the hardened HTTP client, `AiBaseUrlGuard`) through a small `LlmProviderProfile` instead of `AiConfig`; the behaviour of the statute Q&A does not change.
+
+== Configuration
+
+`TranslateConfig` mirrors `AiConfig`: `load` never throws and never stops the start; a missing or broken value means "feature off" and the offending variable names are logged. The profile is its own (`LAPIS_TRANSLATE_*`), independent of `LAPIS_AI_*`. The compose files do not forward any of these variables (a test pins that), `LAPIS_TRANSLATE_API_KEY` may be given as a file (`_FILE`), and the key is never part of `toString`, a log line or an exception message.
+
+CAUTION: The OpenAI-compatible client appends `/v1/chat/completions` to the base URL. For xAI the base URL is therefore `https://api.x.ai`, **not** `https://api.x.ai/v1` (that would call `/v1/v1/...`). The start-up check warns if the path ends in `/v1`. `api.x.ai` is deliberately not in the list of known provider hosts: that list means "tested against", and this is untrue.
+
+== Data model
+
+`V177__content_translation.sql` is purely additive. `V176` is released (0.57.0), so a new migration was required.
+
+[kuml, translation-schema, svg]
+----
+classDiagram(name = "Translation -- tables") {
+    val member = classOf(name = "member") {
+        attribute(name = "id", type = "UUID")
+    }
+    val event = classOf(name = "event") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "title", type = "String")
+        attribute(name = "summary", type = "String")
+        attribute(name = "description", type = "String")
+        attribute(name = "cover_image_alt", type = "String")
+        attribute(name = "translation_consent", type = "Boolean")
+        attribute(name = "translation_consent_by", type = "UUID")
+        attribute(name = "translation_consent_at", type = "LocalDateTime")
+    }
+    val translation = classOf(name = "content_translation") {
+        attribute(name = "content_type", type = "String")
+        attribute(name = "content_id", type = "UUID")
+        attribute(name = "field", type = "String")
+        attribute(name = "source_sha256", type = "String")
+        attribute(name = "source_lang", type = "String")
+        attribute(name = "target_lang", type = "String")
+        attribute(name = "translated_text", type = "String")
+        attribute(name = "model_profile", type = "String")
+        attribute(name = "created_at", type = "LocalDateTime")
+    }
+    val settings = classOf(name = "organization_settings") {
+        attribute(name = "content_language", type = "String")
+    }
+    association(from = member, to = event)
+}
+----
+
+* `content_translation` is keyed by content, field, the SHA-256 of the exact source text and the language pair. A changed source text has a new hash, so a stale row is never served; `EventStore.updateEvent` additionally deletes the rows that can no longer be hit. `content_id` has **no foreign key** because the column is polymorphic; the delete hooks (`deleteEventHard`, visibility and status changes, revoke) plus a tripwire test replace it. `model_profile` is `<provider>:<model>`, never a URL or key.
+* `event.translation_consent` defaults to false for every existing and every new, imported, copied or series event. `_by` and `_at` hold the **last decision** (grant or revoke); a check constraint requires both while the consent is true. Written only by `EventTranslationConsent`. In T1 no RPC method calls it (that is T3); the audit entry comes with the RPC.
+* `organization_settings.content_language` (default `de`) is the language the instance writes its public content in. There is no setter yet (T3).
+
+== Flow of a request
+
+[kuml, translation-flow, svg]
+----
+sequenceDiagram(name = "Translate an event on demand") {
+    val caller = lifeline(name = "Caller (T2: public route)")
+    val service = lifeline(name = "TranslationService")
+    val db = lifeline(name = "Database")
+    val job = lifeline(name = "Job (service scope)")
+    val model = lifeline(name = "LlmClient")
+
+    message(from = caller, to = service, label = "translateEvent(id, language preferences)")
+    message(from = service, to = db, label = "read: public? consent? hashes, stored translations")
+    message(from = service, to = caller, label = "original: not found, not public, same language, no consent, disabled")
+    message(from = service, to = job, label = "missing fields: join or start ONE job per (content, pair, hashes)")
+    message(from = job, to = model, label = "budget reserved, JSON of the four texts, links as tokens")
+    message(from = model, to = job, label = "JSON answer")
+    message(from = job, to = job, label = "validate (discard, never repair)")
+    message(from = job, to = db, label = "lock event row, re-check consent generation and hashes, store")
+    message(from = service, to = caller, label = "translation, or the original and 'pending' after the wait time")
+}
+----
+
+* **Single flight.** Any number of concurrent requests for the same content, language pair and source hashes share one job and one model call (at most 64 distinct jobs at once). A job that finds all rows already stored (another request or instance was faster) makes no call.
+* **Wait time.** A request waits at most `LAPIS_TRANSLATE_WAIT_MS` (default 8 s). A slower job keeps running in the service's own scope (a cancelled or timed-out request never cancels it); the next request finds the result. The slow request gets the original and `translationPending`.
+* **All or nothing.** The answer contains, for every field, the translation or the original, never a mixture.
+* **No automatic retry.** After a failure the same job is not started again for ten minutes (a budget refusal: one minute); only a later request starts the next attempt. There is no token use without a viewer.
+* **Cost bounds.** Daily character budget (in memory, **per JVM; a restart resets it**), a size limit per content, a semaphore around the model call, a bounded number of jobs and cooldown entries. The reservation is made before the call and is not given back on failure.
+* **Re-check at write time.** The job stores its rows only if, under the event row lock (`FOR UPDATE`), the event is still public, the consent is still given *with the same decision timestamp*, the text hashes are unchanged and the content language is unchanged. A revoke, and also revoke plus re-grant, therefore always wins over a running job; `cancelInFlight` is only a best-effort shortcut. A revoke deletes the stored rows in the same transaction. The insert uses a savepoint per row and swallows only a unique violation, so two instances writing the same row cannot poison a PostgreSQL transaction.
+* **No HTTP in a transaction** (rule of V1.9.55). The model call sits under the semaphore, outside every transaction block (a test pins that).
+
+== Prompt isolation and validation
+
+* The system prompt is a constant template; only the two language names (taken from the supported-language list, never from user data) are inserted. The texts travel as the user message, a JSON object built with kotlinx.serialization; its string values are declared untrusted data. No tool, history or memory is sent (given by the shape of `LlmClient`).
+* URLs, `www.` hosts, e-mail addresses and the schemes `mailto:`, `tel:`, `javascript:` and `data:` are replaced by tokens before sending and put back byte for byte after validation. The two bracket characters of the tokens are removed from the source first, so nobody can forge a token.
+* `TranslationValidator` discards the whole answer (it never repairs) unless: it is a JSON object with exactly the requested keys and string values (one surrounding `json` fence is tolerated); control and bidi characters are removed and nothing empty remains; every token occurs exactly once and no foreign token exists; no link, address or scheme appears outside a token; no HTML-like markup, Markdown link or autolink appears (events are plain text; the rule sits in a per-content-type `StructurePolicy`); the paragraph and line structure of the description is unchanged; the multiset of digit sequences is unchanged; the length is within three times the source (or source plus 200) and the hard caps.
+* The digit rule can discard a correct translation (for example "20 Uhr" to "8 pm"). That is intended: a number is never altered silently.
+
+== Backup and data protection
+
+* `content_translation` is **not** part of a backup (a refillable cache; a restore would bring back translations whose consent may have been revoked meanwhile). The consent column **is** backed up and kept on restore: it is the author's documented decision, and the outflow additionally depends on the operator switch, which is not in the backup. A bundle row without the column gets `false`; a value that is not a boolean is refused. `organization_settings.content_language` is validated like `mail_language`. The schema checksum changes, so older bundles are refused as before.
+* Export of personal data lists the member's own consent decisions (event, title, value, time). Erasure retains them (proof of consent, Art. 7 (1) GDPR; the event describes no person).
+* Logs carry counts, durations and the result enum only: never a text, a prompt, an answer, a key or a URL.
+
+== Limits and open questions
+
+* The daily budget and the cooldowns are in memory (per JVM).
+* The legal questions are open and block neither the build nor the default: a processing agreement with the provider (Art. 28 GDPR), the roles toward the provider and partner servers (Art. 26), the labelling duty for machine-generated text (AI Regulation Art. 50), and copyright of translated text. They must be settled before an operator switches the feature on.
+* Never tested against a real provider, also not against xAI.

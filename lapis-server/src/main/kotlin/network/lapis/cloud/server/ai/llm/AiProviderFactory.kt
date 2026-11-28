@@ -9,30 +9,28 @@ internal object AiProviderFactory {
      * `null` when [AiConfig.isOperational] is `false`: no HTTP client, no provider class is even
      * constructed while the feature is off ("loads no provider").
      */
-    fun create(config: AiConfig): LlmClient? {
-        if (!config.isOperational) return null
-        val baseUrl = config.baseUrl ?: return null
-        val model = config.model ?: return null
-        val apiKey = config.apiKey ?: return null
-        val http = aiHttpClient(config)
-        return when (config.provider) {
+    fun create(config: AiConfig): LlmClient? = config.providerProfileOrNull()?.let(::create)
+
+    /** Builds the client for an already validated [profile]. */
+    fun create(profile: LlmProviderProfile): LlmClient {
+        val http = aiHttpClient(connectTimeoutMs = profile.connectTimeoutMs, requestTimeoutMs = profile.requestTimeoutMs)
+        return when (profile.provider) {
             AiProviderKind.ANTHROPIC ->
                 AnthropicMessagesLlmClient(
                     http = http,
-                    baseUrl = baseUrl,
-                    model = model,
-                    apiKey = apiKey,
-                    maxResponseBytes = config.maxResponseBytes,
+                    baseUrl = profile.baseUrl,
+                    model = profile.model,
+                    apiKey = profile.apiKey,
+                    maxResponseBytes = profile.maxResponseBytes,
                 )
             AiProviderKind.OPENAI_COMPATIBLE ->
                 OpenAiCompatibleLlmClient(
                     http = http,
-                    baseUrl = baseUrl,
-                    model = model,
-                    apiKey = apiKey,
-                    maxResponseBytes = config.maxResponseBytes,
+                    baseUrl = profile.baseUrl,
+                    model = profile.model,
+                    apiKey = profile.apiKey,
+                    maxResponseBytes = profile.maxResponseBytes,
                 )
-            null -> null
         }
     }
 }

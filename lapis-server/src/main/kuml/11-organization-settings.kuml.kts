@@ -572,6 +572,12 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "'de'"
             stereotype("Column") { "columnName" to "mail_language"; "sqlType" to "VARCHAR(8)" }
         }
+        // Welle V1.9.342 (V177__content_translation.sql). Source language of the instance's public content (one of the eight supported codes),
+        // NOT NULL, 'de' = today's behaviour. NOT part of the generic updateOrganizationSettings write-set; no setter in V1.9.342 (the UI wave adds it).
+        attribute(name = "contentLanguage", type = "String") {
+            defaultValue = "'de'"
+            stereotype("Column") { "columnName" to "content_language"; "sqlType" to "VARCHAR(8)" }
+        }
         // Welle V1.9.143 (V106__pulpit_recording.sql). The instance switch of the optional pulpit recording in the encounter space (NOT NULL,
         // FALSE = off), the version of the operator notice the admin acknowledged when switching it on (NULL until then) and whether the
         // pulpit has to confirm before a recording starts (NOT NULL, TRUE). All three are NOT part of the generic updateOrganizationSettings

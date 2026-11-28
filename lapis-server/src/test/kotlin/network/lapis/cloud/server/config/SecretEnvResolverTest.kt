@@ -179,6 +179,6 @@ class SecretEnvResolverTest :
         }
 
         test("preflight names are exactly the secret list") {
-            SecretEnv.SECRET_NAMES.size shouldBe 18
+            SecretEnv.SECRET_NAMES.size shouldBe 19
         }
     })

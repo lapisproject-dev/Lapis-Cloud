@@ -713,3 +713,16 @@ Föderierter, öffentlicher Veranstaltungs-Feed zwischen direkt verbundenen Lapi
 - **Kurse nur über `ReferenceRateConversion`** (Fassade vor `PriceOracleReferenceRateResolver`); niemand sonst nennt den Resolver.
 - **Sperrreihenfolge:** erst die Berichtszeile `FOR UPDATE`, dann (nur beim Storno) die Mitgliedszeile. Vier-Augen: Betroffene Person und Antragsteller lösen nie aus und stornieren nie.
 - **Offene Fragen** (Steuerberatung, siehe `docs/features/travel-expenses.adoc`): Gegenkonto der Begleichung (`SETTLEMENT_ACCOUNT_TYPES`), Bereich der Gemeinnützigkeit, PartG-Ausweis, Rundung.
+
+## Übersetzung öffentlicher Inhalte (V1.9.342, Migration V177)
+
+Kern der Just-in-Time-Übersetzung, nur Veranstaltungen, standardmäßig aus (`LAPIS_TRANSLATE_*`, siehe `docs/architecture/translation.adoc`). Kurzregeln:
+
+- **Schreibmonopol:** `ContentTranslationStore` ist der einzige Leser/Schreiber von `content_translation`; `EventTranslationConsent` ist der einzige Schreiber von `event.translation_consent*`; nur `EventStore` schreibt Titel/Zusammenfassung/Beschreibung/Alt-Text (Tripwire `TranslationStructureTest`).
+- **Hooks in `EventStore`** (`updateEvent`, `setStatus` nach DRAFT, `deleteEventHard`) löschen veraltete Zeilen, auch bei ausgeschaltetem Feature. `content_id` hat bewusst keinen FK (polymorph).
+- **Kein `ARTICLE`**, kein Import aus `articles`. Neue Inhaltstypen nur ans Ende von `TranslatableContentType` und den DB-CHECK per neuer Migration erweitern.
+- **Kein HTTP in der Transaktion;** der Schreibpfad prüft unter dem Zeilenlock Einwilligung samt Zeitstempel (Generation), Hashes, Sichtbarkeit und Quellsprache erneut.
+- **Compose reicht `LAPIS_TRANSLATE_*` nicht durch** (Test). `LAPIS_TRANSLATE_API_KEY` steht in `SecretEnv.SECRET_NAMES`.
+- **Base-URL für xAI ohne `/v1`** (`https://api.x.ai`): der Client hängt `/v1/chat/completions` selbst an.
+- Der Cache liegt nicht im Backup; die Einwilligung schon (bleibt beim Restore erhalten).
+- `V177` darf bis zum Release auf dem Branch korrigiert werden, danach nur per neuer Migration.

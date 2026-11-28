@@ -72,6 +72,7 @@ object SecretEnv {
             "LAPIS_STAGING_SEED_PASSWORD",
             "LAPIS_STRIPE_SECRET_KEY",
             "LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET",
+            "LAPIS_TRANSLATE_API_KEY",
             "LAPIS_TURN_SHARED_SECRET",
         )
 

@@ -1260,3 +1260,5 @@ col:TravelExpenseLtrPayoutTable.referenceDate	D	calendar date (LocalDate); never
 col:TravelExpenseLtrPayoutTable.effectiveDate	D	calendar date (LocalDate); never converted
 col:TravelExpenseLtrPayoutTable.triggeredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:TravelExpenseLtrPayoutTable.reversedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventTable.translationConsentAt	A	EventTranslationConsent.set: stamped by the server clock (ServerClock.now()); stored and sent as UTC (V1.9.342)
+col:ContentTranslationTable.createdAt	A	ContentTranslationStore.insert: stamped by the server clock (ServerClock.now()); stored as UTC (V1.9.342)

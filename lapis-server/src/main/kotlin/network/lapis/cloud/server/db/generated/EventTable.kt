@@ -12,6 +12,8 @@
 // 39-events.kuml.kts file header addendum.
 // Welle V1.9.156 "Aufzeichnung in Veranstaltungsräumen" -- hand-edited, `captureAllowed` column added, see 39-events.kuml.kts file header addendum.
 // Welle V1.9.227 "Sitzung in der Videokonferenz" -- hand-edited, `meetingId` column added, see 39-events.kuml.kts file header addendum.
+// Welle V1.9.342 "Uebersetzung oeffentlicher Inhalte" -- hand-edited, `translationConsent`/`translationConsentBy`/`translationConsentAt` columns
+// added, see 39-events.kuml.kts file header addendum.
 
 package network.lapis.cloud.server.db.generated
 
@@ -80,6 +82,11 @@ public object EventTable : Table("event") {
 
     // V1.9.227 addendum -- see 39-events.kuml.kts file header. No `.references()` (the seriesId posture; the FK lives in V123 only).
     public val meetingId: Column<Uuid?> = uuid("meeting_id").nullable()
+
+    // V1.9.342 addendum -- see 39-events.kuml.kts file header. Written ONLY by translation.EventTranslationConsent.
+    public val translationConsent: Column<Boolean> = bool("translation_consent").default(false)
+    public val translationConsentBy: Column<Uuid?> = reference("translation_consent_by", MemberTable.id).nullable()
+    public val translationConsentAt: Column<LocalDateTime?> = datetime("translation_consent_at").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

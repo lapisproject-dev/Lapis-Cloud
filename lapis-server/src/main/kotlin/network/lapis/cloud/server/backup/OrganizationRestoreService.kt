@@ -71,6 +71,46 @@ internal fun withValidMailLanguage(row: JsonObject): JsonObject {
     return row
 }
 
+/**
+ * V1.9.342 -- the `content_language` value of a restored `organization_settings` row (source language of the public content). Same rule as
+ * [withValidMailLanguage]: an absent value takes the column default `de`, a value outside the supported codes is refused.
+ */
+internal fun withValidContentLanguage(row: JsonObject): JsonObject {
+    val value = row["content_language"]
+    if (value == null || value == JsonNull) {
+        return JsonObject(row + ("content_language" to JsonPrimitive(MembershipDecisionTexts.DEFAULT_LANGUAGE)))
+    }
+    val code = (value as? JsonPrimitive)?.takeIf { it.isString }?.content
+    if (code == null || code !in MembershipDecisionTexts.SUPPORTED) {
+        throw RestoreIncompleteException(
+            "Column 'content_language' of table 'organization_settings' holds an unsupported language code -- the bundle is invalid " +
+                "or comes from an incompatible version. The target instance now holds a partial restore and should be discarded.",
+        )
+    }
+    return row
+}
+
+/**
+ * V1.9.342 -- the `translation_consent` value of a restored `event` row. An absent value (a bundle from before the column existed) means "no
+ * consent" (an absent key would otherwise be bound as NULL against a NOT NULL column); a value that is not a JSON boolean is refused. The
+ * consent is KEPT otherwise (the author's documented decision; the outflow additionally depends on the operator switch, which is not in the
+ * backup, and the cached translations are not backed up).
+ */
+internal fun withDefaultTranslationConsent(row: JsonObject): JsonObject {
+    val value = row["translation_consent"]
+    if (value == null || value == JsonNull) {
+        return JsonObject(row + ("translation_consent" to JsonPrimitive(false)))
+    }
+    val text = (value as? JsonPrimitive)?.takeIf { !it.isString }?.content
+    if (text != "true" && text != "false") {
+        throw RestoreIncompleteException(
+            "Column 'translation_consent' of table 'event' does not hold a boolean -- the bundle is invalid " +
+                "or comes from an incompatible version. The target instance now holds a partial restore and should be discarded.",
+        )
+    }
+    return row
+}
+
 /** One row's worth of PK/value bookkeeping the generic upsert needs -- see [OrganizationRestoreService.upsertRow]. */
 private const val RESTORE_BATCH_SIZE = 200
 
@@ -520,6 +560,7 @@ class OrganizationRestoreService(
             "organization_settings" -> {
                 var result = row
                 result = withValidMailLanguage(result)
+                result = withValidContentLanguage(result)
                 if ((result["carpool_federation_enabled"] as? JsonPrimitive)?.contentOrNull == "true") {
                     counter.incrementAndGet()
                     result = JsonObject(result + ("carpool_federation_enabled" to JsonPrimitive(false)))
@@ -530,6 +571,7 @@ class OrganizationRestoreService(
                 }
                 result
             }
+            "event" -> withDefaultTranslationConsent(row)
             "auction" -> {
                 val consented = (row["federation_opt_in"] as? JsonPrimitive)?.contentOrNull == "true"
                 if (consented) {

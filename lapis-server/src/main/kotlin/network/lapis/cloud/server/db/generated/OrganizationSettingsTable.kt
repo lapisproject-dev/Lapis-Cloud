@@ -109,6 +109,8 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     public val membershipApplicationEnabled: Column<Boolean> = bool("membership_application_enabled").default(true)
     // Welle V1.9.332 -- hand-edited, see 11-organization-settings.kuml.kts.
     public val mailLanguage: Column<String> = varchar("mail_language", 8).default("de")
+    // Welle V1.9.342 -- hand-edited, see 11-organization-settings.kuml.kts.
+    public val contentLanguage: Column<String> = varchar("content_language", 8).default("de")
     // Welle V1.9.143 -- hand-edited, see 11-organization-settings.kuml.kts.
     public val pulpitRecordingEnabled: Column<Boolean> = bool("pulpit_recording_enabled").default(false)
     public val pulpitRecordingNoticeVersion: Column<String?> = varchar("pulpit_recording_notice_version", 16).nullable()

@@ -67,6 +67,8 @@ class OrganizationSchemaCatalogTest :
                     "auction_teaser_snapshot",
                     "auction_received_hint",
                     "auction_received_tombstone",
+                    // Welle V1.9.342 -- the cache of machine translations of public content (refilled on demand)
+                    "content_translation",
                 )
             val names = transaction { OrganizationSchemaCatalog.exportableTables(this).map { it.tableName } }
             ("flyway_schema_history" in names) shouldBe false
@@ -74,6 +76,7 @@ class OrganizationSchemaCatalogTest :
             ("member_photo" in names) shouldBe false
             ("member_public_bio" in names) shouldBe false
             ("conference_recording_speaker_span" in names) shouldBe false
+            ("content_translation" in names) shouldBe false
             listOf("carpool_message", "carpool_message_thread").forEach { ((it in names)) shouldBe false }
             listOf("mail_outbox", "mail_send_slot", "mail_budget_lock").forEach { ((it in names)) shouldBe false }
         }

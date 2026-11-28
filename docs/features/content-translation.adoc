@@ -1,0 +1,39 @@
+= Machine translation of public content (V1.9.342, wave T1)
+:toc:
+
+Public events of an instance can be shown in the visitor's language by a machine translation that is produced on demand and stored. Architecture and data model: link:../architecture/translation.adoc[translation.adoc].
+
+== Status, honestly
+
+* **Off by default** (`LAPIS_TRANSLATE_ENABLED` not `true`). Nothing is sent to a provider unless an operator switches it on and configures a provider.
+* **Wave T1 is the core only.** There is **no screen, no route and no API field** yet, and nothing calls the service (T2 adds the public read path and the `Accept-Language` handling, T3 the author's consent switch, the content-language setting and the display of the "machine translated" notice). The consent column exists and defaults to "no" for every event; no one can change it yet.
+* **Never tested against a real provider**, also not against xAI/Grok. The tests use a scripted model.
+* **Legal questions are open:** processing agreement with the provider (Art. 28 GDPR), roles toward the provider (Art. 26), the labelling duty for machine-generated text (AI Regulation Art. 50) and copyright. Settle them before switching it on.
+* A translation is always meant to be marked as machine translated (the field is there; the display follows in T3).
+
+== What is translated
+
+Events only: title, summary, description and the alternative text of the picture. Place, price, capacity, dates and links are not sent; later waves format them on the server. Articles are not translated. The languages are the eight of the public site (`de`, `en`, `fr`, `es`, `it`, `nl`, `pl`, `ru`); an unsupported request falls back to English; a request in the content language gets the original.
+
+== Operator variables
+
+All variables are **not passed through by the compose files, on purpose**; add them to the service's `environment:` block yourself. `LAPIS_TRANSLATE_API_KEY` may be supplied as a file (`LAPIS_TRANSLATE_API_KEY_FILE`). The reference with defaults is in `deploy/example/README.adoc`, section "Translation of public content".
+
+[cols="3,2,5",options="header"]
+|===
+|Variable |Default |Meaning
+|`LAPIS_TRANSLATE_ENABLED` |off |Must be exactly `true`
+|`LAPIS_TRANSLATE_PROVIDER` |none |`anthropic` or `openai_compatible`
+|`LAPIS_TRANSLATE_MODEL` |none |Model name at the provider
+|`LAPIS_TRANSLATE_API_KEY` |none |Secret
+|`LAPIS_TRANSLATE_BASE_URL` |`https://api.anthropic.com` for `anthropic`, required for `openai_compatible` |HTTPS; **without** a trailing `/v1`
+|`LAPIS_TRANSLATE_ALLOW_PLAINTEXT_BASE_URL` |off |Allows plain HTTP over loopback only
+|`LAPIS_TRANSLATE_REQUEST_TIMEOUT_MS` |30000 (1000 to 120000) |Provider call timeout
+|`LAPIS_TRANSLATE_WAIT_MS` |8000 (500 to 30000) |How long a request waits for a job
+|`LAPIS_TRANSLATE_MAX_RESPONSE_BYTES` |262144 |Provider answer cap
+|`LAPIS_TRANSLATE_MAX_OUTPUT_TOKENS` |6000 (256 to 16384) |Output token cap
+|`LAPIS_TRANSLATE_MAX_SOURCE_CHARS` |12000 (100 to 50000) |Largest content that is translated
+|`LAPIS_TRANSLATE_DAILY_CHAR_BUDGET` |200000 |Characters per day and server process; a restart resets it
+|`LAPIS_TRANSLATE_RATE_PER_IP_MINUTE` |20 |Wired in T2
+|`LAPIS_TRANSLATE_MAX_CONCURRENT` |2 (1 to 8) |Parallel provider calls
+|===

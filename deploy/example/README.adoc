@@ -1389,6 +1389,43 @@ database (never the production database). The GIN index is created automatically
 feature is on and `LAPIS_DB_URL` is PostgreSQL; a failure there is only logged, retrieval stays
 correct without it.
 
+
+== Translation of public content (optional, default off)
+
+`LAPIS_TRANSLATE_*` -- **not passed through by the compose files, on purpose.** Translating public texts sends the **title, summary, description and picture text of a public event to an external language-model provider** (only for events whose author consented). Enabling it is a data-protection decision of the operator: you need a processing agreement (Art. 28 GDPR) with the provider first, and the legal questions listed in `docs/features/content-translation.adoc` are still open. It has its own profile and shares nothing with `LAPIS_AI_*`.
+
+**Wave V1.9.342 is the core only: nothing calls the service yet** (no screen, no route, no API field). Setting the variables changes nothing visible; they are documented here so the configuration is ready. Architecture: xref:../../docs/architecture/translation.adoc[translation.adoc].
+
+To enable it, add the variables to the service's `environment:` block yourself. The base URL is the provider's host **without** a trailing `/v1` -- the client appends `/v1/chat/completions` itself. Example for xAI (`openai_compatible`; look up the model name at the provider; neither the host nor any model was tested):
+
+[source,yaml]
+----
+      LAPIS_TRANSLATE_ENABLED: "true"
+      LAPIS_TRANSLATE_PROVIDER: openai_compatible
+      LAPIS_TRANSLATE_BASE_URL: https://api.x.ai
+      LAPIS_TRANSLATE_MODEL: ${LAPIS_TRANSLATE_MODEL:-}
+      LAPIS_TRANSLATE_API_KEY: ${LAPIS_TRANSLATE_API_KEY:-}
+----
+
+[cols="3,2,5",options="header"]
+|===
+|Variable |Default |Meaning
+|`LAPIS_TRANSLATE_ENABLED` |off |Must be exactly `true`
+|`LAPIS_TRANSLATE_PROVIDER` |none |`anthropic` or `openai_compatible`
+|`LAPIS_TRANSLATE_MODEL` |none |Model name at the provider
+|`LAPIS_TRANSLATE_API_KEY` |none |Secret; `LAPIS_TRANSLATE_API_KEY_FILE` is honoured
+|`LAPIS_TRANSLATE_BASE_URL` |`https://api.anthropic.com` for `anthropic` |Required for `openai_compatible`; HTTPS, no trailing `/v1`
+|`LAPIS_TRANSLATE_ALLOW_PLAINTEXT_BASE_URL` |off |Plain HTTP over loopback only
+|`LAPIS_TRANSLATE_REQUEST_TIMEOUT_MS` |30000 |Provider call timeout (1000 to 120000)
+|`LAPIS_TRANSLATE_WAIT_MS` |8000 |How long a request waits for a translation job (500 to 30000)
+|`LAPIS_TRANSLATE_MAX_RESPONSE_BYTES` |262144 |Provider answer cap (4096 to 4194304)
+|`LAPIS_TRANSLATE_MAX_OUTPUT_TOKENS` |6000 |256 to 16384
+|`LAPIS_TRANSLATE_MAX_SOURCE_CHARS` |12000 |Largest content that is translated (100 to 50000)
+|`LAPIS_TRANSLATE_DAILY_CHAR_BUDGET` |200000 |Characters per day, per server process (a restart resets it)
+|`LAPIS_TRANSLATE_RATE_PER_IP_MINUTE` |20 |Wired in a later wave
+|`LAPIS_TRANSLATE_MAX_CONCURRENT` |2 |Parallel provider calls (1 to 8)
+|===
+
 == MCP access for AI agents (optional, default off)
 
 `LAPIS_MCP_*` -- **not passed through by the compose files, on purpose.** When on, a member's own AI

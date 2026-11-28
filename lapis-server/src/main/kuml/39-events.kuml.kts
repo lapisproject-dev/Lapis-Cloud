@@ -220,6 +220,10 @@
 // **Welle V1.9.227 "Sitzung in der Videokonferenz" addendum** (`V123__event_meeting_link.sql`) adds one `event` column: `meetingId` (nullable,
 // the optional 1:1 link to the governance `meeting` the event announces). The unique index is a plain one (NULLs never collide); the FK
 // (`ON DELETE SET NULL`) is SQL-only, the `seriesId` precedent. Written ONLY by `network.lapis.cloud.server.governance.meetingevent`.
+// **Welle V1.9.342 "Uebersetzung oeffentlicher Inhalte" addendum** (`V177__content_translation.sql`) adds three `event` columns:
+// `translationConsent` (Boolean, default false -- the author's consent to a machine translation of this event's public text),
+// `translationConsentBy`/`translationConsentAt` (the last decision, grant or revoke; both NOT NULL while the consent is true, CHECK
+// chk_event_translation_consent, SQL-only). Written ONLY by `network.lapis.cloud.server.translation.EventTranslationConsent`.
 //
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
@@ -495,6 +499,19 @@ classDiagram(name = "Events") {
         attribute(name = "meetingId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "meeting_id" }
+        }
+        // V1.9.342 addendum (see file header). Written only by EventTranslationConsent.
+        attribute(name = "translationConsent", type = "Boolean") {
+            defaultValue = "false"
+            stereotype("Column") { "columnName" to "translation_consent" }
+        }
+        attribute(name = "translationConsentBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "translation_consent_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "translationConsentAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "translation_consent_at" }
         }
     }
 
