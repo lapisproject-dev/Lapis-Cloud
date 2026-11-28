@@ -71,4 +71,4 @@ completeness test checks that all eight exist and carry the same placeholders.
 * Amounts keep the decimal comma and timestamps the `yyyy-MM-dd HH:mm UTC` form in every language; the FinTS and administrator-reset mails keep a raw `yyyy-MM-ddTHH:mm` timestamp.
 * Plural forms: hours and minutes follow one/few/many for `pl` and `ru`; the person counts of the encounter notice are phrased number-neutrally in es/fr/it/nl/pl/ru.
 * The language list exists twice (server and client); a test keeps both in step.
-* Backup restore: a bundle without the column gets `de`; a value outside the list is refused.
+* Backup restore: the schema checksum refuses a backup from before V176 first (as after every schema change). A bundle that passes it but has no or a NULL value gets `de` (defensive); a value outside the list is refused.

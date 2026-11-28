@@ -584,7 +584,7 @@ A room can tell its office holders (PULPIT and STEWARD) by e-mail that a person 
 new presence storage was needed. Addresses are lower-cased and deduplicated, anonymised members (`*.invalid`) are dropped, at most 20 recipients. Each recipient gets an individual mail (nobody sees the others' addresses). If nobody remains, nothing is sent.
 Honest blur: an office holder who closes the tab without `leaveSpace` still counts as present until the poller removes the row (about two to four minutes) and gets no mail in that time.
 
-*What the mail says.* Room name, the time (the minute for a single entry, the window for a summary), the number of newcomers and the number of people present, German first, English below, no link, no logo, plus the sentence that the message names nobody on purpose.
+*What the mail says.* Room name, the time (the minute for a single entry, the window for a summary), the number of newcomers and the number of people present, in the instance mail language (since V1.9.334, default `de`), no link, no logo, plus the sentence that the message names nobody on purpose.
 It never carries a name, an address, an id or the role of the entrant: `EncounterEntryNotice` has no field for a person, `EncounterEntryNoticeAnonymityTest` pins that. The HTML part is an unformatted mirror of the plain text (the transport always sends multipart/alternative).
 
 *Where the state lives.* `EncounterEntryNoticeState` holds, only in memory, the claim of the first newcomer per session and the slot counters per session, bounded (64 sessions, 4 pending slots per session; a full state refuses instead of evicting).

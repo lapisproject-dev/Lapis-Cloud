@@ -172,7 +172,7 @@ PostgreSQL.
 * After B0 for a member *without a login*, a later `grantMemberAccount` would make the then-current address the reset target;
   `grantMemberAccount` therefore refuses while a change is open, but an address that became effective earlier stays the contact address.
 * *Closed in V1.9.57:* an ADMIN can no longer take over another ADMIN's account with a temporary password alone (`admin-peer-protection.adoc`).
-* The mails carry German and English in one message (members have no language preference).
+* The mails are written in the instance mail language (since V1.9.334, default `de`; members have no language preference).
 * *Closed in V1.9.57:* `IAuthService.changePassword` now limits wrong current passwords (5 per member and 15 minutes, attempt reserved before the bcrypt check).
 
 == Tests

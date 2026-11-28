@@ -175,7 +175,7 @@ export of the data over an ADMIN account stays possible. The Transparenzregister
 
 == Notices (receipts)
 
-One mail per audited state change, no rate limiter (precedent: the Keycloak link notice), German and English in one message, each naming what happened, who
+One mail per audited state change, no rate limiter (precedent: the Keycloak link notice), in one language (the instance mail language since V1.9.334, default `de`), each naming what happened, who
 triggered it (display name), when, and one thing to do. They are sent after the commit and never decide a result.
 
 [cols="2,3", options="header"]

@@ -156,4 +156,4 @@ Template: the carpool exchange (`carpool-federation.adoc`): a signed teaser feed
 . Visibility in the federation (carpool pattern). **Steps c1 to c4 implemented, off by default, not legally reviewed; released with 0.57.0 ahead of the review; the legal-review gate is not lifted.**
 . Tenders analogously.
 
-Wave (a) went ahead before the legal review as an opt-in, off by default and limited to a pilot (EUR, Germany, at most 100,000.00 EUR per auction); the operator and seller notices say so and recommend a lawyer. The other waves are not started before the legal review of the open questions.
+Wave (a) went ahead before the legal review as an opt-in, off by default and limited to a pilot (EUR, Germany, at most 100,000.00 EUR per auction); the operator and seller notices say so and recommend a lawyer. Waves (b) and (c) were built afterwards without the legal review; on 2026-11-28 the project owner decided to release them with 0.57.0 ahead of the review, off by default. The gate is not lifted: the open questions still need a lawyer before any of these switches is turned on in production. The fourth wave (tenders) is not started.

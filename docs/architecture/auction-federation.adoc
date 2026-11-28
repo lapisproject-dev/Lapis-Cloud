@@ -93,7 +93,7 @@ Consent on and off: `AUCTION` entries `AUCTION_FEDERATION_CONSENT_ON/OFF` (event
 
 == What c2 deliberately did not do (kept for the record)
 
-No pull, no relay, no received hints, no list of partner auctions for members, no hide or block: these came with c3 (next section). No tombstones at restore, GDPR export or erasure, member exit (c4). No release: the legal-review gate of wave (c) stands.
+No pull, no relay, no received hints, no list of partner auctions for members, no hide or block: these came with c3 (next section). No tombstones at restore, GDPR export or erasure, member exit (c4). The legal-review gate of wave (c) stands (the project owner decided on 2026-11-28 to release steps c1 to c4 with 0.57.0 ahead of the review, off by default).
 
 == Receiving side (c3)
 
@@ -227,4 +227,4 @@ A restore needs no auction lock: it runs exclusively against an empty target.
 
 == What this step does not do
 
-No new capability: no new field on the wire, no schema change (V169 unchanged), no new route, no message between servers, no LTR hints, no bidding over the federation, no images, no route from a member to the origin to report a hint. No release: the legal-review gate of wave (c) stands.
+No new capability: no new field on the wire, no schema change (V169 unchanged), no new route, no message between servers, no LTR hints, no bidding over the federation, no images, no route from a member to the origin to report a hint. The legal-review gate of wave (c) stands (the project owner decided on 2026-11-28 to release steps c1 to c4 with 0.57.0 ahead of the review, off by default).

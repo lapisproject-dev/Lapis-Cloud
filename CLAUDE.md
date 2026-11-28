@@ -689,7 +689,7 @@ Föderierter, öffentlicher Veranstaltungs-Feed zwischen direkt verbundenen Lapi
 
 ## Auktionen auf Partnerservern (V1.9.322, Fiat-Welle c) -- Stand: Schritt c4 (Haertung)
 
-- **Nicht fertig und nicht geprüft:** nur das Fundament (Schema V169, Shared-Typen, `AuctionFederationStore`). Feed, Pull, RPC und Oberfläche fehlen (Schritte c2 bis c4). Die Rechtsprüfungs-Sperre aus `docs/architecture/auction-fiat-and-federation.adoc` ist nicht aufgehoben.
+- **Stand: Schritte c1 bis c4 gebaut, mit 0.57.0 released, standardmäßig aus** (Instanzschalter, Partnerschalter, Einwilligung des Verkäufers). **Nicht geprüft:** nie gegen einen echten Partner oder mit mehreren unabhängigen Servern gelaufen (Staging-Plan nicht ausgeführt), keine Rechtsprüfung. Die Rechtsprüfungs-Sperre aus `docs/architecture/auction-fiat-and-federation.adoc` ist nicht aufgehoben; der Projektverantwortliche hat am 2026-11-28 entschieden, trotzdem mit 0.57.0 (aus) zu veröffentlichen.
 - **Schreiber-Monopole:** `auction.federation_opt_in/_at` und `organization_settings.auction_federation_*` schreibt NUR `AuctionFederationStore`; `partner_server.auction_*` später NUR `PartnerServerStore`. Weder `updateOrganizationSettings` noch `OrganizationSettingsDto/Input` kennen die neuen Spalten.
 - **Der Link zum Ursprung kommt nur aus `buildAuctionHintLink`** (Hash-Fragment, nie eine URL im Feed). `AuctionTeaser` hat genau zehn Felder (Tripwire); ein elftes Feld ist eine bewusste, geprüfte Entscheidung.
 - **Eignung nie nur über `status = OPEN`:** die Abwicklung ist lazy, `endsAt > now` gehört immer dazu.
