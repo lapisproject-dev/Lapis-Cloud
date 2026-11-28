@@ -47,18 +47,27 @@ COPY docs-render ./docs-render
 # (no swap) and trigger the OOM killer (observed 2026-09-27 on netcup VPS 1000 G12, 8 GB RAM).
 RUN ./gradlew --no-daemon :lapis-server:installDist
 
-# Step 2: Kotlin/JS compile + webpack production bundle. Gradle cache from step 1 is preserved
-# in the layer filesystem so npm/yarn packages are not re-downloaded. Node heap capped at 4 GB --
-# still conservative enough to share the smallest host this image is built on (the 8 GB demo VPS,
-# see netcup VPS 1000 G12 daily-reset notes) with the fresh Gradle JVM that orchestrates this step.
-# Raised from 3 GB (2026-09-29): the bundle outgrew the old cap after a heavy day of client-side
-# waves (Gliederungsverwaltung, Mitfahrerzentrale, an untrusted-text sanitization pass across 16
-# files) -- observed ERR_WORKER_OUT_OF_MEMORY on pdv2 (31 GB host, plenty of headroom) at 3072 MB.
-# Raised again for V1.9.97 (2026-10-10): the first CI image build of the tag v0.31.0 failed with ERR_WORKER_OUT_OF_MEMORY at 4096 MB
-# (the bundle grew with the encounter-room waves V1.9.90 -- V1.9.97). The cap is a build argument now: 6144 MB is the default, the
-# release workflow passes 8192 MB (a GitHub-hosted runner has 16 GB). Only a heap ceiling, not a reservation.
+# Step 2: Kotlin/JS compile and webpack production bundle, in two separate RUN steps. Gradle cache from
+# step 1 is preserved in the layer filesystem so npm/yarn packages are not re-downloaded.
+# History of the Node heap cap: 3 GB, raised to 4 GB (2026-09-29): the bundle outgrew the old cap after a
+# heavy day of client-side waves (Gliederungsverwaltung, Mitfahrerzentrale, an untrusted-text sanitization
+# pass across 16 files) -- observed ERR_WORKER_OUT_OF_MEMORY on pdv2 (31 GB host) at 3072 MB.
+# Raised again for V1.9.97 (2026-10-10): the first CI image build of the tag v0.31.0 failed with
+# ERR_WORKER_OUT_OF_MEMORY at 4096 MB (the bundle grew with the encounter-room waves V1.9.90 -- V1.9.97).
+# The cap is a build argument now: 6144 MB is the default, the release workflow passes 8192 MB (a
+# GitHub-hosted runner has 16 GB). Only a heap ceiling, not a reservation.
+# Split into two RUNs (V1.9.341, 2026-11-28): the first attempt of the v0.57.0 image build failed with
+# 'cannot allocate memory' (a rerun succeeded). `--no-daemon` only affects the Gradle daemon; the Kotlin
+# compile daemon (kotlin.daemon.jvmargs=-Xmx7g in gradle.properties) is still spawned and lingers idle,
+# holding memory next to the 8 GB Node heap on a 16 GB runner. Step 2a runs the Kotlin/JS compile only, so
+# that daemon lives and dies inside its RUN. Step 2b then runs webpack in a fresh process tree with a
+# 1 GB Gradle JVM, so Node gets the memory. Same method as the Karma job in .github/workflows/ci.yml.
+# Step 2a: Kotlin/JS compile only (also runs kotlinNpmInstall), no Node webpack.
+RUN ./gradlew --no-daemon :lapis-client:jsProductionExecutableCompileSync
+
+# Step 2b: webpack only. The ARG sits here so a changed Node heap does not invalidate the 2a layer.
 ARG NODE_MAX_OLD_SPACE_MB=6144
-RUN NODE_OPTIONS=--max-old-space-size=${NODE_MAX_OLD_SPACE_MB} ./gradlew --no-daemon :lapis-client:jsBrowserProductionWebpack
+RUN NODE_OPTIONS=--max-old-space-size=${NODE_MAX_OLD_SPACE_MB} ./gradlew --no-daemon -Dorg.gradle.jvmargs=-Xmx1g :lapis-client:jsBrowserProductionWebpack
 
 FROM ${BASE_REGISTRY}/eclipse-temurin:25-jre@sha256:fcd7fd7b387f94bb2ac461478a7436ad8e349924c374ea8313919624dceae636 AS runtime
 

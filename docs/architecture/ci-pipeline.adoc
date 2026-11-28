@@ -189,6 +189,10 @@ only pull it. Workflow: `.github/workflows/release-image.yml`.
   .. (the script scans as root, `docker run --user 0:0`, because the image user cannot read root-only directories; `scripts/test-ci-assert-image-clean.sh` tests its logic with a stub `docker`, and the `image` job of `ci.yml` runs the real check on every pull request);
   .. builds again from the layer cache and pushes with provenance (`mode=max`) and an SBOM.
 
+=== Client build in two steps
+
+The `Dockerfile` builds the Kotlin/JS client in two `RUN` steps: first the Kotlin/JS compile (`jsProductionExecutableCompileSync`), then webpack (`jsBrowserProductionWebpack`) with a 1 GB Gradle JVM. `--no-daemon` does not stop the Kotlin compile daemon (up to 7 GB), which previously stayed alive next to the 8 GB Node heap and caused `cannot allocate memory` on the 16 GB runner (first attempt of `v0.57.0`). With the split, the compile daemon ends with its step and webpack runs in a fresh process tree; the artefacts are unchanged.
+
 === Tags and digests
 
 `ghcr.io/lapisproject-dev/lapis-cloud:X.Y.Z` and `...:X.Y.Z-<short-sha>`. There is no `latest`: the servers pin an exact version, and `latest` would invite
